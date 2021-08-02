@@ -1,0 +1,13 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}"
+            ],
+            "defines": [],
+            "cStandard": "c17"
+        }
+    ],
+    "version": 4
+}

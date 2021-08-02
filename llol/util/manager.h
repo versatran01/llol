@@ -118,6 +118,7 @@ class StatsManager final : public StatsManagerBase<double> {
                           const StatsT& stats) const override;
 };
 
+/// @brief Get the global stats manager
 StatsManager& GlobalStatsManager();
 
 /// This is similar to Ceres Solver's ExecutionSummary class, where we record
@@ -184,12 +185,9 @@ class TimerManager final : public StatsManagerBase<absl::Duration> {
   /// Return a string of timer statistics
   std::string ReportStats(const std::string& name,
                           const StatsT& stats) const override;
-
-  /// Set name of this manager
-  void set_name(std::string name) { name_ = std::move(name); }
 };
 
-/// @brief a singleton that can be used anywhere
+/// @brief Get the global timer manager
 TimerManager& GlobalTimerManager();
 
 }  // namespace llol
