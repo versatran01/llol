@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-namespace llol {
+namespace sv {
 
 /// @brief A simple Timer class, not thread-safe
 class Timer {

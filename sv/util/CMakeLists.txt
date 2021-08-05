@@ -4,6 +4,6 @@ cc_library(
   INTERFACE)
 
 cc_library(
-  NAME manager
+  NAME util_manager
   SRCS "manager.cpp"
-  DEPS llol_base llol_log)
+  DEPS sv_base sv_log absl::time absl::flat_hash_map)

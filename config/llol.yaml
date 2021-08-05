@@ -1,0 +1,8 @@
+pano:
+  rows: 256
+  cols: 1024
+  half_win_size: 8
+  range_outlier_ratio: 0.1
+odom:
+  feat_win_rows: 2
+  feat_win_cols: 16

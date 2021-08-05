@@ -6,8 +6,8 @@
 #include <shared_mutex>
 #include <string_view>
 
-#include "llol/util/stats.h"
-#include "llol/util/timer.h"
+#include "sv/util/stats.h"
+#include "sv/util/timer.h"
 
 /// Specialize numeric_limits for absl::Duration (follows integral type)
 /// https://codeyarns.com/tech/2015-07-02-max-min-and-lowest-in-c.html
@@ -21,7 +21,7 @@ struct numeric_limits<absl::Duration> {
 };
 }  // namespace std
 
-namespace llol {
+namespace sv {
 
 /// This is similar to Ceres Solver's ExecutionSummary class, where we record
 /// execution statistics (mainly time). Instead of simply record the time, we

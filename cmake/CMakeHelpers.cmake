@@ -87,8 +87,8 @@ function(cc_library)
     set_property(TARGET ${_NAME} PROPERTY LINKER_LANGUAGE "CXX")
 
     target_include_directories(${_NAME} PUBLIC ${CC_LIB_INCLUDES})
-    target_compile_options(${_NAME} PRIVATE ${CC_LIB_COPTS})
     target_compile_definitions(${_NAME} PUBLIC ${CC_LIB_DEFINES})
+    target_compile_options(${_NAME} PRIVATE ${CC_LIB_COPTS})
 
     # INTERFACE libraries can't have the CXX_STANDARD property set
     set_property(TARGET ${_NAME} PROPERTY CXX_STANDARD 17)
@@ -97,9 +97,9 @@ function(cc_library)
     # Generating header-only library
     add_library(${_NAME} INTERFACE)
     target_include_directories(${_NAME} INTERFACE ${CC_LIB_INCLUDES})
-
     target_link_libraries(${_NAME} INTERFACE ${CC_LIB_DEPS} ${CC_LIB_LINKOPTS})
     target_compile_definitions(${_NAME} INTERFACE ${CC_LIB_DEFINES})
+    target_compile_options(${_NAME} INTERFACE ${CC_LIB_COPTS})
   endif()
 
   if(CC_TARGET_PREFIX)

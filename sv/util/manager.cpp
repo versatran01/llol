@@ -1,10 +1,10 @@
-#include "llol/util/manager.h"
+#include "sv/util/manager.h"
 
 #include <fmt/color.h>
 #include <fmt/ostream.h>
 #include <glog/logging.h>
 
-namespace llol {
+namespace sv {
 
 std::string StatsManager::ReportStats(const std::string& name,
                                       const StatsT& stats) const {

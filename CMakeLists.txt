@@ -7,14 +7,14 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 option(BUILD_TESTING "Build tests" Off)
 option(BUILD_BENCHMARK "Build benchmarks" Off)
 
-set(CC_TARGET_PREFIX llol)
+set(CC_TARGET_PREFIX sv)
 include(CMakeHelpers)
 
-add_library(llol_options INTERFACE)
+add_library(sv_options INTERFACE)
 include(CompilerWarnings)
-enable_warnings(llol_options)
+enable_warnings(sv_options)
 include(Sanitizers)
-enable_sanitizers(llol_options)
+enable_sanitizers(sv_options)
 
 find_package(
   catkin REQUIRED
@@ -27,10 +27,10 @@ find_package(
              image_geometry)
 
 # base
+find_package(TBB REQUIRED)
 find_package(fmt REQUIRED)
 find_package(glog REQUIRED)
 find_package(absl REQUIRED)
-find_package(TBB REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
@@ -50,4 +50,4 @@ if(catkin_FOUND)
 endif()
 
 enable_testing()
-add_subdirectory(llol)
+add_subdirectory(sv)

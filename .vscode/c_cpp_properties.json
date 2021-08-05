@@ -3,7 +3,10 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}"
+                "${workspaceFolder}",
+                "/home/chao/miniconda3/envs/ros1n/include",
+                "/home/chao/miniconda3/envs/ros1n/include/eigen3",
+                "/home/chao/miniconda3/envs/ros1n/include/opencv4"
             ],
             "defines": [],
             "cStandard": "c17"

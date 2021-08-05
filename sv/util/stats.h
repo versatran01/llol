@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <limits>  // numeric_limits
 
-namespace llol {
+namespace sv {
 
 template <typename T>
 class Stats {
