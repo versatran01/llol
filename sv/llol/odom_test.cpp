@@ -42,5 +42,23 @@ TEST(DepthPanoTest, TestCtor) {
   std::cout << dp << "\n";
 }
 
+TEST(DepthPanoTest, TestWinAt) {
+  DepthPano dp({256, 64});
+  const auto win = dp.WinAt({0, 0}, {5, 7});
+  EXPECT_EQ(win.x, -5);
+  EXPECT_EQ(win.y, -7);
+  EXPECT_EQ(win.width, 11);
+  EXPECT_EQ(win.height, 15);
+}
+
+TEST(DepthPanoTest, TestBoundedWinAt) {
+  DepthPano dp({256, 64});
+  const auto win = dp.BoundedWinAt({0, 0}, {5, 7});
+  EXPECT_EQ(win.x, 0);
+  EXPECT_EQ(win.y, 0);
+  EXPECT_EQ(win.width, 6);
+  EXPECT_EQ(win.height, 8);
+}
+
 }  // namespace
 }  // namespace sv

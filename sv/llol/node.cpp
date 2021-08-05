@@ -49,6 +49,7 @@ class LlolNode {
   LidarSweep sweep_;
   FeatureGrid feat_;
   DepthPano pano_;
+  FeatureMatcher matcher_;
   TimerManager tm_{"llol"};
 
  public:
@@ -77,8 +78,7 @@ class LlolNode {
   }
 
   void ProcessScan(const cv::Mat& scan, const cv::Range& range) {
-    /// Add scan to sweep
-    {
+    {  /// Add scan to sweep
       auto _ = tm_.Scoped("Sweep/AddScan");
       sweep_.AddScan(scan, range);
     }
@@ -93,31 +93,44 @@ class LlolNode {
     if (pano_.num_sweeps() == 0) {
       ROS_INFO_STREAM("Pano is not initialized");
     } else {
-      {
-        /// Detect Feature
+      {  /// Detect Feature
         auto _ = tm_.Scoped("Feat/Detect");
         feat_.Detect(sweep_, tbb_);
       }
-
       ROS_INFO_STREAM("Num cells: " << feat_.NumCells());
-
       if (vis_) {
         Imshow("score", ApplyCmap(feat_.mat(), 10, cv::COLORMAP_VIRIDIS, 255));
       }
+
+      {  /// Match Features
+        auto _ = tm_.Scoped("Matcher/Match");
+        matcher_.Match(sweep_, feat_, pano_);
+      }
+
+      ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
     }
   }
 
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
-    // Initialized sweep
     if (sweep_.empty()) {
+      // Initialized sweep
       sweep_ = LidarSweep(cv::Size(cinfo_msg->width, cinfo_msg->height));
       ROS_INFO_STREAM(sweep_);
+
+      // Initialized feat
       auto odom_nh = ros::NodeHandle{pnh_, "odom"};
       int feat_win_rows = odom_nh.param<int>("feat_win_rows", 2);
       int feat_win_cols = odom_nh.param<int>("feat_win_cols", 16);
       feat_ = FeatureGrid(sweep_.size(), {feat_win_cols, feat_win_rows});
       ROS_INFO_STREAM(feat_);
+
+      // Initialize matcher
+      MatcherParams mp;
+      mp.nms = odom_nh.param<bool>("match_nms", false);
+      mp.max_score = odom_nh.param<double>("feat_max_score", 0.01);
+      matcher_ = FeatureMatcher(feat_.total(), mp);
+      ROS_INFO_STREAM(matcher_);
     }
 
     // Wait for the start of the sweep

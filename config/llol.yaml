@@ -6,3 +6,5 @@ pano:
 odom:
   feat_win_rows: 2
   feat_win_cols: 16
+  feat_max_score: 0.01
+  match_nms: True

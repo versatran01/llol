@@ -3,13 +3,12 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 #include <tbb/parallel_for.h>
-#include <tbb/parallel_reduce.h>
 
 #include <Eigen/Core>
-#include <iostream>
-#include <opencv2/core.hpp>
 
 namespace sv {
+
+/// RangeMat ===================================================================
 
 std::string MatRepr(const cv::Mat& mat) {
   return fmt::format("hwc=({},{},{}), depth={}",
@@ -25,12 +24,13 @@ std::string RangeMat::Repr() const {
 }
 
 /// LidarSweep =================================================================
-void LidarSweep::AddScan(const cv::Mat& scan, cv::Range scan_range) {
+void LidarSweep::AddScan(const cv::Mat& scan, const cv::Range& scan_range) {
   // Check scan type is compatible
   CHECK_EQ(mat_.type(), scan.type());
   // Check rows match between scan and mat
   CHECK_EQ(mat_.rows, scan.rows);
 
+  // Save range and copy to storage
   range_ = scan_range;
   scan.copyTo(mat_.colRange(range_));  // x,y,w,h
 }
@@ -45,17 +45,19 @@ std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs) {
 
 /// FeatureGrid ================================================================
 float CellScore(const cv::Mat& cell) {
+  // compute sum of range in cell
   float range_sum = 0.0F;
   for (int cc = 0; cc < cell.cols; ++cc) {
     const auto& crg = cell.at<cv::Vec4f>(cc)[3];
     if (std::isnan(crg)) return crg;  // early return nan
     range_sum += crg;
   }
+  // range of mid ponit
   const float mid = cell.at<cv::Vec4f>(cell.cols / 2)[3];
   return std::abs(range_sum / cell.cols / mid - 1);
 }
 
-FeatureGrid::FeatureGrid(cv::Size sweep_size, cv::Size win_size)
+FeatureGrid::FeatureGrid(const cv::Size& sweep_size, const cv::Size& win_size)
     : RangeMat{{sweep_size.width / win_size.width,
                 sweep_size.height / win_size.height},
                CV_32FC1},
@@ -65,7 +67,7 @@ FeatureGrid::FeatureGrid(cv::Size sweep_size, cv::Size win_size)
 
 std::string FeatureGrid::Repr() const {
   return fmt::format(
-      "FeatureGrid({}, win=())", RangeMat::Repr(), win.height, win.width);
+      "FeatureGrid({}, win=({}, {}))", RangeMat::Repr(), win.height, win.width);
 }
 
 std::ostream& operator<<(std::ostream& os, const FeatureGrid& rhs) {
@@ -73,46 +75,40 @@ std::ostream& operator<<(std::ostream& os, const FeatureGrid& rhs) {
 }
 
 void FeatureGrid::Detect(const LidarSweep& sweep, bool tbb) {
-  Detect(sweep.mat(), sweep.curr_range(), tbb);
-}
-
-void FeatureGrid::Detect(const cv::Mat& sweep,
-                         cv::Range sweep_range,
-                         bool tbb) {
   // Update range of detector
-  range_ =
-      cv::Range{sweep_range.start / win.width, sweep_range.end / win.width};
+  range_ = cv::Range{sweep.curr_range().start / win.width,
+                     sweep.curr_range().end / win.width};
 
   if (tbb) {
     tbb::parallel_for(tbb::blocked_range<int>(0, mat_.rows),
                       [&](const tbb::blocked_range<int>& blk) {
                         for (int fr = blk.begin(); fr < blk.end(); ++fr) {
-                          DetectRow(sweep, fr);
+                          DetectRow(sweep.mat(), fr);
                         }
                       });
   } else {
     for (int fr = 0; fr < mat_.rows; ++fr) {
-      DetectRow(sweep, fr);
+      DetectRow(sweep.mat(), fr);
     }
   }
 }
 
 void FeatureGrid::DetectRow(const cv::Mat& sweep, int row) {
-  for (int fc = range_.start; fc < range_.end; ++fc) {
+  for (int col = range_.start; col < range_.end; ++col) {
     const int sr = row * win.height;
-    const int sc = fc * win.width;
+    const int sc = col * win.width;
     const cv::Mat cell = sweep.row(sr).colRange(sc, sc + win.width);
-    mat_.at<float>(row, fc) = CellScore(cell);
+    At(row, col) = CellScore(cell);
   }
 }
 
 int FeatureGrid::NumCells(cv::Range range) const noexcept {
-  if (range.size() == 0) range = cv::Range{0, width()};
+  if (range.empty()) range = cv::Range{0, width()};
 
   int n = 0;
   for (int i = 0; i < mat_.rows; ++i) {
     for (int j = range.start; j < range.end; ++j) {
-      n += mat_.at<float>(i, j) > 0;
+      n += static_cast<int>(At(i, j) > 0);
     }
   }
   return n;
@@ -154,6 +150,18 @@ std::string DepthPano::Repr() const {
       kMaxRange);
 }
 
+cv::Rect DepthPano::WinAt(const cv::Point& pt,
+                          const cv::Size& half_size) const noexcept {
+  return {cv::Point{pt.x - half_size.width, pt.y - half_size.height},
+          cv::Size{half_size.width * 2 + 1, +half_size.height * 2 + 1}};
+}
+
+cv::Rect DepthPano::BoundedWinAt(const cv::Point& pt,
+                                 const cv::Size& half_size) const noexcept {
+  const cv::Rect bound{cv::Point{}, size()};
+  return WinAt(pt, half_size) & bound;
+}
+
 std::ostream& operator<<(std::ostream& os, const DepthPano& rhs) {
   return os << rhs.Repr();
 }
@@ -181,22 +189,24 @@ void DepthPano::AddSweep(const cv::Mat& sweep, bool tbb) {
 }
 
 void DepthPano::AddSweepRow(const cv::Mat& sweep, int row) {
-  for (int sc = 0; sc < sweep.cols; ++sc) {
-    const auto& xyzr = sweep.at<cv::Vec4f>(row, sc);
+  for (int col = 0; col < sweep.cols; ++col) {
+    const auto& xyzr = sweep.at<cv::Vec4f>(row, col);
     if (!(xyzr[3] > 0)) continue;
 
-    Eigen::Map<const Eigen::Vector3f> xyz(&xyzr[0]);
-    // TODO (chao): transform xyz
-    const Eigen::Vector3f xyz_t = Eigen::Matrix3f::Identity() * xyz;
+    Eigen::Map<const Eigen::Vector3f> xyz_s(&xyzr[0]);
+    // TODO (chao): transform xyz to pano frame
+    const Eigen::Vector3f xyz_p = Eigen::Matrix3f::Identity() * xyz_s;
 
-    const auto rg = xyz_t.norm();
-    const int pr = ToRow(xyz_t.z(), rg);
+    const auto rg_p = xyz_p.norm();
+    const int pr = ToRow(xyz_p.z(), rg_p);
     if (!RowInside(pr)) continue;
 
-    const int pc = ToCol(xyz_t.x(), xyz_t.y());
+    const int pc = ToCol(xyz_p.x(), xyz_p.y());
     if (!ColInside(pc)) continue;
 
-    mat_.at<ushort>(pr, pc) = rg * kScale;
+    // TODO (chao): Need to check if view point is similar
+
+    At(pr, pc) = rg_p * kScale;
   }
 }
 
@@ -221,27 +231,22 @@ void DepthPano::Render(bool tbb) {
   num_sweeps_ = 1;
 }
 
-void DepthPano::RenderRow(int row) {
-  const auto elev = elevs_[row];
+void DepthPano::RenderRow(int r1) {
   for (int c1 = 0; c1 < mat_.cols; ++c1) {
-    const auto rg1_raw = mat_.at<ushort>(row, c1);
-    if (rg1_raw == 0) continue;
+    const float rg1 = MetricAt(r1, c1);
+    if (rg1 == 0) continue;
 
-    const float rg1 = rg1_raw / kScale;
-
-    const auto azim = azims_[c1];
     // pano -> xyz1
-    const Eigen::Vector3f xyz1{
-        elev.cos * azim.cos * rg1, elev.cos * azim.sin * rg1, elev.sin * rg1};
+    const auto xyz1 = To3d(r1, c1, rg1);
+    Eigen::Map<const Eigen::Vector3f> xyz1_map(&xyz1.x);
 
     // xyz1 -> xyz2
-    const Eigen::Vector3f xyz2 = Eigen::Matrix3f::Identity() * xyz1;
+    const Eigen::Vector3f xyz2 = Eigen::Matrix3f::Identity() * xyz1_map;
     const auto rg2 = xyz2.norm();
 
     // compute row and col into mat2
     const int r2 = ToRow(xyz2.z(), rg2);
     if (!RowInside(r2)) continue;
-
     const int c2 = ToCol(xyz2.x(), xyz2.y());
     if (!ColInside(c2)) continue;
 
@@ -257,6 +262,88 @@ int DepthPano::ToRow(float z, float r) const noexcept {
 int DepthPano::ToCol(float x, float y) const noexcept {
   const float azim = std::atan2(y, -x) + kPiF;
   return azim / azim_delta_ + 0.5F;
+}
+
+cv::Point3f DepthPano::To3d(int r, int c, float rg) const noexcept {
+  const auto& elev = elevs_[r];
+  const auto& azim = azims_[c];
+  return {elev.cos * azim.cos * rg, elev.cos * azim.sin * rg, elev.sin * rg};
+}
+
+/// FeatureMatcher =============================================================
+FeatureMatcher::FeatureMatcher(int max_matches, const MatcherParams& params)
+    : params_{params} {
+  matches_.reserve(max_matches);
+}
+
+std::string FeatureMatcher::Repr() const {
+  return fmt::format("FeatureMatcher(max_matches={}, max_score={}, nms={})",
+                     matches_.capacity(),
+                     params_.max_score,
+                     params_.nms);
+}
+
+std::ostream& operator<<(std::ostream& os, const FeatureMatcher& rhs) {
+  return os << rhs.Repr();
+}
+
+void FeatureMatcher::Match(const LidarSweep& sweep,
+                           const FeatureGrid& grid,
+                           const DepthPano& pano) {
+  matches_.clear();
+
+  const auto& feats = grid.mat();
+  const cv::Size half_size{params_.half_size, params_.half_size};
+
+  for (int fr = 1; fr < feats.rows - 1; ++fr) {
+    for (int fc = 1; fc < grid.width() - 1; ++fc) {
+      const auto& score = feats.at<float>(fr, fc);
+      if (!(score < params_.max_score)) continue;
+
+      // NMS
+      if (params_.nms) {
+        const auto& score_l = feats.at<float>(fr, fc - 1);
+        const auto& score_r = feats.at<float>(fr, fc + 1);
+        if (score > score_l || score > score_r) continue;
+      }
+
+      // Get the point in sweep
+      const int sr = fr * grid.win.height;
+      const int sc = (fc + 0.5) * grid.win.width;
+      const auto& xyzr = sweep.mat().at<cv::Vec4f>(sr, sc);
+
+      // Transform xyz to pano frame
+      Eigen::Map<const Eigen::Vector3f> xyz_s(&xyzr[0]);
+      const Eigen::Vector3f xyz_p = Eigen::Matrix3f::Identity() * xyz_s;
+      const float rg = xyz_p.norm();
+
+      const int pr = pano.ToRow(xyz_p.z(), rg);
+      if (!pano.RowInside(pr)) continue;
+      const int pc = pano.ToCol(xyz_p.x(), xyz_p.y());
+      if (!pano.ColInside(pc)) continue;
+
+      NormalMatch match;
+      // take a window around that pixel in pano and compute its mean
+      const auto win = pano.BoundedWinAt({pc, pr}, half_size);
+
+      for (int wr = win.y; wr < win.br().y; ++wr) {
+        for (int wc = win.x; wc < win.br().x; ++wc) {
+          const float rg = pano.MetricAt(wr, wc);
+          if (rg == 0) continue;
+          const auto p = pano.To3d(wr, wc, rg);
+          match.dst.Add({p.x, p.y, p.z});
+        }
+      }
+
+      if (match.dst.n < 10) continue;
+
+      match.src.mean.x() = xyzr[0];
+      match.src.mean.y() = xyzr[1];
+      match.src.mean.z() = xyzr[2];
+
+      matches_.push_back(match);
+    }
+  }
 }
 
 }  // namespace sv
