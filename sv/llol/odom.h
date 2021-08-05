@@ -1,10 +1,9 @@
 #pragma once
 
-#include <Eigen/Core>
 #include <iosfwd>
 #include <opencv2/core/mat.hpp>
 
-#include "sv/util/angle.h"
+#include "sv/util/math.h"
 
 namespace sv {
 
@@ -105,21 +104,6 @@ class DepthPano {
   std::vector<SinCosF> azims_;
 
   int num_sweeps_{0};
-};
-
-/// @struct Stream Mean and covar
-struct MeanCovar {
-  int n{0};
-  Eigen::Matrix3d covar() const noexcept { return covar_sum_ / (n - 1); }
-  Eigen::Vector3d mean{Eigen::Vector3d::Zero()};
-  Eigen::Matrix3d covar_sum_{Eigen::Matrix3d::Zero()};
-
-  void Add(const Eigen::Vector3d& x) noexcept {
-    const Eigen::Vector3d diff = x - mean;
-    mean.noalias() += diff / (n + 1.0);
-    covar_sum_.noalias() += (n / (n + 1.0) * diff) * diff.transpose();
-    ++n;
-  }
 };
 
 /// @struct Match

@@ -42,24 +42,5 @@ TEST(DepthPanoTest, TestCtor) {
   std::cout << dp << "\n";
 }
 
-Eigen::Matrix3d Covariance(const Eigen::Matrix3Xd& X) {
-  const auto m = X.rowwise().mean().eval();  // mean
-  const auto Xm = (X.colwise() - m).eval();  // centered
-  return ((Xm * Xm.transpose()) / (X.cols() - 1));
-}
-
-TEST(MeanCovarTest, TestCovar) {
-  for (int i = 3; i < 50; i += 10) {
-    const auto X = Eigen::Matrix3Xd::Random(3, i).eval();
-    const auto cov0 = Covariance(X);
-
-    MeanCovar mc;
-    for (int i = 0; i < X.cols(); ++i) mc.Add(X.col(i));
-    const auto cov1 = mc.covar();
-
-    EXPECT_TRUE(cov0.isApprox(cov1));
-  }
-}
-
 }  // namespace
 }  // namespace sv

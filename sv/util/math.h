@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Eigen/Core>
 #include <cmath>
 #include <type_traits>
 
@@ -63,6 +64,28 @@ T Atan2Approx(T y, T x) {
   }
   angle += (0.1963 * r * r - 0.9817) * r;
   return y < 0.0 ? -angle : angle;
+}
+
+/// @struct Stream Mean and covar
+struct MeanCovar {
+  int n{0};
+  Eigen::Matrix3d covar() const noexcept { return covar_sum_ / (n - 1); }
+  Eigen::Vector3d mean{Eigen::Vector3d::Zero()};
+  Eigen::Matrix3d covar_sum_{Eigen::Matrix3d::Zero()};
+
+  void Add(const Eigen::Vector3d& x) noexcept {
+    const Eigen::Vector3d diff = x - mean;
+    mean.noalias() += diff / (n + 1.0);
+    covar_sum_.noalias() += (n / (n + 1.0) * diff) * diff.transpose();
+    ++n;
+  }
+};
+
+/// @brief Compute covariance, each column is a sample
+Eigen::Matrix3d Covariance(const Eigen::Matrix3Xd& X) {
+  const auto m = X.rowwise().mean().eval();  // mean
+  const auto Xm = (X.colwise() - m).eval();  // centered
+  return ((Xm * Xm.transpose()) / (X.cols() - 1));
 }
 
 }  // namespace sv
