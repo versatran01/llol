@@ -123,57 +123,100 @@ std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs) {
 }
 
 /// DepthPano ==================================================================
-DepthPano::DepthPano(cv::Size size)
-    : mat_{size, CV_16UC1},
-      mat2_{size, CV_16UC1},
-      azim_delta_{kTauF / size.width} {
-  // assumes equal aspect ratio
-  wh_ratio_ = static_cast<float>(size.width) / size.height;
-  // assume horizontal fov is centered at 0
-  const float hfov = kTauF / wh_ratio_;
+LidarModel::LidarModel(cv::Size size, float hfov) : size_{size} {
+  if (hfov <= 0) {
+    hfov = kTauF / size.aspectRatio();
+  }
+
   elev_max_ = hfov / 2.0F;
   elev_delta_ = hfov / (size.height - 1);
   azim_delta_ = kTauF / size.width;
-
-  // Precompute elevs and azims sin and cos
-  elevs_.resize(size.height);
-  for (int i = 0; i < size.height; ++i) {
+  elevs_.resize(size_.height);
+  for (int i = 0; i < size_.height; ++i) {
     elevs_[i] = SinCosF{elev_max_ - i * elev_delta_};
   }
-  azims_.resize(size.width);
-  for (int i = 0; i < size.width; ++i) {
+  azims_.resize(size_.width);
+  for (int i = 0; i < size_.width; ++i) {
     azims_[i] = SinCosF{kTauF - i * azim_delta_};
   }
 }
 
-std::string DepthPano::Repr() const {
+cv::Point2i sv::LidarModel::Forward(float x, float y, float z, float r) const {
+  cv::Point2i px{-1, -1};
+
+  const int row = ToRow(z, r);
+  if (!RowInside(row)) return px;
+
+  const int col = ToCol(x, y);
+  if (!ColInside(col)) return px;
+
+  px.x = col;
+  px.y = row;
+
+  return px;
+}
+
+cv::Point3f LidarModel::Backward(int r, int c, float rg) const {
+  const auto& elev = elevs_[r];
+  const auto& azim = azims_[c];
+  return {elev.cos * azim.cos * rg, elev.cos * azim.sin * rg, elev.sin * rg};
+}
+
+int LidarModel::ToRow(float z, float r) const {
+  const float elev = std::asin(z / r);
+  return (elev_max_ - elev) / elev_delta_ + 0.5F;
+}
+
+int LidarModel::ToCol(float x, float y) const {
+  const float azim = std::atan2(y, -x) + kPiF;
+  return azim / azim_delta_ + 0.5F;
+}
+
+std::string LidarModel::Repr() const {
   using sv::Repr;
   return fmt::format(
-      "DepthPano({}, wh_ratio={}, elev_max={}[deg], elev_delta={}[deg], "
-      "azim_delta={}[deg], scale={}, max_range={})",
-      Repr(mat_),
-      wh_ratio_,
+      "LidarModel(size={}, elev_max={:.4f}[deg], elev_delta={:.4f}[deg], "
+      "azim_delta={:.4f}[deg], width_height_ratio={:.4f}, "
+      "elev_azim_ratio={:.4f})",
+      Repr(size_),
       Rad2Deg(elev_max_),
       Rad2Deg(elev_delta_),
       Rad2Deg(azim_delta_),
-      kScale,
-      kMaxRange);
+      WidthHeightRatio(),
+      ElevAzimRatio());
+}
+
+std::ostream& operator<<(std::ostream& os, const LidarModel& rhs) {
+  return os << rhs;
+}
+
+/// DepthPano ==================================================================
+DepthPano::DepthPano(cv::Size size, float hfov)
+    : buf_{size, CV_16UC1}, buf2_{size, CV_16UC1}, model_{size, hfov} {}
+
+std::string DepthPano::Repr() const {
+  using sv::Repr;
+  return fmt::format("DepthPano({}, model={}, scale={}, max_range={})",
+                     Repr(buf_),
+                     model_.Repr(),
+                     kScale,
+                     kMaxRange);
+}
+
+std::ostream& operator<<(std::ostream& os, const DepthPano& rhs) {
+  return os << rhs.Repr();
 }
 
 cv::Rect DepthPano::WinAt(const cv::Point& pt,
                           const cv::Size& half_size) const {
   return {cv::Point{pt.x - half_size.width, pt.y - half_size.height},
-          cv::Size{half_size.width * 2 + 1, +half_size.height * 2 + 1}};
+          cv::Size{half_size.width * 2 + 1, half_size.height * 2 + 1}};
 }
 
 cv::Rect DepthPano::BoundedWinAt(const cv::Point& pt,
                                  const cv::Size& half_size) const {
   const cv::Rect bound{cv::Point{}, size()};
   return WinAt(pt, half_size) & bound;
-}
-
-std::ostream& operator<<(std::ostream& os, const DepthPano& rhs) {
-  return os << rhs.Repr();
 }
 
 int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
@@ -183,12 +226,13 @@ int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
 
 int DepthPano::AddSweep(const cv::Mat& sweep, bool tbb) {
   int num_added = 0;
+
   if (tbb) {
     num_added = tbb::parallel_reduce(
         tbb::blocked_range<int>(0, sweep.rows),
         0,
-        [&](const tbb::blocked_range<int>& blk, int total) {
-          for (int sr = blk.begin(); sr < blk.end(); ++sr) {
+        [&](const tbb::blocked_range<int>& block, int total) {
+          for (int sr = block.begin(); sr < block.end(); ++sr) {
             total += AddSweepRow(sweep, sr);
           }
           return total;
@@ -204,90 +248,89 @@ int DepthPano::AddSweep(const cv::Mat& sweep, bool tbb) {
   return num_added;
 }
 
-int DepthPano::AddSweepRow(const cv::Mat& sweep, int row) {
+int DepthPano::AddSweepRow(const cv::Mat& sweep, int sr) {
   int num_added = 0;
-  for (int col = 0; col < sweep.cols; ++col) {
-    const auto& xyzr = sweep.at<cv::Vec4f>(row, col);
-    if (!(xyzr[3] > 0)) continue;
 
-    Eigen::Map<const Eigen::Vector3f> xyz_s(&xyzr[0]);
+  for (int sc = 0; sc < sweep.cols; ++sc) {
+    const auto& xyzr = sweep.at<cv::Vec4f>(sr, sc);
+    const float rg_s = xyzr[3];  // precomputed range
+    if (!(rg_s > 0)) continue;   // filter out nan
+
     // TODO (chao): transform xyz to pano frame
+    Eigen::Map<const Eigen::Vector3f> xyz_s(&xyzr[0]);
     const Eigen::Vector3f xyz_p = Eigen::Matrix3f::Identity() * xyz_s;
-
     const auto rg_p = xyz_p.norm();
-    const int pr = ToRow(xyz_p.z(), rg_p);
-    if (!RowInside(pr)) continue;
 
-    const int pc = ToCol(xyz_p.x(), xyz_p.y());
-    if (!ColInside(pc)) continue;
+    // Check viewpoint close
+    const float dot = xyz_p.dot(xyz_p) / (rg_s * rg_p);
+    if (dot < 0) continue;
 
-    // TODO (chao): Need to check if view point is similar
+    // Project to pano
+    const auto pt = model_.Forward(xyz_p.x(), xyz_p.y(), xyz_p.z(), rg_p);
+    if (pt.x < 0) continue;
 
-    RawAt(pr, pc) = rg_p * kScale;
+    // Update pano
+    SetRange(pt, rg_p, buf_);
     ++num_added;
   }
 
   return num_added;
 }
 
-void DepthPano::Render(bool tbb) {
+int DepthPano::Render(bool tbb) {
   // clear pano2
-  mat2_.setTo(0);
+  buf2_.setTo(0);
+
+  int num_rendered = 0;
 
   if (tbb) {
-    tbb::parallel_for(tbb::blocked_range<int>(0, mat_.rows),
-                      [&](const tbb::blocked_range<int>& blk) {
-                        for (int pr = blk.begin(); pr < blk.end(); ++pr) {
-                          RenderRow(pr);
-                        }
-                      });
+    num_rendered = tbb::parallel_reduce(
+        tbb::blocked_range<int>(0, buf_.rows),
+        0,
+        [&](const tbb::blocked_range<int>& blk, int total) {
+          for (int r = blk.begin(); r < blk.end(); ++r) {
+            total += RenderRow(r);
+          }
+          return total;
+        },
+        std::plus<>{});
   } else {
-    for (int pr = 0; pr < mat_.rows; ++pr) {
-      RenderRow(pr);
+    for (int r = 0; r < buf_.rows; ++r) {
+      num_rendered += RenderRow(r);
     }
   }
 
-  // set num_sweeps back to 1
-  num_sweeps_ = 1;
+  return num_rendered;
 }
 
-void DepthPano::RenderRow(int r1) {
-  for (int c1 = 0; c1 < mat_.cols; ++c1) {
-    const float rg1 = MetricAt(r1, c1);
+int DepthPano::RenderRow(int r1) {
+  int num_rendered = 0;
+
+  for (int c1 = 0; c1 < buf_.cols; ++c1) {
+    const float rg1 = buf_.at<ushort>(r1, c1) / kScale;
     if (rg1 == 0) continue;
 
     // pano -> xyz1
-    const auto xyz1 = To3d(r1, c1, rg1);
+    const auto xyz1 = model_.Backward(r1, c1, rg1);
     Eigen::Map<const Eigen::Vector3f> xyz1_map(&xyz1.x);
 
     // xyz1 -> xyz2
     const Eigen::Vector3f xyz2 = Eigen::Matrix3f::Identity() * xyz1_map;
     const auto rg2 = xyz2.norm();
 
-    // compute row and col into mat2
-    const int r2 = ToRow(xyz2.z(), rg2);
-    if (!RowInside(r2)) continue;
-    const int c2 = ToCol(xyz2.x(), xyz2.y());
-    if (!ColInside(c2)) continue;
+    // Check view point change
+    const float cos = xyz2.dot(xyz2) / (rg1 * rg2);
+    if (cos < 0) continue;
 
-    mat2_.at<ushort>(r2, c2) = rg2 * kScale;
+    // Project to mat2
+    const auto pt2 = model_.Forward(xyz2.x(), xyz2.y(), xyz2.z(), rg2);
+    if (pt2.x < 0) continue;
+
+    SetRange(pt2, rg2, buf2_);
+    ++num_rendered;
   }
-}
 
-int DepthPano::ToRow(float z, float r) const {
-  const float elev = std::asin(z / r);
-  return (elev_max_ - elev) / elev_delta_ + 0.5F;
-}
-
-int DepthPano::ToCol(float x, float y) const {
-  const float azim = std::atan2(y, -x) + kPiF;
-  return azim / azim_delta_ + 0.5F;
-}
-
-cv::Point3f DepthPano::To3d(int r, int c, float rg) const noexcept {
-  const auto& elev = elevs_[r];
-  const auto& azim = azims_[c];
-  return {elev.cos * azim.cos * rg, elev.cos * azim.sin * rg, elev.sin * rg};
+  return num_rendered;
 }
 
 /// FeatureMatcher =============================================================

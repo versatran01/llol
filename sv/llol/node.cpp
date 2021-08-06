@@ -65,9 +65,10 @@ class LlolNode {
     ROS_INFO_STREAM("Use tbb: " << (tbb_ ? "True" : "False"));
 
     auto pano_nh = ros::NodeHandle{pnh_, "pano"};
-    int pano_rows = pano_nh.param<int>("rows", 256);
-    int pano_cols = pano_nh.param<int>("cols", 1024);
-    pano_ = DepthPano({pano_cols, pano_rows});
+    const auto pano_rows = pano_nh.param<int>("rows", 256);
+    const auto pano_cols = pano_nh.param<int>("cols", 1024);
+    const auto pano_hfov = pano_nh.param<double>("hfov", 90.0);
+    pano_ = DepthPano({pano_cols, pano_rows}, Deg2Rad(pano_hfov));
     ROS_INFO_STREAM(pano_);
   }
 
@@ -93,7 +94,7 @@ class LlolNode {
       Imshow("grid", ApplyCmap(sweep_.grid(), 10, cv::COLORMAP_VIRIDIS, 255));
     }
 
-    /// Check if pano has weep
+    /// Check if pano has data, if true then perform match
     //    if (pano_.num_sweeps() == 0) {
     //      ROS_INFO_STREAM("Pano is not initialized");
     //    } else {
@@ -128,10 +129,6 @@ class LlolNode {
       sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height),
                           {cell_cols, cell_rows}};
       ROS_INFO_STREAM(sweep_);
-
-      // Initialized feat
-      //      feat_ = PointGrid(sweep_.size(), {feat_win_cols, feat_win_rows});
-      //      ROS_INFO_STREAM(feat_);
 
       // Initialize matcher
       MatcherParams mp;
@@ -179,14 +176,17 @@ class LlolNode {
       ROS_INFO_STREAM("Num added: " << num_added
                                     << ", sweep total: " << sweep_.total());
 
+      int num_rendered = 0;
       {
         auto _ = tm_.Scoped("Pano/Render");
-        pano_.Render(tbb_);
+        num_rendered = pano_.Render(tbb_);
       }
+      ROS_INFO_STREAM("Num rendered: " << num_rendered
+                                       << ", pano total: " << pano_.total());
 
       if (vis_) {
-        Imshow("pano", ApplyCmap(pano_.mat_, 1 / DepthPano::kScale / 30.0));
-        Imshow("pano2", ApplyCmap(pano_.mat2_, 1 / DepthPano::kScale / 30.0));
+        Imshow("pano", ApplyCmap(pano_.buf_, 1 / DepthPano::kScale / 30.0));
+        Imshow("pano2", ApplyCmap(pano_.buf2_, 1 / DepthPano::kScale / 30.0));
       }
     }
 

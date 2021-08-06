@@ -1,4 +1,5 @@
 pano:
+  hfov: -1.0
   rows: 256
   cols: 1024
   half_win_size: 8

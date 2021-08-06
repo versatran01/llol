@@ -54,49 +54,49 @@ void BM_SweepAddScanTbb(benchmark::State& state) {
 }
 BENCHMARK(BM_SweepAddScanTbb)->Arg(16)->Arg(8);
 
-// void BM_PanoAddSweepSeq(benchmark::State& state) {
-//  DepthPano pano({1024, 256});
-//  cv::Mat sweep = MakeScan({1024, 64});
+void BM_PanoAddSweepSeq(benchmark::State& state) {
+  DepthPano pano({1024, 256});
+  cv::Mat sweep = MakeScan({1024, 64});
 
-//  for (auto _ : state) {
-//    pano.AddSweep(sweep, false);
-//    benchmark::DoNotOptimize(pano);
-//  }
-//}
-// BENCHMARK(BM_PanoAddSweepSeq);
+  for (auto _ : state) {
+    pano.AddSweep(sweep, false);
+    benchmark::DoNotOptimize(pano);
+  }
+}
+BENCHMARK(BM_PanoAddSweepSeq);
 
-// void BM_PanoAddSweepPar(benchmark::State& state) {
-//  DepthPano pano({1024, 256});
-//  cv::Mat sweep = MakeScan({1024, 64});
+void BM_PanoAddSweepTbb(benchmark::State& state) {
+  DepthPano pano({1024, 256});
+  cv::Mat sweep = MakeScan({1024, 64});
 
-//  for (auto _ : state) {
-//    pano.AddSweep(sweep, true);
-//    benchmark::DoNotOptimize(pano);
-//  }
-//}
-// BENCHMARK(BM_PanoAddSweepPar);
+  for (auto _ : state) {
+    pano.AddSweep(sweep, true);
+    benchmark::DoNotOptimize(pano);
+  }
+}
+BENCHMARK(BM_PanoAddSweepTbb);
 
-// void BM_PanoRenderSeq(benchmark::State& state) {
-//  DepthPano pano({1024, 256});
-//  pano.mat_.setTo(1024);
+void BM_PanoRenderSeq(benchmark::State& state) {
+  DepthPano pano({1024, 256});
+  pano.buf_.setTo(1024);
 
-//  for (auto _ : state) {
-//    pano.Render(false);
-//    benchmark::DoNotOptimize(pano);
-//  }
-//}
-// BENCHMARK(BM_PanoAddSweepSeq);
+  for (auto _ : state) {
+    pano.Render(false);
+    benchmark::DoNotOptimize(pano);
+  }
+}
+BENCHMARK(BM_PanoRenderSeq);
 
-// void BM_PanoRenderPar(benchmark::State& state) {
-//  DepthPano pano({1024, 256});
-//  pano.mat_.setTo(1024);
+void BM_PanoRenderTbb(benchmark::State& state) {
+  DepthPano pano({1024, 256});
+  pano.buf_.setTo(1024);
 
-//  for (auto _ : state) {
-//    pano.Render(true);
-//    benchmark::DoNotOptimize(pano);
-//  }
-//}
-// BENCHMARK(BM_PanoAddSweepPar);
+  for (auto _ : state) {
+    pano.Render(true);
+    benchmark::DoNotOptimize(pano);
+  }
+}
+BENCHMARK(BM_PanoRenderTbb);
 
 }  // namespace
 }  // namespace sv

@@ -57,6 +57,38 @@ struct LidarSweep {
   cv::Mat grid_;
 };
 
+/// @struct LidarModel
+struct LidarModel {
+  LidarModel() = default;
+  LidarModel(cv::Size size, float hfov);
+
+  /// @brief xyzr to image, bad result is {-1, -1}
+  cv::Point2i Forward(float x, float y, float z, float r) const;
+  cv::Point3f Backward(int r, int c, float rg = 1.0) const;
+
+  /// @brief compute row and col given xyzr
+  int ToRow(float z, float r) const;
+  int ToCol(float x, float y) const;
+
+  /// @brief Check if r/c inside image
+  bool RowInside(int r) const noexcept { return 0 <= r && r < size_.height; }
+  bool ColInside(int c) const noexcept { return 0 <= c && c < size_.width; }
+
+  /// @brief width / height
+  double WidthHeightRatio() const { return size_.aspectRatio(); }
+  float ElevAzimRatio() const { return elev_delta_ / azim_delta_; }
+
+  std::string Repr() const;
+  friend std::ostream& operator<<(std::ostream& os, const LidarModel& rhs);
+
+  cv::Size size_{};
+  float elev_max_{};
+  float elev_delta_{};
+  float azim_delta_{};
+  std::vector<SinCosF> elevs_{};
+  std::vector<SinCosF> azims_{};
+};
+
 /// @class Depth Panorama
 class DepthPano {
  public:
@@ -64,20 +96,20 @@ class DepthPano {
   static constexpr float kMaxRange = 65536.0 / kScale;
 
   DepthPano() = default;
-  DepthPano(cv::Size size);
+  DepthPano(cv::Size size, float hfov = 0);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const DepthPano& rhs);
 
-  bool empty() const { return mat_.empty(); }
+  bool empty() const { return buf_.empty(); }
+  size_t total() const { return buf_.total(); }
   bool num_sweeps() const noexcept { return num_sweeps_; }
-  cv::Size size() const noexcept { return {mat_.cols, mat_.rows}; }
-  float wh_ratio() const noexcept { return wh_ratio_; }
+  cv::Size size() const noexcept { return model_.size_; }
 
-  /// @brief At
-  ushort& RawAt(int r, int c) { return mat_.at<ushort>(r, c); }
-  ushort RawAt(int r, int c) const { return mat_.at<ushort>(r, c); }
-  float MetricAt(int r, int c) const { return RawAt(r, c) / kScale; }
+  float GetRange(cv::Point pt) const { return buf_.at<ushort>(pt) / kScale; }
+  void SetRange(cv::Point pt, float rg, cv::Mat& mat) {
+    mat.at<ushort>(pt) = rg * kScale;
+  }
 
   /// @brief WinAt
   cv::Rect WinAt(const cv::Point& pt, const cv::Size& half_size) const;
@@ -89,27 +121,13 @@ class DepthPano {
   int AddSweepRow(const cv::Mat& sweep, int row);
 
   /// @brief Render pano at a new location
-  void Render(bool tbb);
-  void RenderRow(int row1);
-
-  int ToRow(float z, float r) const;
-  int ToCol(float x, float y) const;
-  cv::Point3f To3d(int r, int c, float rg) const noexcept;
-
-  bool RowInside(int r) const noexcept { return 0 <= r && r < mat_.rows; }
-  bool ColInside(int c) const noexcept { return 0 <= c && c < mat_.cols; }
-
-  cv::Mat mat_;
-  cv::Mat mat2_;
-
-  float wh_ratio_;
-  float elev_max_;
-  float elev_delta_;
-  float azim_delta_;
-  std::vector<SinCosF> elevs_;
-  std::vector<SinCosF> azims_;
+  int Render(bool tbb);
+  int RenderRow(int row1);
 
   int num_sweeps_{0};
+  cv::Mat buf_;
+  cv::Mat buf2_;
+  LidarModel model_;
 };
 
 /// @struct Match
@@ -121,9 +139,9 @@ struct NormalMatch {
 
 /// @class Feature Matcher
 struct MatcherParams {
-  float max_score{0.01};
   bool nms{true};
   int half_rows{2};
+  double max_score{0.01};
 };
 
 // struct DataMatcher {
