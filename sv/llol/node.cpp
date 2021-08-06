@@ -47,9 +47,9 @@ class LlolNode {
   int cv_win_flag_{};
 
   LidarSweep sweep_;
-  FeatureGrid feat_;
+  PointGrid feat_;
   DepthPano pano_;
-  FeatureMatcher matcher_;
+  DataMatcher matcher_;
   TimerManager tm_{"llol"};
 
  public:
@@ -93,11 +93,12 @@ class LlolNode {
     if (pano_.num_sweeps() == 0) {
       ROS_INFO_STREAM("Pano is not initialized");
     } else {
+      int num_valid_cells = 0;
       {  /// Detect Feature
         auto _ = tm_.Scoped("Feat/Detect");
-        feat_.Detect(sweep_, tbb_);
+        num_valid_cells = feat_.Detect(sweep_, tbb_);
       }
-      ROS_INFO_STREAM("Num cells: " << feat_.NumCells());
+      ROS_INFO_STREAM("Num cells: " << num_valid_cells);
       if (vis_) {
         Imshow("score", ApplyCmap(feat_.mat(), 10, cv::COLORMAP_VIRIDIS, 255));
       }
@@ -122,14 +123,14 @@ class LlolNode {
       auto odom_nh = ros::NodeHandle{pnh_, "odom"};
       int feat_win_rows = odom_nh.param<int>("feat_win_rows", 2);
       int feat_win_cols = odom_nh.param<int>("feat_win_cols", 16);
-      feat_ = FeatureGrid(sweep_.size(), {feat_win_cols, feat_win_rows});
+      feat_ = PointGrid(sweep_.size(), {feat_win_cols, feat_win_rows});
       ROS_INFO_STREAM(feat_);
 
       // Initialize matcher
       MatcherParams mp;
       mp.nms = odom_nh.param<bool>("match_nms", false);
       mp.max_score = odom_nh.param<double>("feat_max_score", 0.01);
-      matcher_ = FeatureMatcher(feat_.total(), mp);
+      matcher_ = DataMatcher(feat_.total(), mp);
       ROS_INFO_STREAM(matcher_);
     }
 
@@ -163,10 +164,13 @@ class LlolNode {
     /// Got a full sweep
     if (cinfo_msg->binning_x + 1 == cinfo_msg->binning_y) {
       ROS_INFO_STREAM("End of sweep");
+      int num_added;
       {
         auto _ = tm_.Scoped("Pano/AddSweep");
-        pano_.AddSweep(sweep_, tbb_);
+        num_added = pano_.AddSweep(sweep_, tbb_);
       }
+      ROS_INFO_STREAM("Num added: " << num_added
+                                    << ", sweep total: " << sweep_.total());
 
       {
         auto _ = tm_.Scoped("Pano/Render");
