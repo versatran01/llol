@@ -5,7 +5,7 @@
 namespace sv {
 namespace {
 
-cv::Mat MakeSweep(cv::Size size) {
+cv::Mat MakeScan(cv::Size size) {
   cv::Mat sweep = cv::Mat::zeros(size, CV_32FC4);
 
   const float azim_delta = M_PI * 2 / size.width;
@@ -28,49 +28,75 @@ cv::Mat MakeSweep(cv::Size size) {
   return sweep;
 }
 
-void BM_PanoAddSweepSeq(benchmark::State& state) {
-  DepthPano pano({1024, 256});
-  cv::Mat sweep = MakeSweep({1024, 64});
+void BM_SweepAddScanSeq(benchmark::State& state) {
+  int cell = state.range(0);
+  int cols = 1024;
+  LidarSweep sweep({cols, 64}, {cell, 1});
+  cv::Mat scan = MakeScan(sweep.sweep_size());
 
   for (auto _ : state) {
-    pano.AddSweep(sweep, false);
-    benchmark::DoNotOptimize(pano);
+    sweep.AddScan(scan, {0, cols}, false);
+    benchmark::DoNotOptimize(sweep);
   }
 }
-BENCHMARK(BM_PanoAddSweepSeq);
+BENCHMARK(BM_SweepAddScanSeq)->Arg(16)->Arg(8);
 
-void BM_PanoAddSweepPar(benchmark::State& state) {
-  DepthPano pano({1024, 256});
-  cv::Mat sweep = MakeSweep({1024, 64});
+void BM_SweepAddScanTbb(benchmark::State& state) {
+  int cell = state.range(0);
+  int cols = 1024;
+  LidarSweep sweep({cols, 64}, {cell, 1});
+  cv::Mat scan = MakeScan(sweep.sweep_size());
 
   for (auto _ : state) {
-    pano.AddSweep(sweep, true);
-    benchmark::DoNotOptimize(pano);
+    sweep.AddScan(scan, {0, cols}, true);
+    benchmark::DoNotOptimize(sweep);
   }
 }
-BENCHMARK(BM_PanoAddSweepPar);
+BENCHMARK(BM_SweepAddScanTbb)->Arg(16)->Arg(8);
 
-void BM_PanoRenderSeq(benchmark::State& state) {
-  DepthPano pano({1024, 256});
-  pano.mat_.setTo(1024);
+// void BM_PanoAddSweepSeq(benchmark::State& state) {
+//  DepthPano pano({1024, 256});
+//  cv::Mat sweep = MakeScan({1024, 64});
 
-  for (auto _ : state) {
-    pano.Render(false);
-    benchmark::DoNotOptimize(pano);
-  }
-}
-BENCHMARK(BM_PanoAddSweepSeq);
+//  for (auto _ : state) {
+//    pano.AddSweep(sweep, false);
+//    benchmark::DoNotOptimize(pano);
+//  }
+//}
+// BENCHMARK(BM_PanoAddSweepSeq);
 
-void BM_PanoRenderPar(benchmark::State& state) {
-  DepthPano pano({1024, 256});
-  pano.mat_.setTo(1024);
+// void BM_PanoAddSweepPar(benchmark::State& state) {
+//  DepthPano pano({1024, 256});
+//  cv::Mat sweep = MakeScan({1024, 64});
 
-  for (auto _ : state) {
-    pano.Render(true);
-    benchmark::DoNotOptimize(pano);
-  }
-}
-BENCHMARK(BM_PanoAddSweepPar);
+//  for (auto _ : state) {
+//    pano.AddSweep(sweep, true);
+//    benchmark::DoNotOptimize(pano);
+//  }
+//}
+// BENCHMARK(BM_PanoAddSweepPar);
+
+// void BM_PanoRenderSeq(benchmark::State& state) {
+//  DepthPano pano({1024, 256});
+//  pano.mat_.setTo(1024);
+
+//  for (auto _ : state) {
+//    pano.Render(false);
+//    benchmark::DoNotOptimize(pano);
+//  }
+//}
+// BENCHMARK(BM_PanoAddSweepSeq);
+
+// void BM_PanoRenderPar(benchmark::State& state) {
+//  DepthPano pano({1024, 256});
+//  pano.mat_.setTo(1024);
+
+//  for (auto _ : state) {
+//    pano.Render(true);
+//    benchmark::DoNotOptimize(pano);
+//  }
+//}
+// BENCHMARK(BM_PanoAddSweepPar);
 
 }  // namespace
 }  // namespace sv

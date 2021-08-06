@@ -4,7 +4,7 @@ pano:
   half_win_size: 8
   range_outlier_ratio: 0.1
 odom:
-  feat_win_rows: 2
-  feat_win_cols: 16
+  cell_rows: 2
+  cell_cols: 16
   feat_max_score: 0.02
   match_nms: True

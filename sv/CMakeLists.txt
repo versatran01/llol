@@ -42,7 +42,9 @@ cc_bench(
   SRCS "llol/odom_bench.cpp"
   DEPS sv_llol_odom)
 
-cc_binary(
-  NAME llol_node
-  SRCS "llol/node.cpp"
-  DEPS sv_llol_odom sv_util_manager sv_ros1)
+if(catkin_FOUND)
+  cc_binary(
+    NAME llol_node
+    SRCS "llol/node.cpp"
+    DEPS sv_llol_odom sv_util_manager sv_ros1)
+endif()

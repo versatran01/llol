@@ -47,9 +47,9 @@ class LlolNode {
   int cv_win_flag_{};
 
   LidarSweep sweep_;
-  PointGrid feat_;
+  //  PointGrid feat_;
   DepthPano pano_;
-  DataMatcher matcher_;
+  //  DataMatcher matcher_;
   TimerManager tm_{"llol"};
 
  public:
@@ -78,60 +78,67 @@ class LlolNode {
   }
 
   void ProcessScan(const cv::Mat& scan, const cv::Range& range) {
+    int num_valid_cells = 0;
     {  /// Add scan to sweep
       auto _ = tm_.Scoped("Sweep/AddScan");
-      sweep_.AddScan(scan, range);
+      num_valid_cells = sweep_.AddScan(scan, range, tbb_);
     }
 
+    ROS_INFO_STREAM("Num valid cells: " << num_valid_cells);
+
     if (vis_) {
-      cv::Mat sweep_range;
-      cv::extractChannel(sweep_.mat_, sweep_range, 3);
-      Imshow("sweep", ApplyCmap(sweep_range, 1 / 30.0, cv::COLORMAP_PINK, 0));
+      cv::Mat sweep_disp;
+      cv::extractChannel(sweep_.sweep(), sweep_disp, 3);
+      Imshow("sweep", ApplyCmap(sweep_disp, 1 / 30.0, cv::COLORMAP_PINK, 0));
+      Imshow("grid", ApplyCmap(sweep_.grid(), 10, cv::COLORMAP_VIRIDIS, 255));
     }
 
     /// Check if pano has weep
-    if (pano_.num_sweeps() == 0) {
-      ROS_INFO_STREAM("Pano is not initialized");
-    } else {
-      int num_valid_cells = 0;
-      {  /// Detect Feature
-        auto _ = tm_.Scoped("Feat/Detect");
-        num_valid_cells = feat_.Detect(sweep_, tbb_);
-      }
-      ROS_INFO_STREAM("Num cells: " << num_valid_cells);
-      if (vis_) {
-        Imshow("score", ApplyCmap(feat_.mat(), 10, cv::COLORMAP_VIRIDIS, 255));
-      }
+    //    if (pano_.num_sweeps() == 0) {
+    //      ROS_INFO_STREAM("Pano is not initialized");
+    //    } else {
+    //      int num_valid_cells = 0;
+    //      {  /// Detect Feature
+    //        auto _ = tm_.Scoped("Feat/Detect");
+    //        num_valid_cells = feat_.Detect(sweep_, tbb_);
+    //      }
+    //      ROS_INFO_STREAM("Num cells: " << num_valid_cells);
+    //      if (vis_) {
+    //        Imshow("score", ApplyCmap(feat_.mat(), 10, cv::COLORMAP_VIRIDIS,
+    //        255));
+    //      }
 
-      {  /// Match Features
-        auto _ = tm_.Scoped("Matcher/Match");
-        matcher_.Match(sweep_, feat_, pano_);
-      }
+    //      {  /// Match Features
+    //        auto _ = tm_.Scoped("Matcher/Match");
+    //        matcher_.Match(sweep_, feat_, pano_);
+    //      }
 
-      ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
-    }
+    //      ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
+    //    }
   }
 
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
     if (sweep_.empty()) {
       // Initialized sweep
-      sweep_ = LidarSweep(cv::Size(cinfo_msg->width, cinfo_msg->height));
+      auto odom_nh = ros::NodeHandle{pnh_, "odom"};
+      int cell_rows = odom_nh.param<int>("cell_rows", 2);
+      int cell_cols = odom_nh.param<int>("cell_cols", 16);
+
+      sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height),
+                          {cell_cols, cell_rows}};
       ROS_INFO_STREAM(sweep_);
 
       // Initialized feat
-      auto odom_nh = ros::NodeHandle{pnh_, "odom"};
-      int feat_win_rows = odom_nh.param<int>("feat_win_rows", 2);
-      int feat_win_cols = odom_nh.param<int>("feat_win_cols", 16);
-      feat_ = PointGrid(sweep_.size(), {feat_win_cols, feat_win_rows});
-      ROS_INFO_STREAM(feat_);
+      //      feat_ = PointGrid(sweep_.size(), {feat_win_cols, feat_win_rows});
+      //      ROS_INFO_STREAM(feat_);
 
       // Initialize matcher
       MatcherParams mp;
       mp.nms = odom_nh.param<bool>("match_nms", false);
       mp.max_score = odom_nh.param<double>("feat_max_score", 0.01);
-      matcher_ = DataMatcher(feat_.total(), mp);
-      ROS_INFO_STREAM(matcher_);
+      //      matcher_ = DataMatcher(feat_.total(), mp);
+      //      ROS_INFO_STREAM(matcher_);
     }
 
     // Wait for the start of the sweep

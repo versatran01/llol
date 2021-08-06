@@ -17,7 +17,7 @@ include(Sanitizers)
 enable_sanitizers(sv_options)
 
 find_package(
-  catkin REQUIRED
+  catkin QUIET
   COMPONENTS roscpp
              tf2_ros
              image_transport

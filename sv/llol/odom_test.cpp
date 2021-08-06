@@ -5,7 +5,7 @@
 namespace sv {
 namespace {
 
-TEST(LidarSweepTest, TestCtor) {
+TEST(LidarSweepTest, TestDefault) {
   LidarSweep ls;
   std::cout << ls << "\n";
 
@@ -14,33 +14,60 @@ TEST(LidarSweepTest, TestCtor) {
   EXPECT_EQ(ls.full(), false);
 }
 
-TEST(LidarSweepTest, TestAddScan) {
-  LidarSweep ls({8, 4});
+TEST(LidarSweepTest, TestCtor) {
+  LidarSweep ls({8, 4}, {2, 1});
   std::cout << ls << "\n";
 
   EXPECT_EQ(ls.width(), 0);
   EXPECT_EQ(ls.empty(), false);
   EXPECT_EQ(ls.full(), false);
 
-  cv::Mat scan(4, 4, CV_32FC4);
-  ls.AddScan(scan, {0, 4});
-  std::cout << ls << "\n";
+  EXPECT_EQ(ls.sweep().rows, 4);
+  EXPECT_EQ(ls.sweep().cols, 8);
+  EXPECT_EQ(ls.sweep().channels(), 4);
 
-  EXPECT_EQ(ls.width(), 4);
-  EXPECT_EQ(ls.empty(), false);
-  EXPECT_EQ(ls.full(), false);
-
-  ls.AddScan(scan, {4, 8});
-  std::cout << ls << "\n";
-  EXPECT_EQ(ls.width(), 8);
-  EXPECT_EQ(ls.full(), true);
+  EXPECT_EQ(ls.grid().rows, 4);
+  EXPECT_EQ(ls.grid().cols, 4);
+  EXPECT_EQ(ls.grid().channels(), 1);
 }
 
-TEST(DepthPanoTest, TestCtor) {
-  DepthPano dp({256, 64});
-  EXPECT_EQ(dp.empty(), false);
-  std::cout << dp << "\n";
+TEST(LidarSweepTest, TestAddScan) {
+  LidarSweep ls({8, 4}, {2, 1});
+  cv::Mat scan;
+  scan.create(4, 4, CV_32FC4);
+  scan.setTo(1);
+
+  const int n = ls.AddScan(scan, {0, 4}, false);
+
+  EXPECT_EQ(ls.range().start, 0);
+  EXPECT_EQ(ls.range().end, 4);
+  EXPECT_EQ(n, 8);
+
+  const int n2 = ls.AddScan(scan, {4, 8}, false);
+  EXPECT_EQ(ls.range().start, 4);
+  EXPECT_EQ(ls.range().end, 8);
+  EXPECT_EQ(n2, 8);
 }
+
+//  cv::Mat scan(4, 4, CV_32FC4);
+//  ls.AddScan(scan, {0, 4});
+//  std::cout << ls << "\n";
+
+//  EXPECT_EQ(ls.width(), 4);
+//  EXPECT_EQ(ls.empty(), false);
+//  EXPECT_EQ(ls.full(), false);
+
+//  ls.AddScan(scan, {4, 8});
+//  std::cout << ls << "\n";
+//  EXPECT_EQ(ls.width(), 8);
+//  EXPECT_EQ(ls.full(), true);
+//}
+
+// TEST(DepthPanoTest, TestCtor) {
+//  DepthPano dp({256, 64});
+//  EXPECT_EQ(dp.empty(), false);
+//  std::cout << dp << "\n";
+//}
 
 TEST(DepthPanoTest, TestWinAt) {
   DepthPano dp({256, 64});

@@ -7,69 +7,54 @@
 
 namespace sv {
 
-/// @class Mat + Range
-struct RangeMat {
-  RangeMat() = default;
-  RangeMat(cv::Size size, int type) : mat_{size, type} {}
-  virtual ~RangeMat() noexcept = default;
-
-  bool empty() const { return mat_.empty(); }
-  size_t total() const { return mat_.total(); }
-  int width() const noexcept { return range_.end; }
-  bool full() const { return !empty() && (width() == mat_.cols); }
-  cv::Size size() const noexcept { return {mat_.cols, mat_.rows}; }
-
-  const cv::Mat& mat() const noexcept { return mat_; }
-  /// @brief Current range of the mat at this point
-  cv::Range curr_range() const noexcept { return range_; }
-  /// @brief Full range of the mat up to this point
-  cv::Range full_range() const { return {0, width()}; }
-
-  void ResetRange() { range_ = {}; }
-
-  virtual std::string Repr() const;
-
-  cv::Mat mat_;
-  cv::Range range_;
-};
-
-/// @class Lidar Sweep covers 360
-struct LidarSweep : public RangeMat {
+/// @class Lidar Sweep covers 360 degree horizontal fov
+struct LidarSweep {
   LidarSweep() = default;
-  LidarSweep(cv::Size size) : RangeMat{size, CV_32FC4} {}
+  LidarSweep(cv::Size sweep_size, cv::Size cell_size);
 
-  /// @brief Add a scan to this sweep
-  void AddScan(const cv::Mat& scan, const cv::Range& scan_range);
+  /// @brief basic info
+  bool empty() const { return sweep_.empty(); }
+  size_t total() const { return sweep_.total(); }
+  int width() const noexcept { return range_.end; }
+  cv::Range range() const noexcept { return range_; }
+  cv::Size cell_size() const noexcept { return cell_size_; }
+  cv::Size grid_size() const { return {grid_.cols, grid_.rows}; }
+  cv::Size sweep_size() const { return {sweep_.cols, sweep_.rows}; }
+  bool full() const noexcept { return !empty() && width() == sweep_.cols; }
 
-  /// @brief XyzrAt (row, col)
-  const cv::Vec4f& XyzrAt(int r, int c) const {
-    return mat().at<cv::Vec4f>(r, c);
+  /// @brief getters
+  const cv::Mat& grid() const noexcept { return grid_; }
+  const cv::Mat& sweep() const noexcept { return sweep_; }
+
+  /// @brief Add a scan to this sweep (tbb makes this slower)
+  /// @return num of valid cells
+  int AddScan(const cv::Mat& scan, cv::Range scan_range, bool tbb = false);
+
+  const cv::Vec4f& XyzrAt(int sweep_row, int sweep_col) const {
+    return sweep_.at<cv::Vec4f>(sweep_row, sweep_col);
   }
 
-  std::string Repr() const override;
+  float ScoreAt(int grid_row, int grid_col) const {
+    return grid_.at<float>(grid_row, grid_col);
+  }
+
+  /// @brief Compute corresponding subgrid given scan range
+  cv::Mat GetSubgrid(cv::Range scan_range);
+
+  /// @brief For now compute curvature of each cell
+  int ReduceScan(const cv::Mat& scan, cv::Mat& subgrid, bool tbb = false);
+  int ReduceScanRow(const cv::Mat& scan, int gr, cv::Mat& subgrid);
+
+  std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs);
-};
 
-/// @class Point Grid divide data into different cells and compute smoothness
-struct PointGrid : public RangeMat {
-  PointGrid() = default;
-  PointGrid(const cv::Size& sweep_size, const cv::Size& win_size);
+  /// incrementally stores scan into sweep
+  cv::Range range_;
+  cv::Mat sweep_;
 
-  std::string Repr() const override;
-  friend std::ostream& operator<<(std::ostream& os, const PointGrid& rhs);
-
-  float ScoreAt(int r, int c) const { return mat_.at<float>(r, c); }
-  float& ScoreAt(int r, int c) { return mat_.at<float>(r, c); }
-
-  /// @brief Detect feature from sweep
-  /// @return Number of valid cells in the current range
-  int Detect(const LidarSweep& sweep, bool tbb);
-  int DetectRow(const cv::Mat& sweep, int row);
-
-  /// @brief Count valid features in range, if range empty then count to width
-  int NumValid(cv::Range range = {}) const;
-
-  cv::Size win{};
+  /// stores curvature scores of each cell in sweep
+  cv::Size cell_size_;
+  cv::Mat grid_;
 };
 
 /// @class Depth Panorama
@@ -141,24 +126,24 @@ struct MatcherParams {
   int half_rows{2};
 };
 
-struct DataMatcher {
-  DataMatcher() = default;
-  DataMatcher(int max_matches, const MatcherParams& params);
+// struct DataMatcher {
+//  DataMatcher() = default;
+//  DataMatcher(int max_matches, const MatcherParams& params);
 
-  std::string Repr() const;
-  friend std::ostream& operator<<(std::ostream& os, const DataMatcher& rhs);
+//  std::string Repr() const;
+//  friend std::ostream& operator<<(std::ostream& os, const DataMatcher& rhs);
 
-  const auto& matches() const noexcept { return matches_; }
+//  const auto& matches() const noexcept { return matches_; }
 
-  /// @brief Match features in sweep to pano
-  void Match(const LidarSweep& sweep,
-             const PointGrid& grid,
-             const DepthPano& pano);
+//  /// @brief Match features in sweep to pano
+//  void Match(const LidarSweep& sweep,
+//             const PointGrid& grid,
+//             const DepthPano& pano);
 
-  bool IsGoodFeature(const PointGrid& grid, int r, int c) const;
+//  bool IsGoodFeature(const PointGrid& grid, int r, int c) const;
 
-  MatcherParams params_;
-  std::vector<NormalMatch> matches_;
-};
+//  MatcherParams params_;
+//  std::vector<NormalMatch> matches_;
+//};
 
 }  // namespace sv
