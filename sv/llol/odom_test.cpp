@@ -52,20 +52,20 @@ TEST(LidarSweepTest, TestAddScan) {
 
 TEST(DepthPanoTest, TestWinAt) {
   DepthPano dp({256, 64});
-  const auto win = dp.WinAt({0, 0}, {5, 7});
-  EXPECT_EQ(win.x, -5);
-  EXPECT_EQ(win.y, -7);
-  EXPECT_EQ(win.width, 11);
-  EXPECT_EQ(win.height, 15);
+  const auto win = dp.WinCenterAt({0, 0}, {5, 7});
+  EXPECT_EQ(win.x, -2);
+  EXPECT_EQ(win.y, -3);
+  EXPECT_EQ(win.width, 5);
+  EXPECT_EQ(win.height, 7);
 }
 
 TEST(DepthPanoTest, TestBoundedWinAt) {
   DepthPano dp({256, 64});
-  const auto win = dp.BoundedWinAt({0, 0}, {5, 7});
+  const auto win = dp.BoundWinCenterAt({0, 0}, {5, 7});
   EXPECT_EQ(win.x, 0);
   EXPECT_EQ(win.y, 0);
-  EXPECT_EQ(win.width, 6);
-  EXPECT_EQ(win.height, 8);
+  EXPECT_EQ(win.width, 3);
+  EXPECT_EQ(win.height, 4);
 }
 
 }  // namespace

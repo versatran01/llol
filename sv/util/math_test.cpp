@@ -23,7 +23,7 @@ TEST(MathTest, TestMeanCovar) {
     const auto X = Eigen::Matrix3Xd::Random(3, i).eval();
     const auto cov0 = Covariance(X);
 
-    MeanCovar mc;
+    MeanCovar3d mc;
     for (int i = 0; i < X.cols(); ++i) mc.Add(X.col(i));
     const auto cov1 = mc.covar();
 

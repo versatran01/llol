@@ -32,7 +32,7 @@ void BM_SweepAddScanSeq(benchmark::State& state) {
   int cell = state.range(0);
   int cols = 1024;
   LidarSweep sweep({cols, 64}, {cell, 1});
-  cv::Mat scan = MakeScan(sweep.sweep_size());
+  cv::Mat scan = MakeScan(sweep.size());
 
   for (auto _ : state) {
     sweep.AddScan(scan, {0, cols}, false);
@@ -45,7 +45,7 @@ void BM_SweepAddScanTbb(benchmark::State& state) {
   int cell = state.range(0);
   int cols = 1024;
   LidarSweep sweep({cols, 64}, {cell, 1});
-  cv::Mat scan = MakeScan(sweep.sweep_size());
+  cv::Mat scan = MakeScan(sweep.size());
 
   for (auto _ : state) {
     sweep.AddScan(scan, {0, cols}, true);

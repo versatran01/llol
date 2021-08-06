@@ -47,9 +47,8 @@ class LlolNode {
   int cv_win_flag_{};
 
   LidarSweep sweep_;
-  //  PointGrid feat_;
   DepthPano pano_;
-  //  DataMatcher matcher_;
+  PointMatcher matcher_;
   TimerManager tm_{"llol"};
 
  public:
@@ -67,7 +66,7 @@ class LlolNode {
     auto pano_nh = ros::NodeHandle{pnh_, "pano"};
     const auto pano_rows = pano_nh.param<int>("rows", 256);
     const auto pano_cols = pano_nh.param<int>("cols", 1024);
-    const auto pano_hfov = pano_nh.param<double>("hfov", 90.0);
+    const auto pano_hfov = pano_nh.param<double>("hfov", -1.0);
     pano_ = DepthPano({pano_cols, pano_rows}, Deg2Rad(pano_hfov));
     ROS_INFO_STREAM(pano_);
   }
@@ -95,47 +94,54 @@ class LlolNode {
     }
 
     /// Check if pano has data, if true then perform match
-    //    if (pano_.num_sweeps() == 0) {
-    //      ROS_INFO_STREAM("Pano is not initialized");
-    //    } else {
-    //      int num_valid_cells = 0;
-    //      {  /// Detect Feature
-    //        auto _ = tm_.Scoped("Feat/Detect");
-    //        num_valid_cells = feat_.Detect(sweep_, tbb_);
-    //      }
-    //      ROS_INFO_STREAM("Num cells: " << num_valid_cells);
-    //      if (vis_) {
-    //        Imshow("score", ApplyCmap(feat_.mat(), 10, cv::COLORMAP_VIRIDIS,
-    //        255));
-    //      }
+    if (pano_.num_sweeps() == 0) {
+      ROS_INFO_STREAM("Pano is not initialized");
+    } else {
+      {  /// Match Features
+        auto _ = tm_.Scoped("Matcher/Match");
+        matcher_.Match(sweep_, pano_);
+      }
 
-    //      {  /// Match Features
-    //        auto _ = tm_.Scoped("Matcher/Match");
-    //        matcher_.Match(sweep_, feat_, pano_);
-    //      }
+      ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
 
-    //      ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
-    //    }
+      // display good match
+      cv::Mat match_disp(sweep_.grid_size(), CV_32FC1);
+      match_disp.setTo(std::numeric_limits<float>::quiet_NaN());
+
+      float max_pts = matcher_.win_size().area();
+      for (const auto& match : matcher_.matches()) {
+        match_disp.at<float>(sweep_.PixelToCell(match.pt)) =
+            match.dst.n / max_pts;
+      }
+      Imshow("match",
+             ApplyCmap(matcher_.Draw(sweep_), 1.0, cv::COLORMAP_VIRIDIS));
+    }
   }
 
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
     if (sweep_.empty()) {
       // Initialized sweep
-      auto odom_nh = ros::NodeHandle{pnh_, "odom"};
-      int cell_rows = odom_nh.param<int>("cell_rows", 2);
-      int cell_cols = odom_nh.param<int>("cell_cols", 16);
+      {
+        auto odom_nh = ros::NodeHandle{pnh_, "sweep"};
+        int cell_rows = odom_nh.param<int>("cell_rows", 2);
+        int cell_cols = odom_nh.param<int>("cell_cols", 16);
 
-      sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height),
-                          {cell_cols, cell_rows}};
-      ROS_INFO_STREAM(sweep_);
+        sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height),
+                            {cell_cols, cell_rows}};
+        ROS_INFO_STREAM(sweep_);
+      }
 
       // Initialize matcher
-      MatcherParams mp;
-      mp.nms = odom_nh.param<bool>("match_nms", false);
-      mp.max_score = odom_nh.param<double>("feat_max_score", 0.01);
-      //      matcher_ = DataMatcher(feat_.total(), mp);
-      //      ROS_INFO_STREAM(matcher_);
+      {
+        auto match_nh = ros::NodeHandle{pnh_, "match"};
+        MatcherParams mp;
+        mp.nms = match_nh.param<bool>("nms", false);
+        mp.half_rows = match_nh.param<int>("half_rows", 2);
+        mp.max_curve = match_nh.param<double>("max_curve", 0.01);
+        matcher_ = PointMatcher(sweep_.grid_total(), mp);
+        ROS_INFO_STREAM(matcher_);
+      }
     }
 
     // Wait for the start of the sweep

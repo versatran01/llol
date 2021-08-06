@@ -17,9 +17,9 @@ void BM_MeanCovar(benchmark::State& state) {
   const auto X = Eigen::Matrix3Xd::Random(3, state.range(0)).eval();
 
   for (auto _ : state) {
-    MeanCovar sc;
-    for (int i = 0; i < X.cols(); ++i) sc.Add(X.col(i));
-    const auto cov = sc.covar();
+    MeanCovar3d mc;
+    for (int i = 0; i < X.cols(); ++i) mc.Add(X.col(i));
+    const auto cov = mc.covar();
     benchmark::DoNotOptimize(cov);
   }
 }

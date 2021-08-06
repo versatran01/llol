@@ -6,6 +6,7 @@
 
 namespace sv {
 
+static constexpr auto kNaNF = std::numeric_limits<float>::quiet_NaN();
 static constexpr auto kPiF = static_cast<float>(M_PI);
 static constexpr auto kTauF = static_cast<float>(M_PI * 2);
 static constexpr auto kPiD = static_cast<double>(M_PI);
@@ -67,19 +68,26 @@ T Atan2Approx(T y, T x) {
 }
 
 /// @struct Stream Mean and covar
+template <typename T, int N>
 struct MeanCovar {
-  int n{0};
-  Eigen::Matrix3d covar() const noexcept { return covar_sum_ / (n - 1); }
-  Eigen::Vector3d mean{Eigen::Vector3d::Zero()};
-  Eigen::Matrix3d covar_sum_{Eigen::Matrix3d::Zero()};
+  using Matrix = Eigen::Matrix<T, N, N>;
+  using Vector = Eigen::Matrix<T, N, 1>;
 
-  void Add(const Eigen::Vector3d& x) noexcept {
-    const Eigen::Vector3d diff = x - mean;
+  int n{0};
+  Vector mean{Vector::Zero()};
+  Matrix covar_sum_{Matrix::Zero()};
+  Matrix covar() const { return covar_sum_ / (n - 1); }
+
+  void Add(const Vector& x) {
+    const Vector diff = x - mean;
     mean.noalias() += diff / (n + 1.0);
     covar_sum_.noalias() += (n / (n + 1.0) * diff) * diff.transpose();
     ++n;
   }
 };
+
+using MeanCovar3f = MeanCovar<float, 3>;
+using MeanCovar3d = MeanCovar<double, 3>;
 
 /// @brief Compute covariance, each column is a sample
 Eigen::Matrix3d Covariance(const Eigen::Matrix3Xd& X) {

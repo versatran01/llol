@@ -14,15 +14,24 @@ struct LidarSweep {
 
   /// @brief basic info
   bool empty() const { return sweep_.empty(); }
-  size_t total() const { return sweep_.total(); }
-  int width() const noexcept { return range_.end; }
-  cv::Range range() const noexcept { return range_; }
-  cv::Size cell_size() const noexcept { return cell_size_; }
-  cv::Size grid_size() const { return {grid_.cols, grid_.rows}; }
-  cv::Size sweep_size() const { return {sweep_.cols, sweep_.rows}; }
   bool full() const noexcept { return !empty() && width() == sweep_.cols; }
 
+  size_t total() const { return sweep_.total(); }
+  size_t grid_total() const { return grid_.total(); }
+
+  cv::Size size() const { return {sweep_.cols, sweep_.rows}; }
+  cv::Size grid_size() const { return {grid_.cols, grid_.rows}; }
+
+  int width() const noexcept { return range_.end; }
+  int grid_width() const noexcept { return width() / cell_size_.width; }
+
+  cv::Range range() const noexcept { return range_; }
+  cv::Range grid_range() const {
+    return {range_.start / cell_size_.width, range_.end / cell_size_.width};
+  }
+
   /// @brief getters
+  cv::Size cell_size() const noexcept { return cell_size_; }
   const cv::Mat& grid() const noexcept { return grid_; }
   const cv::Mat& sweep() const noexcept { return sweep_; }
 
@@ -30,12 +39,11 @@ struct LidarSweep {
   /// @return num of valid cells
   int AddScan(const cv::Mat& scan, cv::Range scan_range, bool tbb = false);
 
-  const cv::Vec4f& XyzrAt(int sweep_row, int sweep_col) const {
-    return sweep_.at<cv::Vec4f>(sweep_row, sweep_col);
-  }
+  const auto& XyzrAt(cv::Point px) const { return sweep_.at<cv::Vec4f>(px); }
+  float CellAt(int gr, int gc) const { return grid_.at<float>(gr, gc); }
 
-  float ScoreAt(int grid_row, int grid_col) const {
-    return grid_.at<float>(grid_row, grid_col);
+  cv::Point PixelToCell(cv::Point px_s) const {
+    return {px_s.x / cell_size_.width, px_s.y / cell_size_.height};
   }
 
   /// @brief Compute corresponding subgrid given scan range
@@ -92,8 +100,8 @@ struct LidarModel {
 /// @class Depth Panorama
 class DepthPano {
  public:
-  static constexpr float kScale = 256.0;
-  static constexpr float kMaxRange = 65536.0 / kScale;
+  static constexpr float kScale = 256.0F;
+  static constexpr float kMaxRange = 65536.0F / kScale;
 
   DepthPano() = default;
   DepthPano(cv::Size size, float hfov = 0);
@@ -111,9 +119,8 @@ class DepthPano {
     mat.at<ushort>(pt) = rg * kScale;
   }
 
-  /// @brief WinAt
-  cv::Rect WinAt(const cv::Point& pt, const cv::Size& half_size) const;
-  cv::Rect BoundedWinAt(const cv::Point& pt, const cv::Size& half_size) const;
+  cv::Rect WinCenterAt(cv::Point pt, cv::Size size) const;
+  cv::Rect BoundWinCenterAt(cv::Point pt, cv::Size size) const;
 
   /// @brief Add a sweep to the pano
   int AddSweep(const LidarSweep& sweep, bool tbb);
@@ -124,6 +131,9 @@ class DepthPano {
   int Render(bool tbb);
   int RenderRow(int row1);
 
+  /// @brief Computes mean and covar of points in window at
+  void CalcMeanCovar(cv::Rect win, MeanCovar3f& mc) const;
+
   int num_sweeps_{0};
   cv::Mat buf_;
   cv::Mat buf2_;
@@ -131,37 +141,42 @@ class DepthPano {
 };
 
 /// @struct Match
-struct NormalMatch {
-  int src_col{};    // src col (change to time?)
-  MeanCovar src{};  // sweep
-  MeanCovar dst{};  // pano
+struct PointMatch {
+  cv::Point pt{};
+  MeanCovar3f src{};  // sweep
+  MeanCovar3f dst{};  // pano
 };
 
 /// @class Feature Matcher
 struct MatcherParams {
   bool nms{true};
   int half_rows{2};
-  double max_score{0.01};
+  double max_curve{0.01};
 };
 
-// struct DataMatcher {
-//  DataMatcher() = default;
-//  DataMatcher(int max_matches, const MatcherParams& params);
+struct PointMatcher {
+  PointMatcher() = default;
+  PointMatcher(int max_matches, const MatcherParams& params);
 
-//  std::string Repr() const;
-//  friend std::ostream& operator<<(std::ostream& os, const DataMatcher& rhs);
+  std::string Repr() const;
+  friend std::ostream& operator<<(std::ostream& os, const PointMatcher& rhs);
 
-//  const auto& matches() const noexcept { return matches_; }
+  /// @brief getters
+  cv::Size win_size() const noexcept { return win_size_; }
+  const auto& matches() const noexcept { return matches_; }
 
-//  /// @brief Match features in sweep to pano
-//  void Match(const LidarSweep& sweep,
-//             const PointGrid& grid,
-//             const DepthPano& pano);
+  /// @brief Match features in sweep to pano
+  void Match(const LidarSweep& sweep, const DepthPano& pano);
 
-//  bool IsGoodFeature(const PointGrid& grid, int r, int c) const;
+  /// @brief Check if a point is a good candidate for matching
+  bool IsCellGood(const cv::Mat& grid, cv::Point px) const;
 
-//  MatcherParams params_;
-//  std::vector<NormalMatch> matches_;
-//};
+  /// @brief Draw match, valid pixel is percentage of pano points in window
+  cv::Mat Draw(const LidarSweep& sweep) const;
+
+  MatcherParams params_;
+  cv::Size win_size_;
+  std::vector<PointMatch> matches_;
+};
 
 }  // namespace sv
