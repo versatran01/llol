@@ -30,21 +30,26 @@ cc_bench(
 
 # llol
 cc_library(
-  NAME llol_odom
-  SRCS "llol/odom.cpp"
+  NAME llol_lidar
+  SRCS "llol/lidar.cpp"
   DEPS sv_base sv_log sv_util_math opencv_core TBB::tbb)
 cc_test(
-  NAME llol_odom_test
-  SRCS "llol/odom_test.cpp"
-  DEPS sv_llol_odom)
+  NAME llol_lidar_test
+  SRCS "llol/lidar_test.cpp"
+  DEPS sv_llol_lidar)
 cc_bench(
-  NAME llol_odom_bench
-  SRCS "llol/odom_bench.cpp"
-  DEPS sv_llol_odom)
+  NAME llol_lidar_bench
+  SRCS "llol/lidar_bench.cpp"
+  DEPS sv_llol_lidar)
+
+cc_library(
+  NAME llol_match
+  SRCS "llol/match.cpp"
+  DEPS sv_llol_lidar)
 
 if(catkin_FOUND)
   cc_binary(
     NAME llol_node
     SRCS "llol/node.cpp"
-    DEPS sv_llol_odom sv_util_manager sv_ros1)
+    DEPS sv_llol_lidar sv_llol_match sv_util_manager sv_ros1)
 endif()

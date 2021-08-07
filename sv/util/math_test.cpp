@@ -24,7 +24,7 @@ TEST(MathTest, TestMeanCovar) {
     const auto cov0 = Covariance(X);
 
     MeanCovar3d mc;
-    for (int i = 0; i < X.cols(); ++i) mc.Add(X.col(i));
+    for (int j = 0; j < X.cols(); ++j) mc.Add(X.col(j));
     const auto cov1 = mc.covar();
 
     EXPECT_TRUE(cov0.isApprox(cov1));

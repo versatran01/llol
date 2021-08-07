@@ -13,7 +13,8 @@
 
 #include <opencv2/highgui.hpp>
 
-#include "sv/llol/odom.h"
+#include "sv/llol/lidar.h"
+#include "sv/llol/match.h"
 #include "sv/util/manager.h"
 
 namespace sv {

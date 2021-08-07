@@ -11,8 +11,8 @@ std::string StatsManager::ReportStats(const std::string& name,
   std::string str = fmt::format(fmt::fg(fmt::color::orange), "[{:<16}]", name);
 
   str += fmt::format(
-      " n: {:<8} | sum: {:<14f} | min: {:<14e} | max: {:<14e} | "
-      "mean: {:<14} | last: {:<14f} |",
+      " n: {:<8} | sum: {:<12f} | min: {:<12e} | max: {:<12e} | "
+      "mean: {:<12} | last: {:<12f} |",
       stats.count(),
       stats.sum(),
       stats.min(),
@@ -60,8 +60,8 @@ std::string TimerManager::ReportStats(const std::string& name,
   std::string str =
       fmt::format(fmt::fg(fmt::color::light_sky_blue), "[{:<16}]", name);
   str += fmt::format(
-      " n: {:<8} | sum: {:<14} | min: {:<14} | max: {:<14} | "
-      "mean: {:<14} | last: {:<14} |",
+      " n: {:<8} | sum: {:<12} | min: {:<12} | max: {:<12} | "
+      "mean: {:<12} | last: {:<12} |",
       stats.count(),
       stats.sum(),
       stats.min(),
@@ -76,4 +76,4 @@ TimerManager& GlobalTimerManager() {
   return tm;
 }
 
-}  // namespace llol
+}  // namespace sv
