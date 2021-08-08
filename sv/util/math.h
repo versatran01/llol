@@ -97,10 +97,13 @@ using MeanCovar3f = MeanCovar<float, 3>;
 using MeanCovar3d = MeanCovar<double, 3>;
 
 /// @brief Compute covariance, each column is a sample
-Eigen::Matrix3d Covariance(const Eigen::Matrix3Xd& X) {
-  const auto m = X.rowwise().mean().eval();  // mean
-  const auto Xm = (X.colwise() - m).eval();  // centered
-  return ((Xm * Xm.transpose()) / (X.cols() - 1));
-}
+Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);
+
+/// @brief force the axis to be right handed for 3D
+/// @details sometimes eigvecs has det -1 (reflection), this makes it a proper
+/// rotation
+/// @ref
+/// https://docs.ros.org/en/noetic/api/rviz/html/c++/covariance__visual_8cpp_source.html
+void MakeRightHanded(Eigen::Vector3d& eigvals, Eigen::Matrix3d& eigvecs);
 
 }  // namespace sv

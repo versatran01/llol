@@ -20,6 +20,8 @@
 namespace sv {
 
 MeanCovar3f CalcMeanCovar(const cv::Mat& mat) {
+  CHECK_EQ(mat.type(), CV_32FC4);
+
   MeanCovar3f mc;
   for (int r = 0; r < mat.rows; ++r) {
     for (int c = 0; c < mat.cols; ++c) {
@@ -31,57 +33,60 @@ MeanCovar3f CalcMeanCovar(const cv::Mat& mat) {
   return mc;
 }
 
-auto Sweep2Gaussian(const cv::Mat& sweep, cv::Size win_size)
+void MeanCovar2Marker(const Eigen::Vector3d& mean,
+                      Eigen::Vector3d eigvals,
+                      Eigen::Matrix3d eigvecs,
+                      visualization_msgs::Marker& marker) {
+  MakeRightHanded(eigvals, eigvecs);
+  Eigen::Quaterniond quat(eigvecs);
+  eigvals = eigvals.cwiseSqrt() * 2;
+
+  marker.pose.position.x = mean.x();
+  marker.pose.position.y = mean.y();
+  marker.pose.position.z = mean.z();
+  marker.pose.orientation.w = quat.w();
+  marker.pose.orientation.x = quat.x();
+  marker.pose.orientation.y = quat.y();
+  marker.pose.orientation.z = quat.z();
+  marker.scale.x = eigvals.x();
+  marker.scale.y = eigvals.y();
+  marker.scale.z = eigvals.z();
+}
+
+auto Sweep2Gaussians(const LidarSweep& sweep, float max_curve)
     -> visualization_msgs::MarkerArray {
   visualization_msgs::MarkerArray marray;
+  marray.markers.reserve(sweep.grid_total());
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
 
   visualization_msgs::Marker marker;
   marker.ns = "sweep";
   marker.type = visualization_msgs::Marker::SPHERE;
   marker.action = visualization_msgs::Marker::ADD;
+  marker.color.a = 0.5;
   marker.color.r = 0.0;
   marker.color.g = 1.0;
   marker.color.b = 0.0;
 
-  const int max_pts = win_size.area();
-  const int min_pts = max_pts * 0.75;
-  for (int sr = 0; sr < sweep.rows; sr += win_size.height) {
-    for (int sc = 0; sc < sweep.cols; sc += win_size.width) {
-      const cv::Rect win{cv::Point{sc, sr}, win_size};
-      const cv::Mat cell{sweep, win};
+  for (int gr = 0; gr < sweep.grid().rows; ++gr) {
+    for (int gc = 0; gc < sweep.grid_width(); ++gc) {
+      const auto& curve = sweep.CurveAt(gr, gc);
+      if (!(curve < max_curve)) continue;
+      //  Get cell
+      const auto cell = sweep.CellAt(gr, gc);
       const auto mc = CalcMeanCovar(cell);
 
-      if (mc.n < min_pts) continue;
-      marker.id = sr * sweep.cols + sc;
-
-      // compute eigenvalues and eigenvectors
+      marker.id = gr * sweep.grid().cols + gc;
       es.compute(mc.covar());
-      const Eigen::Vector3f scales = es.eigenvalues().cwiseSqrt() / 2.0;
-      Eigen::Matrix3f rotvecs = es.eigenvectors() * -1.0;
-      if (rotvecs.determinant() < 0) {
-        ROS_WARN("det %d", marker.id);
-      }
-      for (int i = 0; i < 3; ++i) rotvecs.col(i).normalize();
-      const Eigen::Quaternionf quat(rotvecs);
 
-      marker.pose.position.x = mc.mean.x();
-      marker.pose.position.y = mc.mean.y();
-      marker.pose.position.z = mc.mean.z();
-      marker.pose.orientation.w = quat.w();
-      marker.pose.orientation.x = quat.x();
-      marker.pose.orientation.y = quat.y();
-      marker.pose.orientation.z = quat.z();
-      marker.scale.x = scales.x();
-      marker.scale.y = scales.y();
-      marker.scale.z = scales.z();
-
-      marker.color.a = 0.25 + (static_cast<double>(mc.n) / max_pts) / 2.0;
+      MeanCovar2Marker(mc.mean.cast<double>(),
+                       es.eigenvalues().cast<double>(),
+                       es.eigenvectors().cast<double>(),
+                       marker);
 
       marray.markers.push_back(marker);
     }
   }
-
   return marray;
 }
 
@@ -198,9 +203,9 @@ class LlolNode {
       Imshow("grid", ApplyCmap(sweep_.grid(), 10, cv::COLORMAP_VIRIDIS, 255));
     }
 
-    //    auto marray = Sweep2Gaussian(sweep_.sweep(), {16, 2});
-    //    for (auto& m : marray.markers) m.header = image_msg->header;
-    //    pub_marray_.publish(marray);
+    auto marray = Sweep2Gaussians(sweep_, 0.01);
+    for (auto& m : marray.markers) m.header = image_msg->header;
+    pub_marray_.publish(marray);
 
     /// Check if pano has data, if true then perform match
     if (pano_.num_sweeps() == 0) {

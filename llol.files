@@ -30,6 +30,7 @@ sv/util/CMakeLists.txt
 sv/util/angle.h
 sv/util/manager.cpp
 sv/util/manager.h
+sv/util/math.cpp
 sv/util/math.h
 sv/util/math_bench.cpp
 sv/util/math_test.cpp

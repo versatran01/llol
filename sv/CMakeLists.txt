@@ -17,7 +17,7 @@ cc_library(
 
 cc_library(
   NAME util_math
-  HDRS "util/math.h"
+  SRCS "util/math.cpp"
   DEPS sv_base Eigen3::Eigen)
 cc_test(
   NAME util_math_test
@@ -63,9 +63,4 @@ if(catkin_FOUND)
          sv_ros1
          Ceres::ceres
          Sophus::Sophus)
-
-  cc_binary(
-    NAME cov_viz
-    SRCS "cov_viz.cpp"
-    DEPS sv_ros1 sv_base Eigen3::Eigen)
 endif()

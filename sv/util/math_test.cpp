@@ -21,7 +21,7 @@ TEST(MathTest, TestAngleConversion) {
 TEST(MathTest, TestMeanCovar) {
   for (int i = 3; i < 50; i += 10) {
     const auto X = Eigen::Matrix3Xd::Random(3, i).eval();
-    const auto cov0 = Covariance(X);
+    const auto cov0 = CalCovar3d(X);
 
     MeanCovar3d mc;
     for (int j = 0; j < X.cols(); ++j) mc.Add(X.col(j));

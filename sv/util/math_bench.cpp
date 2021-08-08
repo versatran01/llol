@@ -8,7 +8,7 @@ void BM_Covariance(benchmark::State& state) {
   const auto X = Eigen::Matrix3Xd::Random(3, state.range(0)).eval();
 
   for (auto _ : state) {
-    benchmark::DoNotOptimize(Covariance(X));
+    benchmark::DoNotOptimize(CalCovar3d(X));
   }
 }
 BENCHMARK(BM_Covariance)->Range(8, 512);

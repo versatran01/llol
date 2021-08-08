@@ -40,7 +40,8 @@ struct LidarSweep {
   int AddScan(const cv::Mat& scan, cv::Range scan_range, bool tbb = false);
 
   const auto& XyzrAt(cv::Point px) const { return sweep_.at<cv::Vec4f>(px); }
-  float CellAt(int gr, int gc) const { return grid_.at<float>(gr, gc); }
+  float CurveAt(int gr, int gc) const { return grid_.at<float>(gr, gc); }
+  cv::Mat CellAt(int gr, int gc) const;
 
   cv::Point PixelToCell(cv::Point px_s) const {
     return {px_s.x / cell_size_.width, px_s.y / cell_size_.height};

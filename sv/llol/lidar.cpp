@@ -53,6 +53,13 @@ int LidarSweep::AddScan(const cv::Mat& scan, cv::Range scan_range, bool tbb) {
   return ReduceScan(scan, subgrid, tbb);
 }
 
+cv::Mat LidarSweep::CellAt(int gr, int gc) const {
+  CHECK_LT(gc, grid_width());
+  const int sr = gr * cell_size_.height;
+  const int sc = gc * cell_size_.width;
+  return sweep_.row(sr).colRange(sc, sc + cell_size_.width);
+}
+
 cv::Mat LidarSweep::GetSubgrid(cv::Range scan_range) {
   // compute corresponding grid block given scan range
   return grid_.colRange(scan_range.start / cell_size_.width,
