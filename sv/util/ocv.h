@@ -73,4 +73,8 @@ void Imshow(const std::string& name,
             const cv::Mat& mat,
             int flag = cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
 
+std::string Repr(const cv::Mat& mat);
+std::string Repr(const cv::Size& size);
+std::string Repr(const cv::Range& range);
+
 }  // namespace sv

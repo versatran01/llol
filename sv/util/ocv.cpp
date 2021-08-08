@@ -1,5 +1,6 @@
 #include "sv/util/ocv.h"
 
+#include <fmt/color.h>
 #include <glog/logging.h>
 
 namespace sv {
@@ -64,6 +65,22 @@ void Imshow(const std::string& name, const cv::Mat& mat, int flag) {
   cv::namedWindow(name, flag);
   cv::imshow(name, mat);
   cv::waitKey(1);
+}
+
+std::string Repr(const cv::Mat& mat) {
+  return fmt::format("(hwc=({},{},{}), depth={})",
+                     mat.rows,
+                     mat.cols,
+                     mat.channels(),
+                     mat.depth());
+}
+
+std::string Repr(const cv::Range& range) {
+  return fmt::format("[{},{})", range.start, range.end);
+}
+
+std::string Repr(const cv::Size& size) {
+  return fmt::format("(h={}, w={})", size.height, size.width);
 }
 
 }  // namespace sv

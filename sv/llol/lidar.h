@@ -7,10 +7,6 @@
 
 namespace sv {
 
-std::string Repr(const cv::Mat& mat);
-std::string Repr(const cv::Size& size);
-std::string Repr(const cv::Range& range);
-
 /// @class Lidar Sweep covers 360 degree horizontal fov
 struct LidarSweep {
   LidarSweep() = default;

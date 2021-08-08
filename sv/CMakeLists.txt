@@ -37,7 +37,7 @@ cc_library(
 cc_library(
   NAME llol_lidar
   SRCS "llol/lidar.cpp"
-  DEPS sv_base sv_log sv_util_math opencv_core TBB::tbb)
+  DEPS sv_base sv_log sv_util_math sv_util_ocv TBB::tbb)
 cc_test(
   NAME llol_lidar_test
   SRCS "llol/lidar_test.cpp"
@@ -63,4 +63,9 @@ if(catkin_FOUND)
          sv_ros1
          Ceres::ceres
          Sophus::Sophus)
+
+  cc_binary(
+    NAME cov_viz
+    SRCS "cov_viz.cpp"
+    DEPS sv_ros1 sv_base Eigen3::Eigen)
 endif()

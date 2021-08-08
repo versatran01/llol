@@ -77,12 +77,19 @@ struct MeanCovar {
   Vector mean{Vector::Zero()};
   Matrix covar_sum_{Matrix::Zero()};
   Matrix covar() const { return covar_sum_ / (n - 1); }
+  bool ok() const noexcept { return n > 1; }
 
   void Add(const Vector& x) {
     const Vector diff = x - mean;
     mean.noalias() += diff / (n + 1.0);
     covar_sum_.noalias() += (n / (n + 1.0) * diff) * diff.transpose();
     ++n;
+  }
+
+  void Reset() {
+    n = 0;
+    mean.setZero();
+    covar_sum_.setZero();
   }
 };
 

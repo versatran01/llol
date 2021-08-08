@@ -6,8 +6,10 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
 
-#include <boost/circular_buffer.hpp>
+#include <Eigen/Eigenvalues>
 #include <sophus/se3.hpp>
 
 #include "sv/llol/lidar.h"
@@ -17,11 +19,78 @@
 
 namespace sv {
 
+MeanCovar3f CalcMeanCovar(const cv::Mat& mat) {
+  MeanCovar3f mc;
+  for (int r = 0; r < mat.rows; ++r) {
+    for (int c = 0; c < mat.cols; ++c) {
+      const auto& xyzr = mat.at<cv::Vec4f>(r, c);
+      if (std::isnan(xyzr[0])) continue;
+      mc.Add({xyzr[0], xyzr[1], xyzr[2]});
+    }
+  }
+  return mc;
+}
+
+auto Sweep2Gaussian(const cv::Mat& sweep, cv::Size win_size)
+    -> visualization_msgs::MarkerArray {
+  visualization_msgs::MarkerArray marray;
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
+
+  visualization_msgs::Marker marker;
+  marker.ns = "sweep";
+  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.color.r = 0.0;
+  marker.color.g = 1.0;
+  marker.color.b = 0.0;
+
+  const int max_pts = win_size.area();
+  const int min_pts = max_pts * 0.75;
+  for (int sr = 0; sr < sweep.rows; sr += win_size.height) {
+    for (int sc = 0; sc < sweep.cols; sc += win_size.width) {
+      const cv::Rect win{cv::Point{sc, sr}, win_size};
+      const cv::Mat cell{sweep, win};
+      const auto mc = CalcMeanCovar(cell);
+
+      if (mc.n < min_pts) continue;
+      marker.id = sr * sweep.cols + sc;
+
+      // compute eigenvalues and eigenvectors
+      es.compute(mc.covar());
+      const Eigen::Vector3f scales = es.eigenvalues().cwiseSqrt() / 2.0;
+      Eigen::Matrix3f rotvecs = es.eigenvectors() * -1.0;
+      if (rotvecs.determinant() < 0) {
+        ROS_WARN("det %d", marker.id);
+      }
+      for (int i = 0; i < 3; ++i) rotvecs.col(i).normalize();
+      const Eigen::Quaternionf quat(rotvecs);
+
+      marker.pose.position.x = mc.mean.x();
+      marker.pose.position.y = mc.mean.y();
+      marker.pose.position.z = mc.mean.z();
+      marker.pose.orientation.w = quat.w();
+      marker.pose.orientation.x = quat.x();
+      marker.pose.orientation.y = quat.y();
+      marker.pose.orientation.z = quat.z();
+      marker.scale.x = scales.x();
+      marker.scale.y = scales.y();
+      marker.scale.z = scales.z();
+
+      marker.color.a = 0.25 + (static_cast<double>(mc.n) / max_pts) / 2.0;
+
+      marray.markers.push_back(marker);
+    }
+  }
+
+  return marray;
+}
+
 class LlolNode {
  private:
   ros::NodeHandle pnh_;
   image_transport::ImageTransport it_;
   image_transport::CameraSubscriber sub_camera_;
+  ros::Publisher pub_marray_;
 
   bool vis_{};
   bool tbb_{};
@@ -37,6 +106,8 @@ class LlolNode {
  public:
   explicit LlolNode(const ros::NodeHandle& pnh) : pnh_{pnh}, it_{pnh} {
     sub_camera_ = it_.subscribeCamera("image", 10, &LlolNode::CameraCb, this);
+    pub_marray_ =
+        pnh_.advertise<visualization_msgs::MarkerArray>("sweep_gaussian", 1);
 
     vis_ = pnh_.param<bool>("vis", true);
     ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -126,6 +197,10 @@ class LlolNode {
       Imshow("sweep", ApplyCmap(sweep_disp, 1 / 30.0, cv::COLORMAP_PINK, 0));
       Imshow("grid", ApplyCmap(sweep_.grid(), 10, cv::COLORMAP_VIRIDIS, 255));
     }
+
+    //    auto marray = Sweep2Gaussian(sweep_.sweep(), {16, 2});
+    //    for (auto& m : marray.markers) m.header = image_msg->header;
+    //    pub_marray_.publish(marray);
 
     /// Check if pano has data, if true then perform match
     if (pano_.num_sweeps() == 0) {

@@ -2,6 +2,8 @@
 
 #include <fmt/core.h>
 
+#include "sv/util/ocv.h"
+
 namespace sv {
 
 /// PointMatcher ===============================================================

@@ -8,24 +8,9 @@
 #include <Eigen/Core>
 
 #include "sv/util/math.h"
+#include "sv/util/ocv.h"
 
 namespace sv {
-
-std::string Repr(const cv::Mat& mat) {
-  return fmt::format("(hwc=({},{},{}), depth={})",
-                     mat.rows,
-                     mat.cols,
-                     mat.channels(),
-                     mat.depth());
-}
-
-std::string Repr(const cv::Range& range) {
-  return fmt::format("[{},{})", range.start, range.end);
-}
-
-std::string Repr(const cv::Size& size) {
-  return fmt::format("(h={}, w={})", size.height, size.width);
-}
 
 float CellCurvature(const cv::Mat& cell) {
   // compute sum of range in cell
