@@ -1,4 +1,3 @@
-#include <ceres/ceres.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/camera_subscriber.h>
 #include <image_transport/image_transport.h>
@@ -6,10 +5,7 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
 
-#include <Eigen/Eigenvalues>
 #include <sophus/se3.hpp>
 
 #include "sv/llol/match.h"
@@ -42,8 +38,7 @@ class LlolNode {
  public:
   explicit LlolNode(const ros::NodeHandle& pnh) : pnh_{pnh}, it_{pnh} {
     sub_camera_ = it_.subscribeCamera("image", 10, &LlolNode::CameraCb, this);
-    pub_marray_ =
-        pnh_.advertise<visualization_msgs::MarkerArray>("sweep_gaussian", 1);
+    pub_marray_ = pnh_.advertise<visualization_msgs::MarkerArray>("marray", 1);
 
     vis_ = pnh_.param<bool>("vis", true);
     ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -134,9 +129,7 @@ class LlolNode {
       Imshow("grid", ApplyCmap(sweep_.grid(), 5, cv::COLORMAP_VIRIDIS, 255));
     }
 
-    auto marray = Sweep2Gaussians(sweep_.sweep(), sweep_.grid(), 0.01);
-    for (auto& m : marray.markers) m.header = image_msg->header;
-    pub_marray_.publish(marray);
+    visualization_msgs::MarkerArray marray;
 
     /// Check if pano has data, if true then perform match
     if (pano_.num_sweeps() == 0) {
@@ -148,6 +141,7 @@ class LlolNode {
       }
 
       ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
+      Match2Markers(marray.markers, image_msg->header, matcher_.matches());
 
       // display good match
       cv::Mat match_disp(sweep_.grid_size(), CV_32FC1);
@@ -187,6 +181,7 @@ class LlolNode {
       }
     }
 
+    pub_marray_.publish(marray);
     ROS_DEBUG_STREAM(tm_.ReportAll());
   }
 };

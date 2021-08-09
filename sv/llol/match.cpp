@@ -9,7 +9,7 @@ namespace sv {
 /// PointMatcher ===============================================================
 PointMatcher::PointMatcher(int max_matches, const MatcherParams& params)
     : params_{params},
-      win_size_{params.half_rows * 4 + 1, params.half_rows * 2 + 1} {
+      win_size_{params.half_rows * 8 + 1, params.half_rows * 2 + 1} {
   matches_.reserve(max_matches);
 }
 
@@ -65,18 +65,28 @@ void PointMatcher::Match(const LidarSweep& sweep, const DepthPano& pano) {
       const Eigen::Vector3f pt_p = Eigen::Matrix3f::Identity() * pt_s;
       const float rg_p = pt_p.norm();
 
-      // Check viewpoint close
-      //      const float cos = pt_p.dot(pt_p) / (rg_s * rg_p);
-      //      if (cos < 0) continue;
-
       // Project to pano
       const auto px_p = pano.model_.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
       if (px_p.x < 0) continue;
 
       PointMatch match;
+
+      // Compute normal distribution around sweep point
+
+      // Compute normal distribution around pano point
+
       // take a window around that pixel in pano and compute its mean
       const auto win = pano.BoundWinCenterAt(px_p, win_size_);
-      pano.CalcMeanCovar(win, match.dst);
+
+      for (int wr = win.y; wr < win.y + win.height; ++wr) {
+        for (int wc = win.x; wc < win.x + win.width; ++wc) {
+          const float rg_w = pano.GetRange({wc, wr});
+          if (rg_w == 0 || (std::abs(rg_p - rg_w) > 0.1)) continue;
+          const auto p = pano.model_.Backward(wr, wc, rg_w);
+          match.dst.Add({p.x, p.y, p.z});
+        }
+      }
+
       if (match.dst.n < 9) continue;
 
       // TODO (chao): use point for now, consider using mean and cov

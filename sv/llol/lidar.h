@@ -12,6 +12,8 @@ struct LidarModel {
   LidarModel() = default;
   LidarModel(cv::Size size, float hfov);
 
+  cv::Size size() const noexcept { return size_; }
+
   /// @brief xyzr to image, bad result is {-1, -1}
   cv::Point2i Forward(float x, float y, float z, float r) const;
   cv::Point3f Backward(int r, int c, float rg = 1.0) const;

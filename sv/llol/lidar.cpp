@@ -25,7 +25,7 @@ LidarModel::LidarModel(cv::Size size, float hfov) : size_{size} {
   }
 }
 
-cv::Point2i sv::LidarModel::Forward(float x, float y, float z, float r) const {
+cv::Point2i LidarModel::Forward(float x, float y, float z, float r) const {
   cv::Point2i px{-1, -1};
 
   const int row = ToRow(z, r);

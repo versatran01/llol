@@ -8,4 +8,4 @@ sweep:
 match:
   nms: True
   half_rows: 2
-  max_score: 0.01
+  max_score: 0.02

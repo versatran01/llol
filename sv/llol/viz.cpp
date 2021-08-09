@@ -7,6 +7,9 @@
 
 namespace sv {
 
+using visualization_msgs::Marker;
+using visualization_msgs::MarkerArray;
+
 MeanCovar3f CalcMeanCovar(const cv::Mat& mat) {
   CHECK_EQ(mat.type(), CV_32FC4);
 
@@ -21,13 +24,14 @@ MeanCovar3f CalcMeanCovar(const cv::Mat& mat) {
   return mc;
 }
 
-void MeanCovar2Marker(const Eigen::Vector3d& mean,
+void MeanCovar2Marker(Marker& marker,
+                      const Eigen::Vector3d& mean,
                       Eigen::Vector3d eigvals,
                       Eigen::Matrix3d eigvecs,
-                      visualization_msgs::Marker& marker) {
+                      double scale) {
   MakeRightHanded(eigvals, eigvecs);
-  Eigen::Quaterniond quat(eigvecs);
-  eigvals = eigvals.cwiseSqrt() * 2;
+  const Eigen::Quaterniond quat(eigvecs);
+  eigvals = eigvals.cwiseSqrt() * 2 * scale;
 
   marker.pose.position.x = mean.x();
   marker.pose.position.y = mean.y();
@@ -41,21 +45,23 @@ void MeanCovar2Marker(const Eigen::Vector3d& mean,
   marker.scale.z = eigvals.z();
 }
 
-visualization_msgs::MarkerArray Sweep2Gaussians(const cv::Mat& sweep,
-                                                const cv::Mat& grid,
-                                                float max_curve) {
-  visualization_msgs::MarkerArray marray;
-  marray.markers.reserve(grid.total());
+std::vector<Marker> Sweep2Markers(const std_msgs::Header& header,
+                                  const LidarSweep& sweep,
+                                  float max_curve) {
+  std::vector<Marker> markers;
+  markers.reserve(sweep.grid_total());
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
 
-  const cv::Size cell_size{sweep.cols / grid.cols, sweep.rows / grid.rows};
+  const auto& grid = sweep.grid();
+  const auto& cell_size = sweep.cell_size();
   const int min_pts = cell_size.area() * 0.75;
 
-  visualization_msgs::Marker marker;
+  Marker marker;
+  marker.header = header;
   marker.ns = "sweep";
-  marker.type = visualization_msgs::Marker::SPHERE;
-  marker.action = visualization_msgs::Marker::ADD;
+  marker.type = Marker::SPHERE;
+  marker.action = Marker::ADD;
   marker.color.a = 0.5;
   marker.color.r = 0.0;
   marker.color.g = 1.0;
@@ -69,21 +75,53 @@ visualization_msgs::MarkerArray Sweep2Gaussians(const cv::Mat& sweep,
       //  Get cell
       const cv::Rect rect{
           cv::Point{gc * cell_size.width, gr * cell_size.height}, cell_size};
-      const cv::Mat cell{sweep, rect};
+      const cv::Mat cell{sweep.sweep(), rect};
       const auto mc = CalcMeanCovar(cell);
 
       if (mc.n < min_pts) continue;
       es.compute(mc.covar());
-      MeanCovar2Marker(mc.mean.cast<double>(),
+      MeanCovar2Marker(marker,
+                       mc.mean.cast<double>(),
                        es.eigenvalues().cast<double>(),
-                       es.eigenvectors().cast<double>(),
-                       marker);
+                       es.eigenvectors().cast<double>());
 
       marker.id = ++k;
-      marray.markers.push_back(marker);
+      markers.push_back(marker);
     }
   }
-  return marray;
+  return markers;
+}
+
+void Match2Markers(std::vector<Marker>& markers,
+                   const std_msgs::Header& header,
+                   const std::vector<PointMatch>& matches,
+                   double scale) {
+  markers.reserve(matches.size());
+
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
+
+  Marker pano_mk;
+  pano_mk.header = header;
+  pano_mk.ns = "match_pano";
+  pano_mk.type = Marker::SPHERE;
+  pano_mk.action = Marker::ADD;
+  pano_mk.color.a = 0.8;
+  pano_mk.color.r = 0.0;
+  pano_mk.color.g = 1.0;
+  pano_mk.color.b = 0.0;
+
+  for (int i = 0; i < matches.size(); ++i) {
+    const auto& match = matches[i];
+    es.compute(match.dst.covar());
+    MeanCovar2Marker(pano_mk,
+                     match.dst.mean.cast<double>(),
+                     es.eigenvalues().cast<double>(),
+                     es.eigenvectors().cast<double>(),
+                     scale);
+
+    pano_mk.id = i;
+    markers.push_back(pano_mk);
+  }
 }
 
 }  // namespace sv
