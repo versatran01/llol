@@ -21,12 +21,12 @@ cc_library(
   DEPS sv_base Eigen3::Eigen)
 cc_test(
   NAME util_math_test
-  SRCS "util/math_test.cpp"
-  DEPS sv_util_math)
+  SRCS "util/math_test_bench.cpp"
+  DEPS sv_util_math benchmark::benchmark)
 cc_bench(
   NAME util_math_bench
-  SRCS "util/math_bench.cpp"
-  DEPS sv_util_math)
+  SRCS "util/math_test_bench.cpp"
+  DEPS sv_util_math GTest::GTest)
 
 cc_library(
   NAME util_ocv
@@ -37,30 +37,42 @@ cc_library(
 cc_library(
   NAME llol_lidar
   SRCS "llol/lidar.cpp"
-  DEPS sv_base sv_log sv_util_math sv_util_ocv TBB::tbb)
+  DEPS sv_base sv_log sv_util_math sv_util_ocv)
+
+cc_library(
+  NAME llol_sweep
+  SRCS "llol/sweep.cpp"
+  DEPS sv_base sv_log sv_util_math sv_util_ocv)
 cc_test(
-  NAME llol_lidar_test
-  SRCS "llol/lidar_test.cpp"
-  DEPS sv_llol_lidar)
+  NAME llol_sweep_test
+  SRCS "llol/sweep_test_bench.cpp"
+  DEPS sv_llol_sweep benchmark::benchmark)
 cc_bench(
-  NAME llol_lidar_bench
-  SRCS "llol/lidar_bench.cpp"
-  DEPS sv_llol_lidar)
+  NAME llol_sweep_bench
+  SRCS "llol/sweep_test_bench.cpp"
+  DEPS sv_llol_sweep GTest::GTest)
+
+cc_library(
+  NAME llol_pano
+  SRCS "llol/pano.cpp"
+  DEPS sv_llol_lidar TBB::tbb)
+cc_test(
+  NAME llol_pano_test
+  SRCS "llol/pano_test_bench.cpp"
+  DEPS sv_llol_pano benchmark::benchmark)
+cc_bench(
+  NAME llol_pano_bench
+  SRCS "llol/pano_test_bench.cpp"
+  DEPS sv_llol_pano GTest::GTest)
 
 cc_library(
   NAME llol_match
   SRCS "llol/match.cpp"
-  DEPS sv_llol_lidar)
+  DEPS sv_llol_sweep sv_llol_pano)
 
 if(catkin_FOUND)
   cc_binary(
     NAME llol_node
     SRCS "llol/node.cpp"
-    DEPS sv_llol_lidar
-         sv_llol_match
-         sv_util_ocv
-         sv_util_manager
-         sv_ros1
-         Ceres::ceres
-         Sophus::Sophus)
+    DEPS sv_llol_match sv_util_manager sv_ros1 Ceres::ceres Sophus::Sophus)
 endif()

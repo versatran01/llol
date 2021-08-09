@@ -1,6 +1,8 @@
-#include "sv/llol/lidar.h"
-
+#include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
+
+#include "sv/llol/sweep.h"
+#include "sv/llol/test.h"
 
 namespace sv {
 namespace {
@@ -50,23 +52,31 @@ TEST(LidarSweepTest, TestAddScan) {
   EXPECT_EQ(ls.full(), true);
 }
 
-TEST(DepthPanoTest, TestWinAt) {
-  DepthPano dp({256, 64});
-  const auto win = dp.WinCenterAt({0, 0}, {5, 7});
-  EXPECT_EQ(win.x, -2);
-  EXPECT_EQ(win.y, -3);
-  EXPECT_EQ(win.width, 5);
-  EXPECT_EQ(win.height, 7);
-}
+void BM_SweepAddScanSeq(benchmark::State& state) {
+  int cell = state.range(0);
+  int cols = 1024;
+  LidarSweep sweep({cols, 64}, {cell, 1});
+  cv::Mat scan = MakeScan(sweep.size());
 
-TEST(DepthPanoTest, TestBoundedWinAt) {
-  DepthPano dp({256, 64});
-  const auto win = dp.BoundWinCenterAt({0, 0}, {5, 7});
-  EXPECT_EQ(win.x, 0);
-  EXPECT_EQ(win.y, 0);
-  EXPECT_EQ(win.width, 3);
-  EXPECT_EQ(win.height, 4);
+  for (auto _ : state) {
+    sweep.AddScan(scan, {0, cols}, false);
+    benchmark::DoNotOptimize(sweep);
+  }
 }
+BENCHMARK(BM_SweepAddScanSeq)->Arg(16)->Arg(8);
+
+void BM_SweepAddScanTbb(benchmark::State& state) {
+  int cell = state.range(0);
+  int cols = 1024;
+  LidarSweep sweep({cols, 64}, {cell, 1});
+  cv::Mat scan = MakeScan(sweep.size());
+
+  for (auto _ : state) {
+    sweep.AddScan(scan, {0, cols}, true);
+    benchmark::DoNotOptimize(sweep);
+  }
+}
+BENCHMARK(BM_SweepAddScanTbb)->Arg(16)->Arg(8);
 
 }  // namespace
 }  // namespace sv

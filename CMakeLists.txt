@@ -20,10 +20,10 @@ find_package(
   catkin QUIET
   COMPONENTS roscpp
              tf2_ros
-             image_transport
-             sensor_msgs
-             nav_msgs
              cv_bridge
+             image_transport
+             nav_msgs
+             sensor_msgs
              image_geometry)
 
 # base

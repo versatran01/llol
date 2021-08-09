@@ -208,8 +208,8 @@ endfunction()
 # )
 # cmake-format: on
 function(cc_test)
-  cmake_parse_arguments(CC_TEST "OTHER" "NAME"
-                        "SRCS;COPTS;DEFINES;LINKOPTS;DEPS" ${ARGN})
+  cmake_parse_arguments(CC_TEST "" "NAME" "SRCS;COPTS;DEFINES;LINKOPTS;DEPS"
+                        ${ARGN})
 
   if(CC_TARGET_PREFIX)
     set(_NAME "${CC_TARGET_PREFIX}_${CC_TEST_NAME}")
@@ -281,8 +281,8 @@ function(cc_bench)
     return()
   endif()
 
-  cmake_parse_arguments(CC_BENCH "" "NAME" "SRCS;COPTS;DEFINES;LINKOPTS;DEPS"
-                        ${ARGN})
+  cmake_parse_arguments(CC_BENCH "" "NAME"
+                        "SRCS;COPTS;DEFINES;LINKOPTS;DEPS" ${ARGN})
 
   if(CC_TARGET_PREFIX)
     set(_NAME "${CC_TARGET_PREFIX}_${CC_BENCH_NAME}")

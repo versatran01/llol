@@ -12,8 +12,9 @@
 #include <Eigen/Eigenvalues>
 #include <sophus/se3.hpp>
 
-#include "sv/llol/lidar.h"
 #include "sv/llol/match.h"
+#include "sv/llol/pano.h"
+#include "sv/llol/sweep.h"
 #include "sv/util/manager.h"
 #include "sv/util/ocv.h"
 
@@ -237,7 +238,7 @@ class LlolNode {
       int num_added;
       {
         auto _ = tm_.Scoped("Pano/AddSweep");
-        num_added = pano_.AddSweep(sweep_, tbb_);
+        num_added = pano_.AddSweep(sweep_.sweep(), tbb_);
       }
       ROS_INFO_STREAM("Num added: " << num_added
                                     << ", sweep total: " << sweep_.total());

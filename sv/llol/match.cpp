@@ -66,8 +66,8 @@ void PointMatcher::Match(const LidarSweep& sweep, const DepthPano& pano) {
       const float rg_p = pt_p.norm();
 
       // Check viewpoint close
-      const float cos = pt_p.dot(pt_p) / (rg_s * rg_p);
-      if (cos < 0) continue;
+      //      const float cos = pt_p.dot(pt_p) / (rg_s * rg_p);
+      //      if (cos < 0) continue;
 
       // Project to pano
       const auto px_p = pano.model_.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
