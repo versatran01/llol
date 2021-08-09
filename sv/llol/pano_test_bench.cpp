@@ -49,7 +49,7 @@ BENCHMARK(BM_PanoAddSweepTbb);
 
 void BM_PanoRenderSeq(benchmark::State& state) {
   DepthPano pano({1024, 256});
-  pano.buf_.setTo(1024);
+  pano.dbuf_.setTo(1024);
 
   for (auto _ : state) {
     pano.Render(false);
@@ -60,7 +60,7 @@ BENCHMARK(BM_PanoRenderSeq);
 
 void BM_PanoRenderTbb(benchmark::State& state) {
   DepthPano pano({1024, 256});
-  pano.buf_.setTo(1024);
+  pano.dbuf_.setTo(1024);
 
   for (auto _ : state) {
     pano.Render(true);

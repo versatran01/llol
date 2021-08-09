@@ -4,6 +4,8 @@
 
 namespace sv {
 
+int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb = false);
+
 /// @class Lidar Sweep covers 360 degree horizontal fov
 struct LidarSweep {
   LidarSweep() = default;
@@ -37,19 +39,10 @@ struct LidarSweep {
   int AddScan(const cv::Mat& scan, cv::Range scan_range, bool tbb = false);
 
   const auto& XyzrAt(cv::Point px) const { return sweep_.at<cv::Vec4f>(px); }
-  float CurveAt(int gr, int gc) const { return grid_.at<float>(gr, gc); }
-  cv::Mat CellAt(int gr, int gc) const;
 
   cv::Point PixelToCell(cv::Point px_s) const {
     return {px_s.x / cell_size_.width, px_s.y / cell_size_.height};
   }
-
-  /// @brief Compute corresponding subgrid given scan range
-  cv::Mat GetSubgrid(cv::Range scan_range);
-
-  /// @brief For now compute curvature of each cell
-  int ReduceScan(const cv::Mat& scan, cv::Mat& subgrid, bool tbb = false);
-  int ReduceScanRow(const cv::Mat& scan, int gr, cv::Mat& subgrid);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs);

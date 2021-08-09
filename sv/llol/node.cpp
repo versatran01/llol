@@ -15,81 +15,11 @@
 #include "sv/llol/match.h"
 #include "sv/llol/pano.h"
 #include "sv/llol/sweep.h"
+#include "sv/llol/viz.h"
 #include "sv/util/manager.h"
 #include "sv/util/ocv.h"
 
 namespace sv {
-
-MeanCovar3f CalcMeanCovar(const cv::Mat& mat) {
-  CHECK_EQ(mat.type(), CV_32FC4);
-
-  MeanCovar3f mc;
-  for (int r = 0; r < mat.rows; ++r) {
-    for (int c = 0; c < mat.cols; ++c) {
-      const auto& xyzr = mat.at<cv::Vec4f>(r, c);
-      if (std::isnan(xyzr[0])) continue;
-      mc.Add({xyzr[0], xyzr[1], xyzr[2]});
-    }
-  }
-  return mc;
-}
-
-void MeanCovar2Marker(const Eigen::Vector3d& mean,
-                      Eigen::Vector3d eigvals,
-                      Eigen::Matrix3d eigvecs,
-                      visualization_msgs::Marker& marker) {
-  MakeRightHanded(eigvals, eigvecs);
-  Eigen::Quaterniond quat(eigvecs);
-  eigvals = eigvals.cwiseSqrt() * 2;
-
-  marker.pose.position.x = mean.x();
-  marker.pose.position.y = mean.y();
-  marker.pose.position.z = mean.z();
-  marker.pose.orientation.w = quat.w();
-  marker.pose.orientation.x = quat.x();
-  marker.pose.orientation.y = quat.y();
-  marker.pose.orientation.z = quat.z();
-  marker.scale.x = eigvals.x();
-  marker.scale.y = eigvals.y();
-  marker.scale.z = eigvals.z();
-}
-
-auto Sweep2Gaussians(const LidarSweep& sweep, float max_curve)
-    -> visualization_msgs::MarkerArray {
-  visualization_msgs::MarkerArray marray;
-  marray.markers.reserve(sweep.grid_total());
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
-
-  visualization_msgs::Marker marker;
-  marker.ns = "sweep";
-  marker.type = visualization_msgs::Marker::SPHERE;
-  marker.action = visualization_msgs::Marker::ADD;
-  marker.color.a = 0.5;
-  marker.color.r = 0.0;
-  marker.color.g = 1.0;
-  marker.color.b = 0.0;
-
-  for (int gr = 0; gr < sweep.grid().rows; ++gr) {
-    for (int gc = 0; gc < sweep.grid_width(); ++gc) {
-      const auto& curve = sweep.CurveAt(gr, gc);
-      if (!(curve < max_curve)) continue;
-      //  Get cell
-      const auto cell = sweep.CellAt(gr, gc);
-      const auto mc = CalcMeanCovar(cell);
-
-      marker.id = gr * sweep.grid().cols + gc;
-      es.compute(mc.covar());
-
-      MeanCovar2Marker(mc.mean.cast<double>(),
-                       es.eigenvalues().cast<double>(),
-                       es.eigenvectors().cast<double>(),
-                       marker);
-
-      marray.markers.push_back(marker);
-    }
-  }
-  return marray;
-}
 
 class LlolNode {
  private:
@@ -201,10 +131,10 @@ class LlolNode {
       cv::Mat sweep_disp;
       cv::extractChannel(sweep_.sweep(), sweep_disp, 3);
       Imshow("sweep", ApplyCmap(sweep_disp, 1 / 30.0, cv::COLORMAP_PINK, 0));
-      Imshow("grid", ApplyCmap(sweep_.grid(), 10, cv::COLORMAP_VIRIDIS, 255));
+      Imshow("grid", ApplyCmap(sweep_.grid(), 5, cv::COLORMAP_VIRIDIS, 255));
     }
 
-    auto marray = Sweep2Gaussians(sweep_, 0.01);
+    auto marray = Sweep2Gaussians(sweep_.sweep(), sweep_.grid(), 0.01);
     for (auto& m : marray.markers) m.header = image_msg->header;
     pub_marray_.publish(marray);
 
@@ -252,8 +182,8 @@ class LlolNode {
                                        << ", pano total: " << pano_.total());
 
       if (vis_) {
-        Imshow("pano", ApplyCmap(pano_.buf_, 1 / DepthPano::kScale / 30.0));
-        Imshow("pano2", ApplyCmap(pano_.buf2_, 1 / DepthPano::kScale / 30.0));
+        Imshow("pano", ApplyCmap(pano_.dbuf_, 1 / DepthPano::kScale / 30.0));
+        Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / DepthPano::kScale / 30.0));
       }
     }
 

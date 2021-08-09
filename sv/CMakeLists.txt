@@ -71,8 +71,13 @@ cc_library(
   DEPS sv_llol_sweep sv_llol_pano)
 
 if(catkin_FOUND)
+  cc_library(
+    NAME llol_viz
+    SRCS "llol/viz.cpp"
+    DEPS sv_util_math sv_ros1)
+
   cc_binary(
     NAME llol_node
     SRCS "llol/node.cpp"
-    DEPS sv_llol_match sv_util_manager sv_ros1 Ceres::ceres Sophus::Sophus)
+    DEPS sv_llol_match sv_llol_viz sv_util_manager sv_ros1 Ceres::ceres Sophus::Sophus)
 endif()

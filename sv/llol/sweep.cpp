@@ -11,7 +11,7 @@
 
 namespace sv {
 
-float CellCurvature(const cv::Mat& cell) {
+float CalcCurvature(const cv::Mat& cell) {
   // compute sum of range in cell
   float range_sum = 0.0F;
 
@@ -25,6 +25,50 @@ float CellCurvature(const cv::Mat& cell) {
   return std::abs(range_sum / cell.cols / range_mid - 1);
 }
 
+int CalcScanCurveRow(const cv::Mat& scan,
+                     cv::Mat& grid,
+                     cv::Size cell_size,
+                     int gr) {
+  int n = 0;
+  for (int gc = 0; gc < grid.cols; ++gc) {
+    const int sr = gr * cell_size.height;
+    const int sc = gc * cell_size.width;
+    const auto cell = scan.row(sr).colRange(sc, sc + cell_size.width);
+    const auto curve = CalcCurvature(cell);
+    grid.at<float>(gr, gc) = curve;
+    n += !std::isnan(curve);
+  }
+  return n;
+}
+
+// TODO (chao): tbb ersion is slower, need to check for false sharing
+int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb) {
+  CHECK_EQ(scan.type(), CV_32FC4) << CvTypeStr(scan.type());
+  CHECK_EQ(grid.type(), CV_32FC1) << CvTypeStr(grid.type());
+
+  int n = 0;
+  const cv::Size cell_size{scan.cols / grid.cols, scan.rows / grid.rows};
+
+  if (tbb) {
+    n = tbb::parallel_reduce(
+        tbb::blocked_range<int>(0, grid.rows),
+        0,
+        [&](const tbb::blocked_range<int>& block, int total) {
+          for (int gr = block.begin(); gr < block.end(); ++gr) {
+            total += CalcScanCurveRow(scan, grid, cell_size, gr);
+          }
+          return total;
+        },
+        std::plus<>{});
+  } else {
+    for (int gr = 0; gr < grid.rows; ++gr) {
+      n += CalcScanCurveRow(scan, grid, cell_size, gr);
+    }
+  }
+  return n;
+}
+
+/// LidarSweep =================================================================
 LidarSweep::LidarSweep(cv::Size sweep_size, cv::Size cell_size)
     : sweep_{sweep_size, CV_32FC4},
       cell_size_{cell_size},
@@ -46,57 +90,10 @@ int LidarSweep::AddScan(const cv::Mat& scan, cv::Range scan_range, bool tbb) {
   range_ = scan_range;
   scan.copyTo(sweep_.colRange(range_));  // x,y,w,h
 
-  // Compute curvature of scan
-  auto subgrid = GetSubgrid(scan_range);
-  return ReduceScan(scan, subgrid, tbb);
-}
-
-cv::Mat LidarSweep::CellAt(int gr, int gc) const {
-  CHECK_LT(gc, grid_width());
-  const int sr = gr * cell_size_.height;
-  const int sc = gc * cell_size_.width;
-  return sweep_.row(sr).colRange(sc, sc + cell_size_.width);
-}
-
-cv::Mat LidarSweep::GetSubgrid(cv::Range scan_range) {
-  // compute corresponding grid block given scan range
-  return grid_.colRange(scan_range.start / cell_size_.width,
-                        scan_range.end / cell_size_.width);
-}
-
-int LidarSweep::ReduceScan(const cv::Mat& scan, cv::Mat& subgrid, bool tbb) {
-  int num_valid = 0;
-
-  if (tbb) {
-    num_valid = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, subgrid.rows),
-        0,
-        [&](const tbb::blocked_range<int>& block, int total) {
-          for (int gr = block.begin(); gr < block.end(); ++gr) {
-            total += ReduceScanRow(scan, gr, subgrid);
-          }
-          return total;
-        },
-        std::plus<>{});
-  } else {
-    for (int gr = 0; gr < subgrid.rows; ++gr) {
-      num_valid += ReduceScanRow(scan, gr, subgrid);
-    }
-  }
-  return num_valid;
-}
-
-int LidarSweep::ReduceScanRow(const cv::Mat& scan, int gr, cv::Mat& subgrid) {
-  int num_valid = 0;
-  for (int gc = 0; gc < subgrid.cols; ++gc) {
-    const int sr = gr * cell_size_.height;
-    const int sc = gc * cell_size_.width;
-    const auto cell = scan.row(sr).colRange(sc, sc + cell_size_.width);
-    const auto curve = CellCurvature(cell);
-    subgrid.at<float>(gr, gc) = curve;
-    num_valid += !std::isnan(curve);
-  }
-  return num_valid;
+  // Compute curvature of scan and save to grid
+  auto subgrid = grid_.colRange(scan_range.start / cell_size_.width,
+                                scan_range.end / cell_size_.width);
+  return CalcScanCurve(scan, subgrid, tbb);
 }
 
 std::string LidarSweep::Repr() const {

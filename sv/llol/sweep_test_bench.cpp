@@ -52,31 +52,33 @@ TEST(LidarSweepTest, TestAddScan) {
   EXPECT_EQ(ls.full(), true);
 }
 
-void BM_SweepAddScanSeq(benchmark::State& state) {
-  int cell = state.range(0);
-  int cols = 1024;
-  LidarSweep sweep({cols, 64}, {cell, 1});
-  cv::Mat scan = MakeScan(sweep.size());
+void BM_CalcScanCurveSeq(benchmark::State& state) {
+  const cv::Size cell_size{16, 2};
+  const cv::Mat scan = MakeScan({1024, 64});
+  cv::Mat grid{
+      cv::Size{scan.cols / cell_size.width, scan.rows / cell_size.height},
+      CV_32FC1};
 
   for (auto _ : state) {
-    sweep.AddScan(scan, {0, cols}, false);
-    benchmark::DoNotOptimize(sweep);
+    CalcScanCurve(scan, grid, false);
+    benchmark::DoNotOptimize(grid);
   }
 }
-BENCHMARK(BM_SweepAddScanSeq)->Arg(16)->Arg(8);
+BENCHMARK(BM_CalcScanCurveSeq);
 
-void BM_SweepAddScanTbb(benchmark::State& state) {
-  int cell = state.range(0);
-  int cols = 1024;
-  LidarSweep sweep({cols, 64}, {cell, 1});
-  cv::Mat scan = MakeScan(sweep.size());
+void BM_CalcScanCurvePar(benchmark::State& state) {
+  const cv::Size cell_size{16, 2};
+  const cv::Mat scan = MakeScan({1024, 64});
+  cv::Mat grid{
+      cv::Size{scan.cols / cell_size.width, scan.rows / cell_size.height},
+      CV_32FC1};
 
   for (auto _ : state) {
-    sweep.AddScan(scan, {0, cols}, true);
-    benchmark::DoNotOptimize(sweep);
+    CalcScanCurve(scan, grid, true);
+    benchmark::DoNotOptimize(grid);
   }
 }
-BENCHMARK(BM_SweepAddScanTbb)->Arg(16)->Arg(8);
+BENCHMARK(BM_CalcScanCurvePar);
 
 }  // namespace
 }  // namespace sv

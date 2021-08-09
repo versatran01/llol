@@ -9,11 +9,14 @@
 namespace sv {
 
 DepthPano::DepthPano(cv::Size size, float hfov)
-    : buf_{size, CV_16UC1}, buf2_{size, CV_16UC1}, model_{size, hfov} {}
+    : model_{size, hfov},
+      dbuf_{size, CV_16UC1},
+      pbuf_{size, CV_32FC3},
+      dbuf2_{size, CV_16UC1} {}
 
 std::string DepthPano::Repr() const {
   return fmt::format("DepthPano({}, model={}, scale={}, max_range={})",
-                     sv::Repr(buf_),
+                     sv::Repr(dbuf_),
                      model_.Repr(),
                      kScale,
                      kMaxRange);
@@ -71,15 +74,15 @@ int DepthPano::AddSweepRow(const cv::Mat& sweep, int sr) {
     const auto rg_p = xyz_p.norm();
 
     // Check viewpoint close
-    const float dot = xyz_p.dot(xyz_p) / (rg_s * rg_p);
-    if (dot < 0) continue;
+    //    const float dot = xyz_p.dot(xyz_p) / (rg_s * rg_p);
+    //    if (dot < 0) continue;
 
     // Project to pano
     const auto pt = model_.Forward(xyz_p.x(), xyz_p.y(), xyz_p.z(), rg_p);
     if (pt.x < 0) continue;
 
     // Update pano
-    SetRange(pt, rg_p, buf_);
+    SetRange(pt, rg_p, dbuf_);
     ++num_added;
   }
 
@@ -88,13 +91,13 @@ int DepthPano::AddSweepRow(const cv::Mat& sweep, int sr) {
 
 int DepthPano::Render(bool tbb) {
   // clear pano2
-  buf2_.setTo(0);
+  dbuf2_.setTo(0);
 
   int num_rendered = 0;
 
   if (tbb) {
     num_rendered = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, buf_.rows),
+        tbb::blocked_range<int>(0, dbuf_.rows),
         0,
         [&](const tbb::blocked_range<int>& blk, int total) {
           for (int r = blk.begin(); r < blk.end(); ++r) {
@@ -104,7 +107,7 @@ int DepthPano::Render(bool tbb) {
         },
         std::plus<>{});
   } else {
-    for (int r = 0; r < buf_.rows; ++r) {
+    for (int r = 0; r < dbuf_.rows; ++r) {
       num_rendered += RenderRow(r);
     }
   }
@@ -115,8 +118,8 @@ int DepthPano::Render(bool tbb) {
 int DepthPano::RenderRow(int r1) {
   int num_rendered = 0;
 
-  for (int c1 = 0; c1 < buf_.cols; ++c1) {
-    const float rg1 = buf_.at<ushort>(r1, c1) / kScale;
+  for (int c1 = 0; c1 < dbuf_.cols; ++c1) {
+    const float rg1 = dbuf_.at<ushort>(r1, c1) / kScale;
     if (rg1 == 0) continue;
 
     // pano -> xyz1
@@ -128,14 +131,14 @@ int DepthPano::RenderRow(int r1) {
     const auto rg2 = xyz2.norm();
 
     // Check view point close
-    const float cos = xyz2.dot(xyz2) / (rg1 * rg2);
-    if (cos < 0) continue;
+    //    const float cos = xyz2.dot(xyz2) / (rg1 * rg2);
+    //    if (cos < 0) continue;
 
     // Project to mat2
     const auto pt2 = model_.Forward(xyz2.x(), xyz2.y(), xyz2.z(), rg2);
     if (pt2.x < 0) continue;
 
-    SetRange(pt2, rg2, buf2_);
+    SetRange(pt2, rg2, dbuf2_);
     ++num_rendered;
   }
 
@@ -144,14 +147,26 @@ int DepthPano::RenderRow(int r1) {
 
 void DepthPano::CalcMeanCovar(cv::Rect win, MeanCovar3f& mc) const {
   // Compute mean and covar within window
-  for (int wr = win.y; wr < win.y + win.height; ++wr) {
-    for (int wc = win.x; wc < win.x + win.width; ++wc) {
-      const float rg = GetRange({wc, wr});
+  for (int r = win.y; r < win.y + win.height; ++r) {
+    for (int c = win.x; c < win.x + win.width; ++c) {
+      const float rg = GetRange({c, r});
       if (rg == 0) continue;
-      const auto wp = model_.Backward(wr, wc, rg);
-      mc.Add({wp.x, wp.y, wp.z});
+      const auto p = model_.Backward(r, c, rg);
+      mc.Add({p.x, p.y, p.z});
     }
   }
 }
+
+// int DepthPano::DbufToPBuf(bool tbb) { return 0; }
+
+// int DepthPano::DbufToPBufRow(int r) {
+//  int n = 0;
+//  for (int c = 0; c < dbuf_.cols; ++c) {
+//    const float rg = dbuf_.at<ushort>(r, c) / kScale;
+//    if (rg == 0) continue;
+//  }
+
+//  return n;
+//}
 
 }  // namespace sv
