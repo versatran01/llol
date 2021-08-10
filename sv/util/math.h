@@ -96,6 +96,29 @@ struct MeanCovar {
 using MeanCovar3f = MeanCovar<float, 3>;
 using MeanCovar3d = MeanCovar<double, 3>;
 
+template <typename T>
+struct MeanVar {
+  int n{0};
+  T mean{0};
+  T var_sum_{0};
+
+  T var() const { return var_sum_ / (n - 1); }
+  bool ok() const noexcept { return n > 1; }
+
+  void Add(const T& x) {
+    const T diff = x - mean;
+    mean += diff / (n + 1.0);
+    var_sum_ += (n / (n + 1.0) * diff) * diff;
+    ++n;
+  }
+
+  void Reset() {
+    n = 0;
+    mean = 0;
+    var_sum_ = 0;
+  }
+};
+
 /// @brief Compute covariance, each column is a sample
 Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);
 

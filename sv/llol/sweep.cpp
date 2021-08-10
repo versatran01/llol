@@ -7,65 +7,39 @@
 
 #include <Eigen/Core>
 
+#include "sv/util/math.h"
 #include "sv/util/ocv.h"
 
 namespace sv {
 
-float CalcCurvature(const cv::Mat& cell) {
+// cell is (1,c, 32FC4), return nan if any point is nan
+float CalcCellCurve(const cv::Mat& cell) {
   // compute sum of range in cell
   float range_sum = 0.0F;
+  const int n = cell.cols;
 
-  for (int c = 0; c < cell.cols; ++c) {
+  for (int c = 0; c < n; ++c) {
     const auto& rg = cell.at<cv::Vec4f>(0, c)[3];
     if (std::isnan(rg)) return rg;  // early return nan
     range_sum += rg;
   }
   // range of mid point
-  const float range_mid = cell.at<cv::Vec4f>(cell.cols / 2)[3];
-  return std::abs(range_sum / cell.cols / range_mid - 1);
+  const auto range_mid = cell.at<cv::Vec4f>(n / 2)[3];
+  return std::abs(range_sum / range_mid / n - 1);
 }
 
-int CalcScanCurveRow(const cv::Mat& scan,
-                     cv::Mat& grid,
-                     cv::Size cell_size,
-                     int gr) {
-  int n = 0;
-  for (int gc = 0; gc < grid.cols; ++gc) {
-    const int sr = gr * cell_size.height;
-    const int sc = gc * cell_size.width;
-    const auto cell = scan.row(sr).colRange(sc, sc + cell_size.width);
-    const auto curve = CalcCurvature(cell);
-    grid.at<float>(gr, gc) = curve;
-    n += !std::isnan(curve);
+float CalcCellStd(const cv::Mat& cell) {
+  const int n = cell.cols;
+  const int min_pts = n * 0.75;
+
+  MeanVar<float> mv;
+  for (int c = 0; c < n; ++c) {
+    const auto& rg = cell.at<cv::Vec4f>(0, c)[3];
+    if (std::isnan(rg)) continue;
+    mv.Add(rg);
   }
-  return n;
-}
-
-// TODO (chao): tbb ersion is slower, need to check for false sharing
-int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb) {
-  CHECK_EQ(scan.type(), CV_32FC4) << CvTypeStr(scan.type());
-  CHECK_EQ(grid.type(), CV_32FC1) << CvTypeStr(grid.type());
-
-  int n = 0;
-  const cv::Size cell_size{scan.cols / grid.cols, scan.rows / grid.rows};
-
-  if (tbb) {
-    n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, grid.rows),
-        0,
-        [&](const tbb::blocked_range<int>& block, int total) {
-          for (int gr = block.begin(); gr < block.end(); ++gr) {
-            total += CalcScanCurveRow(scan, grid, cell_size, gr);
-          }
-          return total;
-        },
-        std::plus<>{});
-  } else {
-    for (int gr = 0; gr < grid.rows; ++gr) {
-      n += CalcScanCurveRow(scan, grid, cell_size, gr);
-    }
-  }
-  return n;
+  if (mv.n < min_pts) return kNaNF;
+  return std::sqrt(mv.var()) / mv.mean;
 }
 
 /// LidarSweep =================================================================
@@ -76,7 +50,9 @@ LidarSweep::LidarSweep(cv::Size sweep_size, cv::Size cell_size)
                      sweep_size.height / cell_size.height},
             CV_32FC1} {}
 
-int LidarSweep::AddScan(const cv::Mat& scan, cv::Range scan_range, bool tbb) {
+int LidarSweep::AddScan(const cv::Mat& scan,
+                        const cv::Range& scan_range,
+                        bool tbb) {
   // Check scan type is compatible
   CHECK_EQ(scan.type(), sweep_.type());
   // Check rows match between scan and mat
@@ -91,9 +67,53 @@ int LidarSweep::AddScan(const cv::Mat& scan, cv::Range scan_range, bool tbb) {
   scan.copyTo(sweep_.colRange(range_));  // x,y,w,h
 
   // Compute curvature of scan and save to grid
-  auto subgrid = grid_.colRange(scan_range.start / cell_size_.width,
-                                scan_range.end / cell_size_.width);
-  return CalcScanCurve(scan, subgrid, tbb);
+  auto grid = grid_.colRange(scan_range / cell_size().width);
+  return CalcScanCurve(scan, grid, tbb);
+}
+
+int LidarSweep::CalcScanCurve(const cv::Mat& scan, cv::Mat grid, bool tbb) {
+  int n = 0;
+  if (tbb) {
+    n = tbb::parallel_reduce(
+        tbb::blocked_range<int>(0, grid_.rows),
+        0,
+        [&](const tbb::blocked_range<int>& block, int total) {
+          for (int gr = block.begin(); gr < block.end(); ++gr) {
+            total += CalcScanCurveRow(scan, grid, gr);
+          }
+          return total;
+        },
+        std::plus<>{});
+  } else {
+    for (int gr = 0; gr < grid.rows; ++gr) {
+      n += CalcScanCurveRow(scan, grid, gr);
+    }
+  }
+  return n;
+}
+
+int LidarSweep::CalcScanCurveRow(const cv::Mat& scan, cv::Mat& grid, int gr) {
+  int n = 0;
+  for (int gc = 0; gc < grid.cols; ++gc) {
+    const int sr = gr * cell_size_.height;
+    const int sc = gc * cell_size_.width;
+    const auto cell = scan.row(sr).colRange(sc, sc + cell_size_.width);
+    const auto curve = CalcCellCurve(cell);
+    grid.at<float>(gr, gc) = curve;
+    n += static_cast<int>(std::isnan(curve));
+  }
+  return n;
+}
+
+void LidarSweep::Reset() {
+  range_ = {0, 0};
+  const auto nan = std::numeric_limits<float>::quiet_NaN();
+  sweep_.setTo(nan);
+  grid_.setTo(nan);
+}
+
+cv::Point LidarSweep::PixelToCell(const cv::Point& px_s) const {
+  return {px_s.x / cell_size_.width, px_s.y / cell_size_.height};
 }
 
 std::string LidarSweep::Repr() const {

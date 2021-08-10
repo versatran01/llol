@@ -23,13 +23,26 @@ TEST(MathTest, TestMeanCovar) {
   for (int i = 3; i < 50; i += 10) {
     const auto X = Eigen::Matrix3Xd::Random(3, i).eval();
     const auto cov0 = CalCovar3d(X);
+    const Eigen::Vector3d m = X.rowwise().mean();
 
     MeanCovar3d mc;
     for (int j = 0; j < X.cols(); ++j) mc.Add(X.col(j));
     const auto cov1 = mc.covar();
 
     EXPECT_TRUE(cov0.isApprox(cov1));
+    EXPECT_TRUE(mc.mean.isApprox(m));
   }
+}
+
+TEST(MathTest, TestMeanVar) {
+  const Eigen::VectorXd X = Eigen::VectorXd::Random(100);
+
+  const auto m = X.mean();
+  const float var = (X.array() - m).square().sum() / (X.rows() - 1);
+  MeanVar<float> mv;
+  for (int j = 0; j < X.rows(); ++j) mv.Add(X(j));
+  EXPECT_NEAR(mv.mean, m, 1e-6);
+  EXPECT_NEAR(mv.var(), var, 1e-6);
 }
 
 void BM_Covariance(benchmark::State& state) {

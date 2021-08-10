@@ -10,20 +10,6 @@ namespace sv {
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
-MeanCovar3f CalcMeanCovar(const cv::Mat& mat) {
-  CHECK_EQ(mat.type(), CV_32FC4);
-
-  MeanCovar3f mc;
-  for (int r = 0; r < mat.rows; ++r) {
-    for (int c = 0; c < mat.cols; ++c) {
-      const auto& xyzr = mat.at<cv::Vec4f>(r, c);
-      if (std::isnan(xyzr[0])) continue;
-      mc.Add({xyzr[0], xyzr[1], xyzr[2]});
-    }
-  }
-  return mc;
-}
-
 void MeanCovar2Marker(Marker& marker,
                       const Eigen::Vector3d& mean,
                       Eigen::Vector3d eigvals,
@@ -49,7 +35,7 @@ std::vector<Marker> Sweep2Markers(const std_msgs::Header& header,
                                   const LidarSweep& sweep,
                                   float max_curve) {
   std::vector<Marker> markers;
-  markers.reserve(sweep.grid_total());
+  markers.reserve(sweep.grid().total());
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
 
@@ -67,6 +53,8 @@ std::vector<Marker> Sweep2Markers(const std_msgs::Header& header,
   marker.color.g = 1.0;
   marker.color.b = 0.0;
 
+  MeanCovar3f mc;
+
   int k = 0;
   for (int gr = 0; gr < grid.rows; ++gr) {
     for (int gc = 0; gc < grid.cols; ++gc) {
@@ -76,7 +64,9 @@ std::vector<Marker> Sweep2Markers(const std_msgs::Header& header,
       const cv::Rect rect{
           cv::Point{gc * cell_size.width, gr * cell_size.height}, cell_size};
       const cv::Mat cell{sweep.sweep(), rect};
-      const auto mc = CalcMeanCovar(cell);
+
+      mc.Reset();
+      MatXyzr2MeanCovar(cell, mc);
 
       if (mc.n < min_pts) continue;
       es.compute(mc.covar());
@@ -96,7 +86,7 @@ void Match2Markers(std::vector<Marker>& markers,
                    const std_msgs::Header& header,
                    const std::vector<PointMatch>& matches,
                    double scale) {
-  markers.reserve(matches.size());
+  markers.reserve(matches.size() * 2);
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
 
@@ -110,6 +100,16 @@ void Match2Markers(std::vector<Marker>& markers,
   pano_mk.color.g = 1.0;
   pano_mk.color.b = 0.0;
 
+  Marker sweep_mk;
+  sweep_mk.header = header;
+  sweep_mk.ns = "match_sweep";
+  sweep_mk.type = Marker::SPHERE;
+  sweep_mk.action = Marker::ADD;
+  sweep_mk.color.a = 0.8;
+  sweep_mk.color.r = 1.0;
+  sweep_mk.color.g = 0.0;
+  sweep_mk.color.b = 0.0;
+
   for (int i = 0; i < matches.size(); ++i) {
     const auto& match = matches[i];
     es.compute(match.dst.covar());
@@ -121,7 +121,40 @@ void Match2Markers(std::vector<Marker>& markers,
 
     pano_mk.id = i;
     markers.push_back(pano_mk);
+
+    es.compute(match.src.covar());
+    MeanCovar2Marker(sweep_mk,
+                     match.src.mean.cast<double>(),
+                     es.eigenvalues().cast<double>(),
+                     es.eigenvectors().cast<double>(),
+                     scale);
+
+    sweep_mk.id = i;
+    markers.push_back(sweep_mk);
   }
+}
+
+cv::Mat ApplyCmap(const cv::Mat& input,
+                  double scale,
+                  int cmap,
+                  uint8_t bad_color) {
+  CHECK_EQ(input.channels(), 1);
+
+  cv::Mat disp;
+  input.convertTo(disp, CV_8UC1, scale * 255.0);
+  cv::applyColorMap(disp, disp, cmap);
+
+  if (input.depth() >= CV_32F) {
+    disp.setTo(bad_color, cv::Mat(~(input > 0)));
+  }
+
+  return disp;
+}
+
+void Imshow(const std::string& name, const cv::Mat& mat, int flag) {
+  cv::namedWindow(name, flag);
+  cv::imshow(name, mat);
+  cv::waitKey(1);
 }
 
 }  // namespace sv

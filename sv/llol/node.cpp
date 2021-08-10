@@ -26,6 +26,7 @@ class LlolNode {
 
   bool vis_{};
   bool tbb_{};
+  bool init_{false};
 
   LidarSweep sweep_;
   DepthPano pano_;
@@ -59,7 +60,7 @@ class LlolNode {
 
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
-    if (sweep_.empty()) {
+    if (!init_) {
       // Initialized sweep
       {
         auto odom_nh = ros::NodeHandle{pnh_, "sweep"};
@@ -78,9 +79,11 @@ class LlolNode {
         mp.nms = match_nh.param<bool>("nms", false);
         mp.half_rows = match_nh.param<int>("half_rows", 2);
         mp.max_curve = match_nh.param<double>("max_curve", 0.01);
-        matcher_ = PointMatcher(sweep_.grid_total(), mp);
+        matcher_ = PointMatcher(sweep_.grid().total(), mp);
         ROS_INFO_STREAM(matcher_);
       }
+
+      init_ = true;
     }
 
     static bool wait_for_scan0{true};
@@ -144,14 +147,6 @@ class LlolNode {
       Match2Markers(marray.markers, image_msg->header, matcher_.matches());
 
       // display good match
-      cv::Mat match_disp(sweep_.grid_size(), CV_32FC1);
-      match_disp.setTo(std::numeric_limits<float>::quiet_NaN());
-
-      float max_pts = matcher_.win_size().area();
-      for (const auto& match : matcher_.matches()) {
-        match_disp.at<float>(sweep_.PixelToCell(match.pt)) =
-            match.dst.n / max_pts;
-      }
       Imshow("match",
              ApplyCmap(matcher_.Draw(sweep_), 1.0, cv::COLORMAP_VIRIDIS));
     }
@@ -164,8 +159,8 @@ class LlolNode {
         auto _ = tm_.Scoped("Pano/AddSweep");
         num_added = pano_.AddSweep(sweep_.sweep(), tbb_);
       }
-      ROS_INFO_STREAM("Num added: " << num_added
-                                    << ", sweep total: " << sweep_.total());
+      ROS_INFO_STREAM("Num added: " << num_added << ", sweep total: "
+                                    << sweep_.sweep().total());
 
       int num_rendered = 0;
       {
@@ -182,7 +177,7 @@ class LlolNode {
     }
 
     pub_marray_.publish(marray);
-    ROS_DEBUG_STREAM(tm_.ReportAll());
+    ROS_DEBUG_STREAM_THROTTLE(2, tm_.ReportAll());
   }
 };
 

@@ -43,30 +43,6 @@ std::string CvTypeStr(int type) {
 
   return r;
 }
-
-cv::Mat ApplyCmap(const cv::Mat& input,
-                  double scale,
-                  int cmap,
-                  uint8_t bad_color) {
-  CHECK_EQ(input.channels(), 1);
-
-  cv::Mat disp;
-  input.convertTo(disp, CV_8UC1, scale * 255.0);
-  cv::applyColorMap(disp, disp, cmap);
-
-  if (input.depth() >= CV_32F) {
-    disp.setTo(bad_color, cv::Mat(~(input > 0)));
-  }
-
-  return disp;
-}
-
-void Imshow(const std::string& name, const cv::Mat& mat, int flag) {
-  cv::namedWindow(name, flag);
-  cv::imshow(name, mat);
-  cv::waitKey(1);
-}
-
 std::string Repr(const cv::Mat& mat) {
   return fmt::format("(hwc=({},{},{}), depth={})",
                      mat.rows,

@@ -1,8 +1,7 @@
 #pragma once
 
+#include <opencv2/core/mat.hpp>
 #include <opencv2/core/types.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/imgproc.hpp>
 
 namespace sv {
 
@@ -59,22 +58,35 @@ inline constexpr int cv_type_v = cv_type<T>::value;
 /// @example CvTypeStr(CV_8UC1) == "8UC1"
 std::string CvTypeStr(int type);
 
-/// @brief Apply color map to mat
-/// @details input must be 1-channel, assume after scale the max will be 1
-///          default cmap is 10 = PINK. For float image it will set nan to
-///          bad_color
-cv::Mat ApplyCmap(const cv::Mat& input,
-                  double scale = 1.0,
-                  int cmap = cv::COLORMAP_PINK,
-                  uint8_t bad_color = 255);
-
-/// @brief Create a window with name and show mat
-void Imshow(const std::string& name,
-            const cv::Mat& mat,
-            int flag = cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
-
 std::string Repr(const cv::Mat& mat);
 std::string Repr(const cv::Size& size);
 std::string Repr(const cv::Range& range);
+
+/// Range * d
+inline cv::Range& operator*=(cv::Range& lhs, int d) noexcept {
+  lhs.start *= d;
+  lhs.end *= d;
+  return lhs;
+}
+inline cv::Range operator*(cv::Range lhs, int d) noexcept { return lhs *= d; }
+
+/// Range / d
+inline cv::Range& operator/=(cv::Range& lhs, int d) noexcept {
+  lhs.start /= d;
+  lhs.end /= d;
+  return lhs;
+}
+inline cv::Range operator/(cv::Range lhs, int d) noexcept { return lhs /= d; }
+
+/// Size / Size
+inline cv::Size& operator/=(cv::Size& lhs, const cv::Size& rhs) noexcept {
+  lhs.width /= rhs.width;
+  lhs.height /= rhs.height;
+  return lhs;
+}
+
+inline cv::Size operator/(cv::Size lhs, const cv::Size& rhs) noexcept {
+  return lhs /= rhs;
+}
 
 }  // namespace sv

@@ -6,6 +6,16 @@
 
 namespace sv {
 
+void MatXyzr2MeanCovar(const cv::Mat& mat, MeanCovar3f& mc) {
+  for (int r = 0; r < mat.rows; ++r) {
+    for (int c = 0; c < mat.cols; ++c) {
+      const auto& xyzr = mat.at<cv::Vec4f>(r, c);
+      if (std::isnan(xyzr[0])) continue;
+      mc.Add({xyzr[0], xyzr[1], xyzr[2]});
+    }
+  }
+}
+
 /// PointMatcher ===============================================================
 PointMatcher::PointMatcher(int max_matches, const MatcherParams& params)
     : params_{params},
@@ -54,10 +64,11 @@ void PointMatcher::Match(const LidarSweep& sweep, const DepthPano& pano) {
         continue;
       }
 
-      // Get the mid point in sweep
+      // Get the mid point in cell
       const int sr = gr * sweep.cell_size().height;
-      const int sc = (gc + 0.5) * sweep.cell_size().width;
-      const cv::Point px_s{sc, sr};
+      const int sc = gc * sweep.cell_size().width;
+      const int sc_mid = sc + sweep.cell_size().width / 2;
+      const cv::Point px_s{sc_mid, sr};
       const auto& xyzr_s = sweep.XyzrAt(px_s);
       const auto rg_s = xyzr_s[3];
       if (!(rg_s > 0)) continue;
@@ -93,16 +104,20 @@ void PointMatcher::Match(const LidarSweep& sweep, const DepthPano& pano) {
       if (match.dst.n < 9) continue;
 
       // TODO (chao): use point for now, consider using mean and cov
-      match.src.mean = pt_s;
-      match.pt = px_s;
+      // Get cell
+      const cv::Mat cell =
+          sweep.sweep().row(sr).colRange(sc, sc + sweep.cell_size().width);
 
+      MatXyzr2MeanCovar(cell, match.src);
+
+      match.pt = px_s;
       matches_.push_back(match);
     }
   }
 }
 
 cv::Mat PointMatcher::Draw(const LidarSweep& sweep) const {
-  cv::Mat disp(sweep.grid_size(), CV_32FC1, kNaNF);
+  cv::Mat disp(cv::Size{sweep.grid().cols, sweep.grid().rows}, CV_32FC1, kNaNF);
   float max_pts = win_size_.area();
   for (const auto& match : matches_) {
     disp.at<float>(sweep.PixelToCell(match.pt)) = match.dst.n / max_pts;

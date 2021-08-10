@@ -53,8 +53,12 @@ def calc_grid_std(rimg: np.ndarray, cell_shape) -> np.ndarray:
             sr = gr * cell_shape[0]
             sc = gc * cell_shape[1]
             cell = rimg[sr, sc:sc + cell_shape[1]]
-            mean = np.mean(cell)
-            grid[gr, gc] = np.std(cell) / mean
+            n = np.sum(cell > 0)
+            if n < min_pts:
+                grid[gr, gc] = np.nan
+            else:
+                mean = np.nanmean(cell)
+                grid[gr, gc] = np.nanstd(cell) / mean 
     return grid
 
 
@@ -92,11 +96,11 @@ imshownn(ax[1], rimg2, cmap="pink")
 cell_shape = (2, 16)
 grid_std = calc_grid_std(rimg, cell_shape)  # 0.04
 grid_curve = calc_grid_curve(rimg, cell_shape)  # 0.04ms
-print("num std: ", np.sum(grid_std >= 0))
-print("num curve: ", np.sum(grid_curve >= 0))
+print("num std: ", np.sum(grid_std < 0.1))
+print("num curve: ", np.sum(grid_curve < 0.01))
 
 f, ax = plt.subplots(2, 2)
-imshownn(ax[0, 0], grid_std)
+imshownn(ax[0, 0], grid_std, vmax=0.1)
 imshownn(ax[0, 1], grid_curve, vmax=0.1)
 ax[1, 0].hist(grid_std.ravel(), bins=100)
 ax[1, 1].hist(grid_curve.ravel(), bins=100)

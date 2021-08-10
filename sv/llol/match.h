@@ -20,6 +20,9 @@ struct MatcherParams {
   double range_ratio{0.1};
 };
 
+/// @brief Mat must be 32FC4
+void MatXyzr2MeanCovar(const cv::Mat& mat, MeanCovar3f& mc);
+
 float CalcRangeDiffRel(float rg1, float rg2) {
   return std::abs(rg1 - rg2) / std::max(rg1, rg2);
 }
