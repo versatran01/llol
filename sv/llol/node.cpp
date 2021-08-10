@@ -140,7 +140,7 @@ class LlolNode {
     } else {
       {  /// Match Features
         auto _ = tm_.Scoped("Matcher/Match");
-        matcher_.Match(sweep_, pano_);
+        matcher_.Match(sweep_, pano_, tbb_);
       }
 
       ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());

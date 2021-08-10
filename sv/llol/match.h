@@ -1,5 +1,7 @@
 #pragma once
 
+#include <new>
+
 #include "sv/llol/pano.h"
 #include "sv/llol/sweep.h"
 
@@ -10,7 +12,9 @@ struct PointMatch {
   cv::Point pt{};
   MeanCovar3f src{};  // sweep
   MeanCovar3f dst{};  // pano
+  //  uint8_t pad[128 - 112];
 };
+// static_assert(sizeof(PointMatch) == 128, "PointMatch size is not 128");
 
 /// @class Feature Matcher
 struct MatcherParams {
@@ -42,7 +46,10 @@ struct PointMatcher {
   const auto& matches() const noexcept { return matches_; }
 
   /// @brief Match features in sweep to pano
-  void Match(const LidarSweep& sweep, const DepthPano& pano);
+  void Match(const LidarSweep& sweep, const DepthPano& pano, bool tbb = false);
+  void MatchSingle(const LidarSweep& sweep,
+                   const DepthPano& pano,
+                   const cv::Point& gpx);
 
   /// @brief Draw match, valid pixel is percentage of pano points in window
   cv::Mat Draw(const LidarSweep& sweep) const;

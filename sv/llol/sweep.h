@@ -54,7 +54,7 @@ struct LidarSweep {
   int width() const noexcept { return range_.end; }
   int grid_width() const noexcept { return width() / cell_size_.width; }
 
-  cv::Mat CellAt(int gr, int gc) const;
+  cv::Mat CellAt(const cv::Point& grid_px) const;
 };
 
 }  // namespace sv

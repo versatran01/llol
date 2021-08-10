@@ -1,6 +1,8 @@
 #include "sv/llol/match.h"
 
 #include <fmt/core.h>
+#include <glog/logging.h>
+#include <tbb/parallel_for.h>
 
 #include "sv/util/ocv.h"
 
@@ -52,66 +54,92 @@ bool IsCellGood(const cv::Mat& grid, cv::Point px, double max_curve, bool nms) {
   return true;
 }
 
-void PointMatcher::Match(const LidarSweep& sweep, const DepthPano& pano) {
-  matches_.clear();
-
+void PointMatcher::Match(const LidarSweep& sweep,
+                         const DepthPano& pano,
+                         bool tbb) {
   const auto& grid = sweep.grid();
+  matches_.clear();
+  matches_.resize(grid.total());
+
   const int pad = static_cast<int>(params_.nms);
 
-  for (int gr = pad; gr < grid.rows - pad; ++gr) {
-    for (int gc = pad; gc < sweep.grid_width() - pad; ++gc) {
-      if (!IsCellGood(grid, {gc, gr}, params_.max_curve, params_.nms)) {
+  //  if (tbb) {
+  //    tbb::parallel_for(tbb::blocked_range<int>(0, matches_.size()),
+  //                      [&](const auto& block) {
+  //                        for (int i = block.begin(); i < block.end(); ++i) {
+  //                          MatchSingle(sweep, pano, i);
+  //                        }
+  //                      });
+  //  } else {
+  //    for (int i = 0; i < matches_.size(); ++i) {
+  //      MatchSingle(sweep, pano, i);
+  //    }
+  //  }
+
+  if (tbb) {
+    tbb::parallel_for(tbb::blocked_range<int>(0, grid.rows),
+                      [&](const auto& block) {
+                        for (int gr = block.begin(); gr < block.end(); ++gr) {
+                          for (int gc = pad; gc < grid.cols - pad; ++gc) {
+                            MatchSingle(sweep, pano, {gc, gr});
+                          }
+                        }
+                      });
+  } else {
+    for (int gr = 0; gr < grid.rows; ++gr) {
+      for (int gc = pad; gc < grid.cols - pad; ++gc) {
+        MatchSingle(sweep, pano, {gc, gr});
+      }
+    }
+  }
+
+  // Clean up
+  const int min_pts = 0.5 * win_size_.area();
+  const auto it =
+      std::remove_if(matches_.begin(), matches_.end(), [](const PointMatch& m) {
+        return m.dst.n < 9;
+      });
+  matches_.erase(it, matches_.end());
+}
+
+void PointMatcher::MatchSingle(const LidarSweep& sweep,
+                               const DepthPano& pano,
+                               const cv::Point& gpx) {
+  // Check if grid cell is good
+  if (!IsCellGood(sweep.grid(), gpx, params_.max_curve, params_.nms)) {
+    return;
+  }
+
+  const int i = gpx.y * sweep.grid().cols + gpx.x;
+  auto& match = matches_.at(i);
+
+  match.pt.x = (gpx.x + 0.5) * sweep.cell_size().width;
+  match.pt.y = gpx.y * sweep.cell_size().height;
+
+  // Compute normal dist around sweep cell
+  const auto cell = sweep.CellAt(gpx);
+  MatXyzr2MeanCovar(cell, match.src);
+
+  // Transform to pano frame
+  const Eigen::Vector3f pt_p = Eigen::Matrix3f::Identity() * match.src.mean;
+  const float rg_p = pt_p.norm();
+
+  // Project to pano
+  const auto px_p = pano.model_.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
+  if (px_p.x < 0) return;
+
+  // Compute normal dist around pano point
+  const auto win = pano.BoundWinCenterAt(px_p, win_size_);
+
+  for (int wr = 0; wr < win.height; ++wr) {
+    for (int wc = 0; wc < win.width; ++wc) {
+      const cv::Point px_w{wc + win.x, wr + win.y};
+      const float rg_w = pano.GetRange(px_w);
+      if (rg_w == 0 || CalcRangeDiffRel(rg_w, rg_p) > params_.range_ratio) {
         continue;
       }
-
-      // Get the mid point in cell
-      const int sr = gr * sweep.cell_size().height;
-      const int sc = gc * sweep.cell_size().width;
-      const int sc_mid = sc + sweep.cell_size().width / 2;
-      const cv::Point px_s{sc_mid, sr};
-      const auto& xyzr_s = sweep.XyzrAt(px_s);
-      const auto rg_s = xyzr_s[3];
-      if (!(rg_s > 0)) continue;
-
-      // Transform xyz from sweep to pano frame
-      Eigen::Map<const Eigen::Vector3f> pt_s(&xyzr_s[0]);
-      const Eigen::Vector3f pt_p = Eigen::Matrix3f::Identity() * pt_s;
-      const float rg_p = pt_p.norm();
-
-      // Project to pano
-      const auto px_p = pano.model_.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
-      if (px_p.x < 0) continue;
-
-      PointMatch match;
-
-      // Compute normal distribution around sweep point
-
-      // Compute normal distribution around pano point
-      const auto win = pano.BoundWinCenterAt(px_p, win_size_);
-
-      for (int wr = 0; wr < win.height; ++wr) {
-        for (int wc = 0; wc < win.width; ++wc) {
-          const cv::Point px_w{wc + win.x, wr + win.y};
-          const float rg_w = pano.GetRange(px_w);
-          if (rg_w == 0 || CalcRangeDiffRel(rg_w, rg_p) > params_.range_ratio) {
-            continue;
-          }
-          const auto p = pano.model_.Backward(px_w.y, px_w.x, rg_w);
-          match.dst.Add({p.x, p.y, p.z});
-        }
-      }
-
-      if (match.dst.n < 9) continue;
-
-      // TODO (chao): use point for now, consider using mean and cov
-      // Get cell
-      const cv::Mat cell =
-          sweep.sweep().row(sr).colRange(sc, sc + sweep.cell_size().width);
-
-      MatXyzr2MeanCovar(cell, match.src);
-
-      match.pt = px_s;
-      matches_.push_back(match);
+      const auto p = pano.model_.Backward(px_w.y, px_w.x, rg_w);
+      match.dst.Add({p.x, p.y, p.z});
     }
   }
 }

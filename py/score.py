@@ -61,6 +61,46 @@ def calc_grid_std(rimg: np.ndarray, cell_shape) -> np.ndarray:
                 grid[gr, gc] = np.nanstd(cell) / mean 
     return grid
 
+@njit 
+def calc_grid_curve2(rimg: np.ndarray, cell_shape) -> np.ndarray:
+    grid_shape = (rimg.shape[0] // cell_shape[0],
+                  rimg.shape[1] // cell_shape[1])
+    grid = np.zeros(grid_shape, np.float32)
+    cols = cell_shape[1]
+    phi = np.pi / 3 # 60 deg surface
+    dtheta = np.pi * 2 / rimg.shape[1]
+    half = cols // 2
+    delta = dtheta * np.tan(phi)
+
+    min_pts = int(cell_shape[1] / 4 * 3)
+    for gr in range(grid.shape[0]):
+        for gc in range(grid.shape[1]):
+            sr = gr * cell_shape[0]
+            sc = gc * cell_shape[1]
+            cell = rimg[sr, sc:sc + cols]
+            mid = (cell[half-1] + cell[half]) / 2
+            
+            if np.isnan(mid):
+                grid[gr, gc] = np.nan
+                continue
+            
+            n = 0
+            curve_sum = 0
+            for k in range(half):
+                ratio = (half - k) * delta
+                dl = cell[k] - mid
+                dr = cell[cols - k - 1] - mid
+                if abs(dl / mid) < ratio and abs(dr / mid) < ratio:
+                    curve_sum += abs(dl + dr)
+                    n += 2
+                     
+            if n < 0.75 * cols:
+                grid[gr, gc] = np.nan
+            else:
+                grid[gr, gc] = curve_sum / n / mid
+            
+    return grid
+
 
 # %%
 bagfile = "/home/chao/Workspace/dataset/bags/2021-08-07-21-34-10.bag"
@@ -96,11 +136,15 @@ imshownn(ax[1], rimg2, cmap="pink")
 cell_shape = (2, 16)
 grid_std = calc_grid_std(rimg, cell_shape)  # 0.04
 grid_curve = calc_grid_curve(rimg, cell_shape)  # 0.04ms
-print("num std: ", np.sum(grid_std < 0.1))
-print("num curve: ", np.sum(grid_curve < 0.01))
+grid_curve2 = calc_grid_curve2(rimg, cell_shape)
+print("num std: ", np.sum(grid_std > 0))
+print("num curve: ", np.sum(grid_curve > 0))
+print("num curve2: ", np.sum(grid_curve2 > 0))
 
-f, ax = plt.subplots(2, 2)
+f, ax = plt.subplots(2, 3)
 imshownn(ax[0, 0], grid_std, vmax=0.1)
 imshownn(ax[0, 1], grid_curve, vmax=0.1)
+imshownn(ax[0, 2], grid_curve2)
 ax[1, 0].hist(grid_std.ravel(), bins=100)
 ax[1, 1].hist(grid_curve.ravel(), bins=100)
+ax[1, 2].hist(grid_curve2.ravel(), bins=100)

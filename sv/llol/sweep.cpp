@@ -15,31 +15,23 @@ namespace sv {
 // cell is (1,c, 32FC4), return nan if any point is nan
 float CalcCellCurve(const cv::Mat& cell) {
   // compute sum of range in cell
-  float range_sum = 0.0F;
   const int n = cell.cols;
 
+  int num = 0;
+  float sum = 0.0F;
   for (int c = 0; c < n; ++c) {
     const auto& rg = cell.at<cv::Vec4f>(0, c)[3];
-    if (std::isnan(rg)) return rg;  // early return nan
-    range_sum += rg;
-  }
-  // range of mid point
-  const auto range_mid = cell.at<cv::Vec4f>(n / 2)[3];
-  return std::abs(range_sum / range_mid / n - 1);
-}
-
-float CalcCellStd(const cv::Mat& cell) {
-  const int n = cell.cols;
-  const int min_pts = n * 0.75;
-
-  MeanVar<float> mv;
-  for (int c = 0; c < n; ++c) {
-    const auto& rg = cell.at<cv::Vec4f>(0, c)[3];
+    //    if (std::isnan(rg)) return rg;  // early return nan
     if (std::isnan(rg)) continue;
-    mv.Add(rg);
+    sum += rg;
+    ++num;
   }
-  if (mv.n < min_pts) return kNaNF;
-  return std::sqrt(mv.var()) / mv.mean;
+
+  if (num < 0.75 * n) return kNaNF;
+  // range of mid point
+  const auto mid =
+      (cell.at<cv::Vec4f>(n / 2)[3] + cell.at<cv::Vec4f>(n / 2 - 1)[3]) / 2;
+  return std::abs(sum / mid / num - 1);
 }
 
 /// LidarSweep =================================================================
@@ -114,6 +106,12 @@ void LidarSweep::Reset() {
 
 cv::Point LidarSweep::PixelToCell(const cv::Point& px_s) const {
   return {px_s.x / cell_size_.width, px_s.y / cell_size_.height};
+}
+
+cv::Mat LidarSweep::CellAt(const cv::Point& grid_px) const {
+  const int sr = grid_px.y * cell_size_.height;
+  const int sc = grid_px.x * cell_size_.width;
+  return sweep_.row(sr).colRange(sc, sc + cell_size_.width);
 }
 
 std::string LidarSweep::Repr() const {

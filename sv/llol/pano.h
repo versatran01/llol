@@ -22,11 +22,6 @@ int PanoRender(const LidarModel& model,
                cv::Mat& dbuf2,
                bool tbb = false);
 
-int PanoAddSweep(const LidarModel& model,
-                 const cv::Mat& sweep,
-                 cv::Mat& dbuf,
-                 bool tbb = false);
-
 /// @class Depth Panorama
 class DepthPano {
  public:
@@ -50,7 +45,7 @@ class DepthPano {
   cv::Rect BoundWinCenterAt(cv::Point pt, cv::Size size) const;
 
   /// @brief Add a sweep to the pano
-  int AddSweep(const cv::Mat& sweep, bool tbb);
+  int AddSweep(const cv::Mat& sweep, bool tbb = false);
   int AddSweepRow(const cv::Mat& sweep, int row);
 
   /// @brief Render pano at a new location
