@@ -1,3 +1,4 @@
+#include <ceres/ceres.h>
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/camera_subscriber.h>
 #include <image_transport/image_transport.h>
@@ -17,6 +18,60 @@
 
 namespace sv {
 
+namespace cs = ceres;
+using Sophus::SE3d;
+
+class LocalParamSE3 final : public ceres::LocalParameterization {
+ public:
+  // SE3 plus operation for Ceres
+  //
+  //  T * exp(x)
+  //
+  bool Plus(double const* _T,
+            double const* _x,
+            double* _T_plus_x) const override {
+    Eigen::Map<const SE3d> T(_T);
+    Eigen::Map<const Eigen::Matrix<double, 6, 1>> t(_x);
+    Eigen::Map<SE3d> T_plus_del(_T_plus_x);
+    T_plus_del = T * SE3d::exp(t);
+    return true;
+  }
+
+  // Jacobian of SE3 plus operation for Ceres
+  //
+  // Dx T * exp(x)  with  x=0
+  //
+  bool ComputeJacobian(double const* _T, double* _J) const override {
+    Eigen::Map<SE3d const> T(_T);
+    Eigen::Map<
+        Eigen::Matrix<double, SE3d::num_parameters, SE3d::DoF, Eigen::RowMajor>>
+        J(_J);
+    J = T.Dx_this_mul_exp_x_at_0();
+    return true;
+  }
+
+  int GlobalSize() const override { return SE3d::num_parameters; }
+  int LocalSize() const override { return SE3d::DoF; }
+};
+
+struct GicpFactor {
+  static constexpr int num_residuals = 3;
+  static constexpr int num_parameters = SE3d::num_parameters;
+
+  template <typename T>
+  using Vector3 = Eigen::Matrix<T, num_residuals, 1>;
+
+  GicpFactor(const PointMatch& match);
+
+  template <typename T>
+  bool operator()(const T* const _T_a_b, T* _r) const noexcept {
+    Eigen::Map<const Sophus::SE3<T>> T_a_b(_T_a_b);
+    Eigen::Map<Vector3<T>> r(_r);
+
+    return true;
+  }
+};
+
 class LlolNode {
  private:
   ros::NodeHandle pnh_;
@@ -33,8 +88,7 @@ class LlolNode {
   PointMatcher matcher_;
   TimerManager tm_{"llol"};
 
-  std::vector<double> times_;
-  std::vector<Sophus::SE3d> poses_;
+  Sophus::SE3d T_p_s_;
 
  public:
   explicit LlolNode(const ros::NodeHandle& pnh) : pnh_{pnh}, it_{pnh} {
@@ -53,9 +107,6 @@ class LlolNode {
     const auto pano_hfov = pano_nh.param<double>("hfov", -1.0);
     pano_ = DepthPano({pano_cols, pano_rows}, Deg2Rad(pano_hfov));
     ROS_INFO_STREAM(pano_);
-
-    times_.resize(2);
-    poses_.resize(2);
   }
 
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
@@ -113,9 +164,9 @@ class LlolNode {
     const cv::Range range(col_beg, col_end);
 
     // Predict poses, wrt pano
-    times_[0] = cinfo_msg->header.stamp.toSec();
-    times_[1] = times_[0] = cinfo_msg->width * cinfo_msg->K[0];
-    poses_[0] = poses_[1];  // initialize guess of delta pose is identity
+    //    times_[0] = cinfo_msg->header.stamp.toSec();
+    //    times_[1] = times_[0] = cinfo_msg->width * cinfo_msg->K[0];
+    //    poses_[0] = poses_[1];  // initialize guess of delta pose is identity
 
     int num_valid_cells = 0;
     {  /// Add scan to sweep
@@ -149,12 +200,30 @@ class LlolNode {
       // display good match
       Imshow("match",
              ApplyCmap(matcher_.Draw(sweep_), 1.0, cv::COLORMAP_VIRIDIS));
+
+      {  /// Optimization
+
+        cs::Problem::Options problem_opt;
+        problem_opt.loss_function_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
+        problem_opt.local_parameterization_ownership =
+            cs::DO_NOT_TAKE_OWNERSHIP;
+        cs::Problem problem{problem_opt};
+
+        // Build problem
+
+        cs::Solver::Options solver_opt;
+        solver_opt.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+        solver_opt.max_num_iterations = 5;
+        solver_opt.minimizer_progress_to_stdout = true;
+
+        cs::Solver::Summary summary;
+      }
     }
 
     /// Got a full sweep
     if (cinfo_msg->binning_x + 1 == cinfo_msg->binning_y) {
       ROS_INFO_STREAM("End of sweep");
-      int num_added;
+      int num_added = 0;
       {
         auto _ = tm_.Scoped("Pano/AddSweep");
         num_added = pano_.AddSweep(sweep_.sweep(), tbb_);

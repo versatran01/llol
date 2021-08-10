@@ -92,7 +92,7 @@ int LidarSweep::CalcScanCurveRow(const cv::Mat& scan, cv::Mat& grid, int gr) {
     const auto cell = scan.row(sr).colRange(sc, sc + cell_size_.width);
     const auto curve = CalcCellCurve(cell);
     grid.at<float>(gr, gc) = curve;
-    n += static_cast<int>(std::isnan(curve));
+    n += static_cast<int>(!std::isnan(curve));
   }
   return n;
 }

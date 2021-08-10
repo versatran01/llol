@@ -34,15 +34,12 @@ TEST(MathTest, TestMeanCovar) {
   }
 }
 
-TEST(MathTest, TestMeanVar) {
-  const Eigen::VectorXd X = Eigen::VectorXd::Random(100);
-
-  const auto m = X.mean();
-  const float var = (X.array() - m).square().sum() / (X.rows() - 1);
-  MeanVar<float> mv;
-  for (int j = 0; j < X.rows(); ++j) mv.Add(X(j));
-  EXPECT_NEAR(mv.mean, m, 1e-6);
-  EXPECT_NEAR(mv.var(), var, 1e-6);
+TEST(LinalgTest, TestMatrixSqrtUpper) {
+  Eigen::Matrix3Xd X = Eigen::Matrix3Xd::Random(3, 100);
+  const Eigen::Matrix3d A = X * X.transpose();
+  const Eigen::Matrix3d U = MatrixSqrtUtU(A);
+  const Eigen::Matrix3d UtU = U.transpose() * U;
+  EXPECT_TRUE(A.isApprox(UtU));
 }
 
 void BM_Covariance(benchmark::State& state) {

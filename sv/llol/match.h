@@ -9,12 +9,13 @@ namespace sv {
 
 /// @struct Match
 struct PointMatch {
-  cv::Point pt{};
+  cv::Point src_px{-1, -1};
+  cv::Point dst_px{-1, -1};
   MeanCovar3f src{};  // sweep
   MeanCovar3f dst{};  // pano
-  //  uint8_t pad[128 - 112];
+  uint8_t pad[128 - 120];
 };
-// static_assert(sizeof(PointMatch) == 128, "PointMatch size is not 128");
+static_assert(sizeof(PointMatch) == 128, "PointMatch size is not 128");
 
 /// @class Feature Matcher
 struct MatcherParams {
@@ -34,8 +35,10 @@ float CalcRangeDiffRel(float rg1, float rg2) {
 /// @brief Check if a point is a good candidate for matching
 bool IsCellGood(const cv::Mat& grid, cv::Point px, double max_curve, bool nms);
 
+// TODO: rename to GridMatcher
 struct PointMatcher {
   PointMatcher() = default;
+  // TODO: use grid size
   PointMatcher(int max_matches, const MatcherParams& params);
 
   std::string Repr() const;
@@ -57,6 +60,7 @@ struct PointMatcher {
   MatcherParams params_;
   cv::Size win_size_;
   std::vector<PointMatch> matches_;
+  std::vector<PointMatch> matches_out_;
 };
 
 }  // namespace sv
