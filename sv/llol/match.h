@@ -17,7 +17,15 @@ struct MatcherParams {
   bool nms{true};
   int half_rows{2};
   double max_curve{0.01};
+  double range_ratio{0.1};
 };
+
+float CalcRangeDiffRel(float rg1, float rg2) {
+  return std::abs(rg1 - rg2) / std::max(rg1, rg2);
+}
+
+/// @brief Check if a point is a good candidate for matching
+bool IsCellGood(const cv::Mat& grid, cv::Point px, double max_curve, bool nms);
 
 struct PointMatcher {
   PointMatcher() = default;
@@ -32,9 +40,6 @@ struct PointMatcher {
 
   /// @brief Match features in sweep to pano
   void Match(const LidarSweep& sweep, const DepthPano& pano);
-
-  /// @brief Check if a point is a good candidate for matching
-  bool IsCellGood(const cv::Mat& grid, cv::Point px) const;
 
   /// @brief Draw match, valid pixel is percentage of pano points in window
   cv::Mat Draw(const LidarSweep& sweep) const;

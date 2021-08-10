@@ -26,14 +26,14 @@ std::ostream& operator<<(std::ostream& os, const PointMatcher& rhs) {
   return os << rhs.Repr();
 }
 
-bool PointMatcher::IsCellGood(const cv::Mat& grid, cv::Point px) const {
+bool IsCellGood(const cv::Mat& grid, cv::Point px, double max_curve, bool nms) {
   // curve could be nan
   // Threshold check
   const auto& curve = grid.at<float>(px);
-  if (!(curve < params_.max_curve)) return false;
+  if (!(curve < max_curve)) return false;
 
   // NMS check, nan neighbor is considered as inf
-  if (params_.nms) {
+  if (nms) {
     const auto& curve_l = grid.at<float>(px.y, px.x - 1);
     const auto& curve_r = grid.at<float>(px.y, px.x + 1);
     if (curve > curve_l || curve > curve_r) return false;
@@ -50,7 +50,9 @@ void PointMatcher::Match(const LidarSweep& sweep, const DepthPano& pano) {
 
   for (int gr = pad; gr < grid.rows - pad; ++gr) {
     for (int gc = pad; gc < sweep.grid_width() - pad; ++gc) {
-      if (!IsCellGood(grid, {gc, gr})) continue;
+      if (!IsCellGood(grid, {gc, gr}, params_.max_curve, params_.nms)) {
+        continue;
+      }
 
       // Get the mid point in sweep
       const int sr = gr * sweep.cell_size().height;
@@ -74,15 +76,16 @@ void PointMatcher::Match(const LidarSweep& sweep, const DepthPano& pano) {
       // Compute normal distribution around sweep point
 
       // Compute normal distribution around pano point
-
-      // take a window around that pixel in pano and compute its mean
       const auto win = pano.BoundWinCenterAt(px_p, win_size_);
 
-      for (int wr = win.y; wr < win.y + win.height; ++wr) {
-        for (int wc = win.x; wc < win.x + win.width; ++wc) {
-          const float rg_w = pano.GetRange({wc, wr});
-          if (rg_w == 0 || (std::abs(rg_p - rg_w) > 0.1)) continue;
-          const auto p = pano.model_.Backward(wr, wc, rg_w);
+      for (int wr = 0; wr < win.height; ++wr) {
+        for (int wc = 0; wc < win.width; ++wc) {
+          const cv::Point px_w{wc + win.x, wr + win.y};
+          const float rg_w = pano.GetRange(px_w);
+          if (rg_w == 0 || CalcRangeDiffRel(rg_w, rg_p) > params_.range_ratio) {
+            continue;
+          }
+          const auto p = pano.model_.Backward(px_w.y, px_w.x, rg_w);
           match.dst.Add({p.x, p.y, p.z});
         }
       }

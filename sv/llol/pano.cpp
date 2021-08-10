@@ -5,15 +5,72 @@
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 
-#include "sv/util/ocv.h"
+#include "sv/util/ocv.h"  // Repr
 
 namespace sv {
 
-int AddSweep(const LidarModel& model,
-             const cv::Mat& sweep,
-             cv::Mat& dbuf,
-             bool tbb) {
-  return 0;
+bool SetRange(cv::Mat& buf, const cv::Point& px, float rg) {
+  const uint16_t rg_raw = rg * DepthPano::kScale;
+  auto& tgt = buf.at<ushort>(px);
+  if (tgt == 0) {
+    tgt = rg_raw;
+    return true;
+  } else {
+    tgt = std::min(rg_raw, tgt);
+    return false;
+  }
+}
+
+int PanoAddSweepRow(const LidarModel& model,
+                    const cv::Mat& sweep,
+                    cv::Mat& dbuf,
+                    int sr) {
+  int n = 0;
+
+  for (int sc = 0; sc < sweep.cols; ++sc) {
+    const auto& xyzr = sweep.at<cv::Vec4f>(sr, sc);
+    const float rg_s = xyzr[3];  // precomputed range
+    if (!(rg_s > 0)) continue;   // filter out nan
+
+    // TODO (chao): transform xyz to pano frame
+    Eigen::Map<const Eigen::Vector3f> pt_s(&xyzr[0]);
+    const Eigen::Vector3f pt_p = Eigen::Matrix3f::Identity() * pt_s;
+    const auto rg_p = pt_p.norm();
+
+    // Project to pano
+    const auto px_p = model.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
+    if (px_p.x < 0) continue;
+
+    n += SetRange(dbuf, px_p, rg_p);
+  }
+
+  return n;
+}
+
+int PanoAddSweep(const LidarModel& model,
+                 const cv::Mat& sweep,
+                 cv::Mat& dbuf,
+                 bool tbb) {
+  int n = 0;
+
+  if (tbb) {
+    n = tbb::parallel_reduce(
+        tbb::blocked_range<int>(0, sweep.rows),
+        0,
+        [&](const tbb::blocked_range<int>& block, int total) {
+          for (int sr = block.begin(); sr < block.end(); ++sr) {
+            total += PanoAddSweepRow(model, sweep, dbuf, sr);
+          }
+          return total;
+        },
+        std::plus<>{});
+  } else {
+    for (int sr = 0; sr < sweep.rows; ++sr) {
+      n += PanoAddSweepRow(model, sweep, dbuf, sr);
+    }
+  }
+
+  return n;
 }
 
 int RenderPanoRow(const LidarModel& model,
@@ -42,19 +99,12 @@ int RenderPanoRow(const LidarModel& model,
     if (rg2 >= DepthPano::kMaxRange) continue;
 
     // Check occlusion
-    const uint16_t rg2_raw = rg2 * DepthPano::kScale;
-    auto& tgt = dbuf2.at<ushort>(px2);
-    if (tgt == 0) {
-      tgt = rg2_raw;
-      ++n;
-    } else {
-      tgt = std::min(rg2_raw, tgt);
-    }
+    n += SetRange(dbuf2, px2, rg2);
   }
   return n;
 }
 
-int RenderPano(const LidarModel& model,
+int PanoRender(const LidarModel& model,
                const cv::Mat& dbuf1,
                cv::Mat& dbuf2,
                bool tbb) {
@@ -104,62 +154,14 @@ cv::Rect DepthPano::BoundWinCenterAt(cv::Point pt, cv::Size win_size) const {
 }
 
 int DepthPano::AddSweep(const cv::Mat& sweep, bool tbb) {
-  int num_added = 0;
-
-  if (tbb) {
-    num_added = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, sweep.rows),
-        0,
-        [&](const tbb::blocked_range<int>& block, int total) {
-          for (int sr = block.begin(); sr < block.end(); ++sr) {
-            total += AddSweepRow(sweep, sr);
-          }
-          return total;
-        },
-        std::plus<>{});
-  } else {
-    for (int sr = 0; sr < sweep.rows; ++sr) {
-      num_added += AddSweepRow(sweep, sr);
-    }
-  }
-
   ++num_sweeps_;
-  return num_added;
-}
-
-int DepthPano::AddSweepRow(const cv::Mat& sweep, int sr) {
-  int num_added = 0;
-
-  for (int sc = 0; sc < sweep.cols; ++sc) {
-    const auto& xyzr = sweep.at<cv::Vec4f>(sr, sc);
-    const float rg_s = xyzr[3];  // precomputed range
-    if (!(rg_s > 0)) continue;   // filter out nan
-
-    // TODO (chao): transform xyz to pano frame
-    Eigen::Map<const Eigen::Vector3f> xyz_s(&xyzr[0]);
-    const Eigen::Vector3f xyz_p = Eigen::Matrix3f::Identity() * xyz_s;
-    const auto rg_p = xyz_p.norm();
-
-    // Check viewpoint close
-    //    const float dot = xyz_p.dot(xyz_p) / (rg_s * rg_p);
-    //    if (dot < 0) continue;
-
-    // Project to pano
-    const auto pt = model_.Forward(xyz_p.x(), xyz_p.y(), xyz_p.z(), rg_p);
-    if (pt.x < 0) continue;
-
-    // Update pano
-    SetRange(pt, rg_p, dbuf_);
-    ++num_added;
-  }
-
-  return num_added;
+  return PanoAddSweep(model_, sweep, dbuf_, tbb);
 }
 
 int DepthPano::Render(bool tbb) {
   // clear pano2
   dbuf2_.setTo(0);
-  return RenderPano(model_, dbuf_, dbuf2_, tbb);
+  return PanoRender(model_, dbuf_, dbuf2_, tbb);
 }
 
 void DepthPano::CalcMeanCovar(cv::Rect win, MeanCovar3f& mc) const {

@@ -17,15 +17,15 @@ struct Pixel {
   float metric() const noexcept { return raw / kScale; }
 };
 
-int RenderPano(const LidarModel& model,
+int PanoRender(const LidarModel& model,
                const cv::Mat& dbuf1,
                cv::Mat& dbuf2,
                bool tbb = false);
 
-int AddSweep(const LidarModel& model,
-             const cv::Mat& sweep,
-             cv::Mat& dbuf,
-             bool tbb = false);
+int PanoAddSweep(const LidarModel& model,
+                 const cv::Mat& sweep,
+                 cv::Mat& dbuf,
+                 bool tbb = false);
 
 /// @class Depth Panorama
 class DepthPano {
@@ -45,9 +45,6 @@ class DepthPano {
   cv::Size size() const noexcept { return model_.size(); }
 
   float GetRange(cv::Point pt) const { return dbuf_.at<ushort>(pt) / kScale; }
-  void SetRange(cv::Point pt, float rg, cv::Mat& mat) {
-    mat.at<ushort>(pt) = rg * kScale;
-  }
 
   cv::Rect WinCenterAt(cv::Point pt, cv::Size size) const;
   cv::Rect BoundWinCenterAt(cv::Point pt, cv::Size size) const;
