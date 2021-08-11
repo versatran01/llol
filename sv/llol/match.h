@@ -1,11 +1,13 @@
 #pragma once
 
-#include <new>
+#include <opencv2/core/mat.hpp>
 
-#include "sv/llol/pano.h"
-#include "sv/llol/sweep.h"
+#include "sv/util/math.h"
 
 namespace sv {
+
+class LidarSweep;
+class DepthPano;
 
 /// @struct Match
 // struct alignas(128) PointMatch {

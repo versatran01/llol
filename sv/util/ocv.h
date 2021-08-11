@@ -58,6 +58,7 @@ inline constexpr int cv_type_v = cv_type<T>::value;
 /// @example CvTypeStr(CV_8UC1) == "8UC1"
 std::string CvTypeStr(int type);
 
+/// @brief Repr for various cv types
 std::string Repr(const cv::Mat& mat);
 std::string Repr(const cv::Size& size);
 std::string Repr(const cv::Range& range);

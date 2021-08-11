@@ -25,6 +25,7 @@ T Rad2Deg(T rad) {
   return rad / M_PI * 180.0;
 }
 
+/// @brief Precomputed sin and cos
 template <typename T>
 struct SinCos {
   static_assert(std::is_floating_point_v<T>, "T must be floating point");

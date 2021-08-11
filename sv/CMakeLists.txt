@@ -9,7 +9,7 @@ cc_library(
   DEPS fmt::fmt glog::glog
   INTERFACE)
 
-# util
+# util =========================================================================
 cc_library(
   NAME util_manager
   SRCS "util/manager.cpp"
@@ -33,7 +33,7 @@ cc_library(
   SRCS "util/ocv.cpp"
   DEPS sv_base sv_log opencv_core opencv_imgproc opencv_highgui)
 
-# llol
+# llol =========================================================================
 cc_library(
   NAME llol_lidar
   SRCS "llol/lidar.cpp"
@@ -70,6 +70,13 @@ cc_library(
   SRCS "llol/match.cpp"
   DEPS sv_llol_sweep sv_llol_pano)
 
+cc_library(
+  NAME llol_optim
+  SRCS "llol/optim.cpp"
+  DEPS sv_llol_match Ceres::ceres Sophus::Sophus)
+
+
+# node =========================================================================
 if(catkin_FOUND)
   cc_library(
     NAME llol_viz
@@ -79,6 +86,5 @@ if(catkin_FOUND)
   cc_binary(
     NAME llol_node
     SRCS "llol/node.cpp"
-    DEPS sv_llol_match sv_llol_viz sv_util_manager sv_ros1 Ceres::ceres
-         Sophus::Sophus)
+    DEPS sv_llol_match sv_llol_optim sv_llol_viz sv_util_manager sv_ros1)
 endif()

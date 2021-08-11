@@ -4,6 +4,8 @@
 #include <glog/logging.h>
 #include <tbb/parallel_for.h>
 
+#include "sv/llol/pano.h"
+#include "sv/llol/sweep.h"
 #include "sv/util/ocv.h"
 
 namespace sv {
@@ -104,7 +106,7 @@ void PointMatcher::Match(const LidarSweep& sweep,
   }
 
   // Clean up
-  // TODO: keep matches_ intact, for multiple rounds for match
+  // TODO (chao): keep matches_ intact, for multiple rounds for match
   // Instead generate a compact version by copying valid ones and return
   const int min_pts = 0.5 * pano_win_size_.area();
   const auto it = std::remove_if(
@@ -131,6 +133,7 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
   // Compute normal dist around sweep cell
   const auto cell = sweep.CellAt(gpx);
   MatXyzr2MeanCovar(cell, match.src);
+  CHECK_GE(match.src.n, 0.75 * cell.cols);
 
   // Transform to pano frame
   const Eigen::Vector3f pt_p = Eigen::Matrix3f::Identity() * match.src.mean;

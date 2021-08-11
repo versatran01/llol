@@ -34,12 +34,12 @@ struct LidarSweep {
   void Reset();
 
   /// @brief whether sweep is full
-  bool full() const noexcept { return width() == xyzr_.cols; }
+  bool IsFull() const noexcept { return width() == xyzr_.cols; }
 
-  cv::Mat CellAt(const cv::Point& grid_px) const;
-  cv::Point Pixel2CellInd(const cv::Point& sweep_px) const;
-  const auto& XyzrAt(const cv::Point& sweep_px) const {
-    return xyzr_.at<cv::Vec4f>(sweep_px);
+  cv::Mat CellAt(const cv::Point& px_grid) const;
+  cv::Point Pixel2CellInd(const cv::Point& px_sweep) const;
+  const auto& XyzrAt(const cv::Point& px_sweep) const {
+    return xyzr_.at<cv::Vec4f>(px_sweep);
   }
 
   /// @brief getters

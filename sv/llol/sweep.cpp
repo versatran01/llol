@@ -6,6 +6,7 @@
 #include <tbb/parallel_reduce.h>
 
 #include <Eigen/Core>
+#include <opencv2/core/core.hpp>
 
 #include "sv/util/math.h"
 #include "sv/util/ocv.h"
@@ -82,9 +83,7 @@ int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb) {
 LidarSweep::LidarSweep(const cv::Size& sweep_size, const cv::Size& cell_size)
     : xyzr_{sweep_size, CV_32FC4},
       cell_size_{cell_size},
-      grid_{cv::Size{sweep_size.width / cell_size.width,
-                     sweep_size.height / cell_size.height},
-            CV_32FC1} {}
+      grid_{sweep_size / cell_size, CV_32FC1} {}
 
 int LidarSweep::AddScan(const cv::Mat& scan,
                         const cv::Range& scan_range,
@@ -96,7 +95,7 @@ int LidarSweep::AddScan(const cv::Mat& scan,
   // Check scan width is not bigger than sweep
   CHECK_LE(scan.cols, xyzr_.cols);
   // Check that the new scan start right after
-  CHECK_EQ(scan_range.start, full() ? 0 : col_range_.end);
+  CHECK_EQ(scan_range.start, IsFull() ? 0 : col_range_.end);
 
   // Save range and copy to storage
   col_range_ = scan_range;
@@ -113,8 +112,8 @@ void LidarSweep::Reset() {
   grid_.setTo(kNaNF);
 }
 
-cv::Point LidarSweep::Pixel2CellInd(const cv::Point& sweep_px) const {
-  return {sweep_px.x / cell_size_.width, sweep_px.y / cell_size_.height};
+cv::Point LidarSweep::Pixel2CellInd(const cv::Point& px_sweep) const {
+  return {px_sweep.x / cell_size_.width, px_sweep.y / cell_size_.height};
 }
 
 cv::Mat LidarSweep::CellAt(const cv::Point& grid_px) const {

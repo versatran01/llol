@@ -1,4 +1,4 @@
-#include <ceres/ceres.h>
+// ros
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/camera_subscriber.h>
 #include <image_transport/image_transport.h>
@@ -7,71 +7,19 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
 
-#include <sophus/se3.hpp>
-
 #include "sv/llol/match.h"
+#include "sv/llol/optim.h"
 #include "sv/llol/pano.h"
 #include "sv/llol/sweep.h"
 #include "sv/llol/viz.h"
 #include "sv/util/manager.h"
-#include "sv/util/ocv.h"
+
+// ceres
+#include <ceres/ceres.h>
 
 namespace sv {
 
 namespace cs = ceres;
-using Sophus::SE3d;
-
-class LocalParamSE3 final : public ceres::LocalParameterization {
- public:
-  // SE3 plus operation for Ceres
-  //
-  //  T * exp(x)
-  //
-  bool Plus(double const* _T,
-            double const* _x,
-            double* _T_plus_x) const override {
-    Eigen::Map<const SE3d> T(_T);
-    Eigen::Map<const Eigen::Matrix<double, 6, 1>> t(_x);
-    Eigen::Map<SE3d> T_plus_del(_T_plus_x);
-    T_plus_del = T * SE3d::exp(t);
-    return true;
-  }
-
-  // Jacobian of SE3 plus operation for Ceres
-  //
-  // Dx T * exp(x)  with  x=0
-  //
-  bool ComputeJacobian(double const* _T, double* _J) const override {
-    Eigen::Map<SE3d const> T(_T);
-    Eigen::Map<
-        Eigen::Matrix<double, SE3d::num_parameters, SE3d::DoF, Eigen::RowMajor>>
-        J(_J);
-    J = T.Dx_this_mul_exp_x_at_0();
-    return true;
-  }
-
-  int GlobalSize() const override { return SE3d::num_parameters; }
-  int LocalSize() const override { return SE3d::DoF; }
-};
-
-struct GicpFactor {
-  static constexpr int num_residuals = 3;
-  static constexpr int num_parameters = SE3d::num_parameters;
-
-  template <typename T>
-  using Vector3 = Eigen::Matrix<T, num_residuals, 1>;
-
-  GicpFactor(const PointMatch& match);
-
-  template <typename T>
-  bool operator()(const T* const _T_a_b, T* _r) const noexcept {
-    Eigen::Map<const Sophus::SE3<T>> T_a_b(_T_a_b);
-    Eigen::Map<Vector3<T>> r(_r);
-
-    return true;
-  }
-};
-
 class LlolNode {
  private:
   ros::NodeHandle pnh_;
@@ -203,23 +151,42 @@ class LlolNode {
                        1.0 / matcher_.pano_win_size_.area(),
                        cv::COLORMAP_VIRIDIS));
 
+      cs::Solver::Summary summary;
       {  /// Optimization
 
+        auto _ = tm_.Scoped("ICP/Solve");
+        std::unique_ptr<ceres::LocalParameterization> local_params =
+            std::make_unique<LocalParamSE3>();
+        std::unique_ptr<ceres::LossFunction> loss =
+            std::make_unique<cs::HuberLoss>(3);
         cs::Problem::Options problem_opt;
         problem_opt.loss_function_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
         problem_opt.local_parameterization_ownership =
             cs::DO_NOT_TAKE_OWNERSHIP;
         cs::Problem problem{problem_opt};
 
+        problem.AddParameterBlock(
+            T_p_s_.data(), SE3d::num_parameters, local_params.get());
+
         // Build problem
+        for (const auto& match : matcher_.matches()) {
+          cs::CostFunction* cost =
+              new cs::AutoDiffCostFunction<GicpFactor,
+                                           GicpFactor::kNumResiduals,
+                                           GicpFactor::kNumParams>(
+                  new GicpFactor(match));
+          problem.AddResidualBlock(cost, loss.get(), T_p_s_.data());
+        }
 
         cs::Solver::Options solver_opt;
-        solver_opt.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+        solver_opt.linear_solver_type = ceres::DENSE_QR;
         solver_opt.max_num_iterations = 5;
+        solver_opt.num_threads = tbb_ ? 4 : 1;
         solver_opt.minimizer_progress_to_stdout = true;
-
-        cs::Solver::Summary summary;
+        cs::Solve(solver_opt, &problem, &summary);
       }
+      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
+      ROS_INFO_STREAM(summary.BriefReport());
     }
 
     /// Got a full sweep

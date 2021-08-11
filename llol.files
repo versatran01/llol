@@ -23,7 +23,8 @@ sv/llol/odom.cpp
 sv/llol/odom.h
 sv/llol/odom_bench.cpp
 sv/llol/odom_test.cpp
-sv/llol/optimize.h
+sv/llol/optim.cpp
+sv/llol/optim.h
 sv/llol/pano.cpp
 sv/llol/pano.h
 sv/llol/pano_test_bench.cpp

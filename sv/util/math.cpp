@@ -1,6 +1,6 @@
 #include "sv/util/math.h"
 
-#include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 namespace sv {
 

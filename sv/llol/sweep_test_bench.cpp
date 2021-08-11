@@ -12,7 +12,7 @@ TEST(LidarSweepTest, TestDefault) {
   std::cout << ls << "\n";
 
   EXPECT_EQ(ls.width(), 0);
-  EXPECT_EQ(ls.full(), true);
+  EXPECT_EQ(ls.IsFull(), true);
 }
 
 TEST(LidarSweepTest, TestCtor) {
@@ -20,7 +20,7 @@ TEST(LidarSweepTest, TestCtor) {
   std::cout << ls << "\n";
 
   EXPECT_EQ(ls.width(), 0);
-  EXPECT_EQ(ls.full(), false);
+  EXPECT_EQ(ls.IsFull(), false);
 
   EXPECT_EQ(ls.xyzr().rows, 4);
   EXPECT_EQ(ls.xyzr().cols, 8);
@@ -47,7 +47,7 @@ TEST(LidarSweepTest, TestAddScan) {
   EXPECT_EQ(ls.range().start, 4);
   EXPECT_EQ(ls.range().end, 8);
   EXPECT_EQ(n2, 8);
-  EXPECT_EQ(ls.full(), true);
+  EXPECT_EQ(ls.IsFull(), true);
 }
 
 void BM_AddScanSeq(benchmark::State& state) {
@@ -56,8 +56,8 @@ void BM_AddScanSeq(benchmark::State& state) {
   const auto scan = MakeScan(size);
 
   for (auto _ : state) {
-    sweep.AddScan(scan, {0, size.width}, false);
-    benchmark::DoNotOptimize(sweep);
+    auto n = sweep.AddScan(scan, {0, size.width}, false);
+    benchmark::DoNotOptimize(n);
   }
 }
 BENCHMARK(BM_AddScanSeq);
@@ -68,8 +68,8 @@ void BM_AddScanPar(benchmark::State& state) {
   const auto scan = MakeScan(size);
 
   for (auto _ : state) {
-    sweep.AddScan(scan, {0, size.width}, true);
-    benchmark::DoNotOptimize(sweep);
+    auto n = sweep.AddScan(scan, {0, size.width}, true);
+    benchmark::DoNotOptimize(n);
   }
 }
 BENCHMARK(BM_AddScanPar);
