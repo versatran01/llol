@@ -1,144 +1,96 @@
-#include <absl/flags/flag.h>
+// ros
 #include <cv_bridge/cv_bridge.h>
-#include <fmt/core.h>
-#include <glog/logging.h>
 #include <image_transport/camera_subscriber.h>
 #include <image_transport/image_transport.h>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
-#include <tbb/parallel_for.h>
-#include <tf2_ros/transform_listener.h>
 
-#include <opencv2/highgui.hpp>
-
-#include "sv/llol/odom.h"
+#include "sv/llol/match.h"
+#include "sv/llol/optim.h"
+#include "sv/llol/pano.h"
+#include "sv/llol/sweep.h"
+#include "sv/llol/viz.h"
 #include "sv/util/manager.h"
+
+// ceres
+#include <ceres/ceres.h>
 
 namespace sv {
 
-cv::Mat ApplyCmap(const cv::Mat& input,
-                  double scale = 1.0,
-                  int cmap = cv::COLORMAP_PINK,
-                  uint8_t bad_value = 255) {
-  CHECK_EQ(input.channels(), 1);
-
-  cv::Mat disp;
-  input.convertTo(disp, CV_8UC1, scale * 255.0);
-  cv::applyColorMap(disp, disp, cmap);
-
-  if (input.depth() >= CV_32F) {
-    disp.setTo(bad_value, cv::Mat(~(input > 0)));
-  }
-
-  return disp;
-}
-
+namespace cs = ceres;
 class LlolNode {
  private:
   ros::NodeHandle pnh_;
   image_transport::ImageTransport it_;
   image_transport::CameraSubscriber sub_camera_;
+  ros::Publisher pub_marray_;
 
-  bool vis_{true};
-  bool tbb_{false};
-  bool wait_for_scan0_{true};
-  int cv_win_flag_{};
+  bool vis_{};
+  bool tbb_{};
+  bool init_{false};
 
   LidarSweep sweep_;
-  PointGrid feat_;
   DepthPano pano_;
-  DataMatcher matcher_;
+  PointMatcher matcher_;
   TimerManager tm_{"llol"};
+
+  Sophus::SE3d T_p_s_;
 
  public:
   explicit LlolNode(const ros::NodeHandle& pnh) : pnh_{pnh}, it_{pnh} {
     sub_camera_ = it_.subscribeCamera("image", 10, &LlolNode::CameraCb, this);
+    pub_marray_ = pnh_.advertise<visualization_msgs::MarkerArray>("marray", 1);
 
     vis_ = pnh_.param<bool>("vis", true);
     ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
-    cv_win_flag_ =
-        cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO | cv::WINDOW_GUI_EXPANDED;
 
     tbb_ = pnh_.param<bool>("tbb", false);
     ROS_INFO_STREAM("Use tbb: " << (tbb_ ? "True" : "False"));
 
     auto pano_nh = ros::NodeHandle{pnh_, "pano"};
-    int pano_rows = pano_nh.param<int>("rows", 256);
-    int pano_cols = pano_nh.param<int>("cols", 1024);
-    pano_ = DepthPano({pano_cols, pano_rows});
+    const auto pano_rows = pano_nh.param<int>("rows", 256);
+    const auto pano_cols = pano_nh.param<int>("cols", 1024);
+    const auto pano_hfov = pano_nh.param<double>("hfov", -1.0);
+    pano_ = DepthPano({pano_cols, pano_rows}, Deg2Rad(pano_hfov));
     ROS_INFO_STREAM(pano_);
-  }
-
-  void Imshow(const std::string& name, const cv::Mat& mat) {
-    cv::namedWindow(name, cv_win_flag_);
-    cv::imshow(name, mat);
-    cv::waitKey(1);
-  }
-
-  void ProcessScan(const cv::Mat& scan, const cv::Range& range) {
-    {  /// Add scan to sweep
-      auto _ = tm_.Scoped("Sweep/AddScan");
-      sweep_.AddScan(scan, range);
-    }
-
-    if (vis_) {
-      cv::Mat sweep_range;
-      cv::extractChannel(sweep_.mat_, sweep_range, 3);
-      Imshow("sweep", ApplyCmap(sweep_range, 1 / 30.0, cv::COLORMAP_PINK, 0));
-    }
-
-    /// Check if pano has weep
-    if (pano_.num_sweeps() == 0) {
-      ROS_INFO_STREAM("Pano is not initialized");
-    } else {
-      int num_valid_cells = 0;
-      {  /// Detect Feature
-        auto _ = tm_.Scoped("Feat/Detect");
-        num_valid_cells = feat_.Detect(sweep_, tbb_);
-      }
-      ROS_INFO_STREAM("Num cells: " << num_valid_cells);
-      if (vis_) {
-        Imshow("score", ApplyCmap(feat_.mat(), 10, cv::COLORMAP_VIRIDIS, 255));
-      }
-
-      {  /// Match Features
-        auto _ = tm_.Scoped("Matcher/Match");
-        matcher_.Match(sweep_, feat_, pano_);
-      }
-
-      ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
-    }
   }
 
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
-    if (sweep_.empty()) {
+    if (!init_) {
       // Initialized sweep
-      sweep_ = LidarSweep(cv::Size(cinfo_msg->width, cinfo_msg->height));
-      ROS_INFO_STREAM(sweep_);
+      {
+        auto odom_nh = ros::NodeHandle{pnh_, "sweep"};
+        int cell_rows = odom_nh.param<int>("cell_rows", 2);
+        int cell_cols = odom_nh.param<int>("cell_cols", 16);
 
-      // Initialized feat
-      auto odom_nh = ros::NodeHandle{pnh_, "odom"};
-      int feat_win_rows = odom_nh.param<int>("feat_win_rows", 2);
-      int feat_win_cols = odom_nh.param<int>("feat_win_cols", 16);
-      feat_ = PointGrid(sweep_.size(), {feat_win_cols, feat_win_rows});
-      ROS_INFO_STREAM(feat_);
+        sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height),
+                            {cell_cols, cell_rows}};
+        ROS_INFO_STREAM(sweep_);
+      }
 
       // Initialize matcher
-      MatcherParams mp;
-      mp.nms = odom_nh.param<bool>("match_nms", false);
-      mp.max_score = odom_nh.param<double>("feat_max_score", 0.01);
-      matcher_ = DataMatcher(feat_.total(), mp);
-      ROS_INFO_STREAM(matcher_);
+      {
+        auto match_nh = ros::NodeHandle{pnh_, "match"};
+        MatcherParams mp;
+        mp.nms = match_nh.param<bool>("nms", false);
+        mp.half_rows = match_nh.param<int>("half_rows", 2);
+        mp.max_curve = match_nh.param<double>("max_curve", 0.01);
+        matcher_ = PointMatcher(sweep_.grid().total(), mp);
+        ROS_INFO_STREAM(matcher_);
+      }
+
+      init_ = true;
     }
 
+    static bool wait_for_scan0{true};
     // Wait for the start of the sweep
-    if (wait_for_scan0_) {
+    if (wait_for_scan0) {
       if (cinfo_msg->binning_x == 0) {
         ROS_INFO_STREAM("Start of sweep");
-        wait_for_scan0_ = false;
+        wait_for_scan0 = false;
       } else {
         ROS_WARN_STREAM("Waiting for the first scan, current "
                         << cinfo_msg->binning_x);
@@ -159,31 +111,111 @@ class LlolNode {
     const int col_end = col_beg + cinfo_msg->roi.width;
     const cv::Range range(col_beg, col_end);
 
-    ProcessScan(scan, range);
+    // Predict poses, wrt pano
+    //    times_[0] = cinfo_msg->header.stamp.toSec();
+    //    times_[1] = times_[0] = cinfo_msg->width * cinfo_msg->K[0];
+    //    poses_[0] = poses_[1];  // initialize guess of delta pose is identity
+
+    int num_valid_cells = 0;
+    {  /// Add scan to sweep
+      auto _ = tm_.Scoped("Sweep/AddScan");
+      num_valid_cells = sweep_.AddScan(scan, range, tbb_);
+    }
+
+    ROS_INFO_STREAM("Num valid cells: " << num_valid_cells);
+
+    if (vis_) {
+      cv::Mat sweep_disp;
+      cv::extractChannel(sweep_.xyzr(), sweep_disp, 3);
+      Imshow("sweep", ApplyCmap(sweep_disp, 1 / 30.0, cv::COLORMAP_PINK, 0));
+      Imshow("grid", ApplyCmap(sweep_.grid(), 5, cv::COLORMAP_VIRIDIS, 255));
+    }
+
+    visualization_msgs::MarkerArray marray;
+
+    /// Check if pano has data, if true then perform match
+    if (pano_.num_sweeps() == 0) {
+      ROS_INFO_STREAM("Pano is not initialized");
+    } else {
+      {  /// Match Features
+        auto _ = tm_.Scoped("Matcher/Match");
+        matcher_.Match(sweep_, pano_, tbb_);
+      }
+
+      ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
+      Match2Markers(marray.markers, image_msg->header, matcher_.matches());
+
+      // display good match
+      Imshow("match",
+             ApplyCmap(matcher_.Draw(sweep_),
+                       1.0 / matcher_.pano_win_size_.area(),
+                       cv::COLORMAP_VIRIDIS));
+
+      cs::Solver::Summary summary;
+      {  /// Optimization
+
+        auto _ = tm_.Scoped("ICP/Solve");
+        std::unique_ptr<ceres::LocalParameterization> local_params =
+            std::make_unique<LocalParamSE3>();
+        std::unique_ptr<ceres::LossFunction> loss =
+            std::make_unique<cs::HuberLoss>(3);
+        cs::Problem::Options problem_opt;
+        problem_opt.loss_function_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
+        problem_opt.local_parameterization_ownership =
+            cs::DO_NOT_TAKE_OWNERSHIP;
+        cs::Problem problem{problem_opt};
+
+        problem.AddParameterBlock(
+            T_p_s_.data(), SE3d::num_parameters, local_params.get());
+
+        // Build problem
+        for (const auto& match : matcher_.matches()) {
+          cs::CostFunction* cost =
+              new cs::AutoDiffCostFunction<GicpFactor,
+                                           GicpFactor::kNumResiduals,
+                                           GicpFactor::kNumParams>(
+                  new GicpFactor(match));
+          problem.AddResidualBlock(cost, loss.get(), T_p_s_.data());
+        }
+
+        cs::Solver::Options solver_opt;
+        solver_opt.linear_solver_type = ceres::DENSE_QR;
+        solver_opt.max_num_iterations = 5;
+        solver_opt.num_threads = tbb_ ? 4 : 1;
+        solver_opt.minimizer_progress_to_stdout = true;
+        cs::Solve(solver_opt, &problem, &summary);
+      }
+      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
+      ROS_INFO_STREAM(summary.BriefReport());
+    }
 
     /// Got a full sweep
     if (cinfo_msg->binning_x + 1 == cinfo_msg->binning_y) {
       ROS_INFO_STREAM("End of sweep");
-      int num_added;
+      int num_added = 0;
       {
         auto _ = tm_.Scoped("Pano/AddSweep");
-        num_added = pano_.AddSweep(sweep_, tbb_);
+        num_added = pano_.AddSweep(sweep_.xyzr(), tbb_);
       }
-      ROS_INFO_STREAM("Num added: " << num_added
-                                    << ", sweep total: " << sweep_.total());
+      ROS_INFO_STREAM("Num added: " << num_added << ", sweep total: "
+                                    << sweep_.xyzr().total());
 
+      int num_rendered = 0;
       {
         auto _ = tm_.Scoped("Pano/Render");
-        pano_.Render(tbb_);
+        num_rendered = pano_.Render(tbb_);
       }
+      ROS_INFO_STREAM("Num rendered: " << num_rendered
+                                       << ", pano total: " << pano_.total());
 
       if (vis_) {
-        Imshow("pano", ApplyCmap(pano_.mat_, 1 / DepthPano::kScale / 30.0));
-        Imshow("pano2", ApplyCmap(pano_.mat2_, 1 / DepthPano::kScale / 30.0));
+        Imshow("pano", ApplyCmap(pano_.dbuf_, 1 / DepthPano::kScale / 30.0));
+        Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / DepthPano::kScale / 30.0));
       }
     }
 
-    ROS_DEBUG_STREAM(tm_.ReportAll());
+    pub_marray_.publish(marray);
+    ROS_DEBUG_STREAM_THROTTLE(2, tm_.ReportAll());
   }
 };
 

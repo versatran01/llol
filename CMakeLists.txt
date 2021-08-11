@@ -17,27 +17,31 @@ include(Sanitizers)
 enable_sanitizers(sv_options)
 
 find_package(
-  catkin REQUIRED
+  catkin QUIET
   COMPONENTS roscpp
              tf2_ros
-             image_transport
-             sensor_msgs
-             nav_msgs
              cv_bridge
+             image_transport
+             nav_msgs
+             sensor_msgs
              image_geometry)
 
-# base
 find_package(TBB REQUIRED)
 find_package(fmt REQUIRED)
 find_package(glog REQUIRED)
 find_package(absl REQUIRED)
 
+find_package(Ceres REQUIRED)
+find_package(Sophus REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 
-find_package(GTest REQUIRED)
-find_package(GMock REQUIRED)
-find_package(benchmark REQUIRED)
+if(BUILD_TESTING)
+  find_package(GTest REQUIRED)
+endif()
+if(BUILD_BENCHMARK)
+  find_package(benchmark REQUIRED)
+endif()
 
 if(catkin_FOUND)
   catkin_package(INCLUDE_DIRS ${CMAKE_SOURCE_DIR})

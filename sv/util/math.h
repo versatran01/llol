@@ -1,11 +1,13 @@
 #pragma once
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <cmath>
 #include <type_traits>
 
 namespace sv {
 
+static constexpr auto kNaNF = std::numeric_limits<float>::quiet_NaN();
 static constexpr auto kPiF = static_cast<float>(M_PI);
 static constexpr auto kTauF = static_cast<float>(M_PI * 2);
 static constexpr auto kPiD = static_cast<double>(M_PI);
@@ -23,6 +25,7 @@ T Rad2Deg(T rad) {
   return rad / M_PI * 180.0;
 }
 
+/// @brief Precomputed sin and cos
 template <typename T>
 struct SinCos {
   static_assert(std::is_floating_point_v<T>, "T must be floating point");
@@ -67,25 +70,47 @@ T Atan2Approx(T y, T x) {
 }
 
 /// @struct Stream Mean and covar
+template <typename T, int N>
 struct MeanCovar {
-  int n{0};
-  Eigen::Matrix3d covar() const noexcept { return covar_sum_ / (n - 1); }
-  Eigen::Vector3d mean{Eigen::Vector3d::Zero()};
-  Eigen::Matrix3d covar_sum_{Eigen::Matrix3d::Zero()};
+  using Matrix = Eigen::Matrix<T, N, N>;
+  using Vector = Eigen::Matrix<T, N, 1>;
 
-  void Add(const Eigen::Vector3d& x) noexcept {
-    const Eigen::Vector3d diff = x - mean;
+  int n{0};
+  Vector mean{Vector::Zero()};
+  Matrix covar_sum_{Matrix::Zero()};
+  Matrix covar() const { return covar_sum_ / (n - 1); }
+  bool ok() const noexcept { return n > 1; }
+
+  void Add(const Vector& x) {
+    const Vector diff = x - mean;
     mean.noalias() += diff / (n + 1.0);
     covar_sum_.noalias() += (n / (n + 1.0) * diff) * diff.transpose();
     ++n;
   }
+
+  void Reset() {
+    n = 0;
+    mean.setZero();
+    covar_sum_.setZero();
+  }
 };
 
-/// @brief Compute covariance, each column is a sample
-Eigen::Matrix3d Covariance(const Eigen::Matrix3Xd& X) {
-  const auto m = X.rowwise().mean().eval();  // mean
-  const auto Xm = (X.colwise() - m).eval();  // centered
-  return ((Xm * Xm.transpose()) / (X.cols() - 1));
+using MeanCovar3f = MeanCovar<float, 3>;
+using MeanCovar3d = MeanCovar<double, 3>;
+
+template <typename T, int N>
+Eigen::Matrix<T, N, N> MatrixSqrtUtU(const Eigen::Matrix<T, N, N>& A) {
+  return A.template selfadjointView<Eigen::Upper>().llt().matrixU();
 }
+
+/// @brief Compute covariance, each column is a sample
+Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);
+
+/// @brief force the axis to be right handed for 3D
+/// @details sometimes eigvecs has det -1 (reflection), this makes it a proper
+/// rotation
+/// @ref
+/// https://docs.ros.org/en/noetic/api/rviz/html/c++/covariance__visual_8cpp_source.html
+void MakeRightHanded(Eigen::Vector3d& eigvals, Eigen::Matrix3d& eigvecs);
 
 }  // namespace sv
