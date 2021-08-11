@@ -76,7 +76,7 @@ int PanoRender(const LidarModel& model,
   return n;
 }
 
-DepthPano::DepthPano(cv::Size size, float hfov)
+DepthPano::DepthPano(const cv::Size& size, float hfov)
     : model_{size, hfov}, dbuf_{size, CV_16UC1}, dbuf2_{size, CV_16UC1} {}
 
 std::string DepthPano::Repr() const {
@@ -91,12 +91,14 @@ std::ostream& operator<<(std::ostream& os, const DepthPano& rhs) {
   return os << rhs.Repr();
 }
 
-cv::Rect DepthPano::WinCenterAt(cv::Point pt, cv::Size win_size) const {
+cv::Rect DepthPano::WinCenterAt(const cv::Point& pt,
+                                const cv::Size& win_size) const {
   return {cv::Point{pt.x - win_size.width / 2, pt.y - win_size.height / 2},
           win_size};
 }
 
-cv::Rect DepthPano::BoundWinCenterAt(cv::Point pt, cv::Size win_size) const {
+cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
+                                     const cv::Size& win_size) const {
   const cv::Rect bound{cv::Point{}, size()};
   return WinCenterAt(pt, win_size) & bound;
 }
@@ -152,18 +154,6 @@ int DepthPano::Render(bool tbb) {
   // clear pano2
   dbuf2_.setTo(0);
   return PanoRender(model_, dbuf_, dbuf2_, tbb);
-}
-
-void DepthPano::CalcMeanCovar(cv::Rect win, MeanCovar3f& mc) const {
-  // Compute mean and covar within window
-  for (int r = win.y; r < win.y + win.height; ++r) {
-    for (int c = win.x; c < win.x + win.width; ++c) {
-      const float rg = GetRange({c, r});
-      if (rg == 0) continue;
-      const auto p = model_.Backward(r, c, rg);
-      mc.Add({p.x, p.y, p.z});
-    }
-  }
 }
 
 }  // namespace sv

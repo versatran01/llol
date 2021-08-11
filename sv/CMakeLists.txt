@@ -59,11 +59,11 @@ cc_library(
 cc_test(
   NAME llol_pano_test
   SRCS "llol/pano_test_bench.cpp"
-  DEPS sv_llol_pano benchmark::benchmark)
+  DEPS sv_llol_pano sv_llol_sweep benchmark::benchmark)
 cc_bench(
   NAME llol_pano_bench
   SRCS "llol/pano_test_bench.cpp"
-  DEPS sv_llol_pano GTest::GTest)
+  DEPS sv_llol_pano sv_llol_sweep GTest::GTest)
 
 cc_library(
   NAME llol_match

@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "sv/llol/pano.h"
-#include "sv/llol/test.h"
+#include "sv/llol/sweep.h"  // MakeTestScan
 
 namespace sv {
 namespace {
@@ -27,7 +27,7 @@ TEST(DepthPanoTest, TestBoundedWinAt) {
 
 void BM_PanoAddSweepSeq(benchmark::State& state) {
   DepthPano pano({1024, 256});
-  cv::Mat sweep = MakeScan({1024, 64});
+  const cv::Mat sweep = MakeTestScan({1024, 64});
 
   for (auto _ : state) {
     pano.AddSweep(sweep, false);
@@ -38,7 +38,7 @@ BENCHMARK(BM_PanoAddSweepSeq);
 
 void BM_PanoAddSweepTbb(benchmark::State& state) {
   DepthPano pano({1024, 256});
-  cv::Mat sweep = MakeScan({1024, 64});
+  const cv::Mat sweep = MakeTestScan({1024, 64});
 
   for (auto _ : state) {
     pano.AddSweep(sweep, true);

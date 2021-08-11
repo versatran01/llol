@@ -55,4 +55,6 @@ struct LidarSweep {
   int grid_width() const noexcept { return width() / cell_size_.width; }
 };
 
+cv::Mat MakeTestScan(const cv::Size& size);
+
 }  // namespace sv

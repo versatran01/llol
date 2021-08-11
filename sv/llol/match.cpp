@@ -150,7 +150,7 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
   for (int wr = 0; wr < win.height; ++wr) {
     for (int wc = 0; wc < win.width; ++wc) {
       const cv::Point px_w{wc + win.x, wr + win.y};
-      const float rg_w = pano.GetRange(px_w);
+      const float rg_w = pano.RangeAt(px_w);
       if (rg_w == 0 || CalcRangeDiffRel(rg_w, rg_p) > params_.range_ratio) {
         continue;
       }

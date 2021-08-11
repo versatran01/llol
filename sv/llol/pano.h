@@ -29,7 +29,7 @@ class DepthPano {
   static constexpr float kMaxRange = 65536.0F / kScale;
 
   DepthPano() = default;
-  explicit DepthPano(cv::Size size, float hfov = 0);
+  explicit DepthPano(const cv::Size& size, float hfov = 0);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const DepthPano& rhs);
@@ -39,10 +39,12 @@ class DepthPano {
   bool num_sweeps() const noexcept { return num_sweeps_; }
   cv::Size size() const noexcept { return model_.size(); }
 
-  float GetRange(cv::Point pt) const { return dbuf_.at<ushort>(pt) / kScale; }
+  float RangeAt(const cv::Point& pt) const {
+    return dbuf_.at<ushort>(pt) / kScale;
+  }
 
-  cv::Rect WinCenterAt(cv::Point pt, cv::Size size) const;
-  cv::Rect BoundWinCenterAt(cv::Point pt, cv::Size size) const;
+  cv::Rect WinCenterAt(const cv::Point& pt, const cv::Size& size) const;
+  cv::Rect BoundWinCenterAt(const cv::Point& pt, const cv::Size& size) const;
 
   /// @brief Add a sweep to the pano
   int AddSweep(const cv::Mat& sweep, bool tbb = false);
@@ -50,9 +52,6 @@ class DepthPano {
 
   /// @brief Render pano at a new location
   int Render(bool tbb);
-
-  /// @brief Computes mean and covar of points in window at
-  void CalcMeanCovar(cv::Rect win, MeanCovar3f& mc) const;
 
   int num_sweeps_{0};
   LidarModel model_;

@@ -2,7 +2,6 @@
 #include <gtest/gtest.h>
 
 #include "sv/llol/sweep.h"
-#include "sv/llol/test.h"
 
 namespace sv {
 namespace {
@@ -53,7 +52,7 @@ TEST(LidarSweepTest, TestAddScan) {
 void BM_AddScanSeq(benchmark::State& state) {
   const cv::Size size{1024, 64};
   LidarSweep sweep(size, {16, 2});
-  const auto scan = MakeScan(size);
+  const auto scan = MakeTestScan(size);
 
   for (auto _ : state) {
     auto n = sweep.AddScan(scan, {0, size.width}, false);
@@ -65,7 +64,7 @@ BENCHMARK(BM_AddScanSeq);
 void BM_AddScanPar(benchmark::State& state) {
   const cv::Size size{1024, 64};
   LidarSweep sweep(size, {16, 2});
-  const auto scan = MakeScan(size);
+  const auto scan = MakeTestScan(size);
 
   for (auto _ : state) {
     auto n = sweep.AddScan(scan, {0, size.width}, true);
