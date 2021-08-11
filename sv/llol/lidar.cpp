@@ -7,7 +7,7 @@
 namespace sv {
 
 /// LidarModel =================================================================
-LidarModel::LidarModel(cv::Size size, float hfov) : size_{size} {
+LidarModel::LidarModel(const cv::Size& size, float hfov) : size_{size} {
   if (hfov <= 0) {
     hfov = kTauF / size.aspectRatio();
   }
@@ -59,14 +59,11 @@ int LidarModel::ToCol(float x, float y) const {
 std::string LidarModel::Repr() const {
   return fmt::format(
       "LidarModel(size={}, elev_max={:.4f}[deg], elev_delta={:.4f}[deg], "
-      "azim_delta={:.4f}[deg], width_height_ratio={:.4f}, "
-      "elev_azim_ratio={:.4f})",
+      "azim_delta={:.4f}[deg])",
       sv::Repr(size_),
       Rad2Deg(elev_max_),
       Rad2Deg(elev_delta_),
-      Rad2Deg(azim_delta_),
-      WidthHeightRatio(),
-      ElevAzimRatio());
+      Rad2Deg(azim_delta_));
 }
 
 std::ostream& operator<<(std::ostream& os, const LidarModel& rhs) {

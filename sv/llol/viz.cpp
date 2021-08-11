@@ -31,56 +31,56 @@ void MeanCovar2Marker(Marker& marker,
   marker.scale.z = eigvals.z();
 }
 
-std::vector<Marker> Sweep2Markers(const std_msgs::Header& header,
-                                  const LidarSweep& sweep,
-                                  float max_curve) {
-  std::vector<Marker> markers;
-  markers.reserve(sweep.grid().total());
+// std::vector<Marker> Sweep2Markers(const std_msgs::Header& header,
+//                                  const LidarSweep& sweep,
+//                                  float max_curve) {
+//  std::vector<Marker> markers;
+//  markers.reserve(sweep.grid().total());
 
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
+//  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
 
-  const auto& grid = sweep.grid();
-  const auto& cell_size = sweep.cell_size();
-  const int min_pts = cell_size.area() * 0.75;
+//  const auto& grid = sweep.grid();
+//  const auto& cell_size = sweep.cell_size();
+//  const int min_pts = cell_size.area() * 0.75;
 
-  Marker marker;
-  marker.header = header;
-  marker.ns = "sweep";
-  marker.type = Marker::SPHERE;
-  marker.action = Marker::ADD;
-  marker.color.a = 0.5;
-  marker.color.r = 0.0;
-  marker.color.g = 1.0;
-  marker.color.b = 0.0;
+//  Marker marker;
+//  marker.header = header;
+//  marker.ns = "sweep";
+//  marker.type = Marker::SPHERE;
+//  marker.action = Marker::ADD;
+//  marker.color.a = 0.5;
+//  marker.color.r = 0.0;
+//  marker.color.g = 1.0;
+//  marker.color.b = 0.0;
 
-  MeanCovar3f mc;
+//  MeanCovar3f mc;
 
-  int k = 0;
-  for (int gr = 0; gr < grid.rows; ++gr) {
-    for (int gc = 0; gc < grid.cols; ++gc) {
-      const auto& curve = grid.at<float>(gr, gc);
-      if (!(curve < max_curve)) continue;
-      //  Get cell
-      const cv::Rect rect{
-          cv::Point{gc * cell_size.width, gr * cell_size.height}, cell_size};
-      const cv::Mat cell{sweep.sweep(), rect};
+//  int k = 0;
+//  for (int gr = 0; gr < grid.rows; ++gr) {
+//    for (int gc = 0; gc < grid.cols; ++gc) {
+//      const auto& curve = grid.at<float>(gr, gc);
+//      if (!(curve < max_curve)) continue;
+//      //  Get cell
+//      const cv::Rect rect{
+//          cv::Point{gc * cell_size.width, gr * cell_size.height}, cell_size};
+//      const cv::Mat cell{sweep.xyzr(), rect};
 
-      mc.Reset();
-      MatXyzr2MeanCovar(cell, mc);
+//      mc.Reset();
+//      MatXyzr2MeanCovar(cell, mc);
 
-      if (mc.n < min_pts) continue;
-      es.compute(mc.covar());
-      MeanCovar2Marker(marker,
-                       mc.mean.cast<double>(),
-                       es.eigenvalues().cast<double>(),
-                       es.eigenvectors().cast<double>());
+//      if (mc.n < min_pts) continue;
+//      es.compute(mc.covar());
+//      MeanCovar2Marker(marker,
+//                       mc.mean.cast<double>(),
+//                       es.eigenvalues().cast<double>(),
+//                       es.eigenvectors().cast<double>());
 
-      marker.id = ++k;
-      markers.push_back(marker);
-    }
-  }
-  return markers;
-}
+//      marker.id = ++k;
+//      markers.push_back(marker);
+//    }
+//  }
+//  return markers;
+//}
 
 void Match2Markers(std::vector<Marker>& markers,
                    const std_msgs::Header& header,

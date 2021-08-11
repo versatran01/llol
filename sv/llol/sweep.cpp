@@ -12,6 +12,11 @@
 
 namespace sv {
 
+/// @brief Compute scan curvature and store to grid
+int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb = false);
+int CalcScanCurveRow(const cv::Mat& scan, cv::Mat& grid, int r);
+float CalcCellCurve(const cv::Mat& cell);
+
 // cell is (1,c, 32FC4), return nan if any point is nan
 float CalcCellCurve(const cv::Mat& cell) {
   // compute sum of range in cell
@@ -34,40 +39,29 @@ float CalcCellCurve(const cv::Mat& cell) {
   return std::abs(sum / mid / num - 1);
 }
 
-/// LidarSweep =================================================================
-LidarSweep::LidarSweep(cv::Size sweep_size, cv::Size cell_size)
-    : sweep_{sweep_size, CV_32FC4},
-      cell_size_{cell_size},
-      grid_{cv::Size{sweep_size.width / cell_size.width,
-                     sweep_size.height / cell_size.height},
-            CV_32FC1} {}
-
-int LidarSweep::AddScan(const cv::Mat& scan,
-                        const cv::Range& scan_range,
-                        bool tbb) {
-  // Check scan type is compatible
-  CHECK_EQ(scan.type(), sweep_.type());
-  // Check rows match between scan and mat
-  CHECK_EQ(scan.rows, sweep_.rows);
-  // Check scan width is not bigger than sweep
-  CHECK_LE(scan.cols, sweep_.cols);
-  // Check that the new scan start right after
-  CHECK_EQ(scan_range.start, full() ? 0 : range_.end);
-
-  // Save range and copy to storage
-  range_ = scan_range;
-  scan.copyTo(sweep_.colRange(range_));  // x,y,w,h
-
-  // Compute curvature of scan and save to grid
-  auto grid = grid_.colRange(scan_range / cell_size().width);
-  return CalcScanCurve(scan, grid, tbb);
+int CalcScanCurveRow(const cv::Mat& scan, cv::Mat& grid, int gr) {
+  int n = 0;
+  const int cell_rows = scan.rows / grid.rows;
+  const int cell_cols = scan.cols / grid.cols;
+  for (int gc = 0; gc < grid.cols; ++gc) {
+    const int sr = gr * cell_rows;
+    const int sc = gc * cell_cols;
+    // Note that we only take the first row regardless of row size
+    // this is because ouster lidar image is staggered.
+    // Maybe we will handle it later
+    const auto cell = scan.row(sr).colRange(sc, sc + cell_cols);
+    const auto curve = CalcCellCurve(cell);
+    grid.at<float>(gr, gc) = curve;
+    n += static_cast<int>(!std::isnan(curve));
+  }
+  return n;
 }
 
-int LidarSweep::CalcScanCurve(const cv::Mat& scan, cv::Mat grid, bool tbb) {
+int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb) {
   int n = 0;
   if (tbb) {
     n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, grid_.rows),
+        tbb::blocked_range<int>(0, grid.rows),
         0,
         [&](const tbb::blocked_range<int>& block, int total) {
           for (int gr = block.begin(); gr < block.end(); ++gr) {
@@ -84,41 +78,56 @@ int LidarSweep::CalcScanCurve(const cv::Mat& scan, cv::Mat grid, bool tbb) {
   return n;
 }
 
-int LidarSweep::CalcScanCurveRow(const cv::Mat& scan, cv::Mat& grid, int gr) {
-  int n = 0;
-  for (int gc = 0; gc < grid.cols; ++gc) {
-    const int sr = gr * cell_size_.height;
-    const int sc = gc * cell_size_.width;
-    const auto cell = scan.row(sr).colRange(sc, sc + cell_size_.width);
-    const auto curve = CalcCellCurve(cell);
-    grid.at<float>(gr, gc) = curve;
-    n += static_cast<int>(!std::isnan(curve));
-  }
-  return n;
+/// LidarSweep =================================================================
+LidarSweep::LidarSweep(const cv::Size& sweep_size, const cv::Size& cell_size)
+    : xyzr_{sweep_size, CV_32FC4},
+      cell_size_{cell_size},
+      grid_{cv::Size{sweep_size.width / cell_size.width,
+                     sweep_size.height / cell_size.height},
+            CV_32FC1} {}
+
+int LidarSweep::AddScan(const cv::Mat& scan,
+                        const cv::Range& scan_range,
+                        bool tbb) {
+  // Check scan type is compatible
+  CHECK_EQ(scan.type(), xyzr_.type());
+  // Check rows match between scan and mat
+  CHECK_EQ(scan.rows, xyzr_.rows);
+  // Check scan width is not bigger than sweep
+  CHECK_LE(scan.cols, xyzr_.cols);
+  // Check that the new scan start right after
+  CHECK_EQ(scan_range.start, full() ? 0 : col_range_.end);
+
+  // Save range and copy to storage
+  col_range_ = scan_range;
+  scan.copyTo(xyzr_.colRange(col_range_));  // x,y,w,h
+
+  // Compute curvature of scan and save to grid
+  auto grid = grid_.colRange(scan_range / cell_size().width);
+  return CalcScanCurve(scan, grid, tbb);
 }
 
 void LidarSweep::Reset() {
-  range_ = {0, 0};
-  const auto nan = std::numeric_limits<float>::quiet_NaN();
-  sweep_.setTo(nan);
-  grid_.setTo(nan);
+  col_range_ = {0, 0};
+  xyzr_.setTo(kNaNF);
+  grid_.setTo(kNaNF);
 }
 
-cv::Point LidarSweep::PixelToCell(const cv::Point& px_s) const {
-  return {px_s.x / cell_size_.width, px_s.y / cell_size_.height};
+cv::Point LidarSweep::Pixel2CellInd(const cv::Point& sweep_px) const {
+  return {sweep_px.x / cell_size_.width, sweep_px.y / cell_size_.height};
 }
 
 cv::Mat LidarSweep::CellAt(const cv::Point& grid_px) const {
   const int sr = grid_px.y * cell_size_.height;
   const int sc = grid_px.x * cell_size_.width;
-  return sweep_.row(sr).colRange(sc, sc + cell_size_.width);
+  return xyzr_.row(sr).colRange(sc, sc + cell_size_.width);
 }
 
 std::string LidarSweep::Repr() const {
   using sv::Repr;
-  return fmt::format("LidarSweep(sweep={}, range={}, grid={}, cell_size={})",
-                     Repr(sweep_),
-                     Repr(range_),
+  return fmt::format("LidarSweep(xyzr={}, col_range={}, grid={}, cell_size={})",
+                     Repr(xyzr_),
+                     Repr(col_range_),
                      Repr(grid_),
                      Repr(cell_size_));
 }

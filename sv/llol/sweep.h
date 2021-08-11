@@ -8,8 +8,8 @@ namespace sv {
 struct LidarSweep {
   /// Data
   /// incrementally stores scan into sweep
-  cv::Range range_;
-  cv::Mat sweep_;
+  cv::Range col_range_;
+  cv::Mat xyzr_;
 
   /// stores curvature scores of each cell in sweep
   cv::Size cell_size_;
@@ -19,7 +19,7 @@ struct LidarSweep {
 
   /// @brief Ctors
   LidarSweep() = default;
-  LidarSweep(cv::Size sweep_size, cv::Size cell_size);
+  LidarSweep(const cv::Size& sweep_size, const cv::Size& cell_size);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs);
@@ -30,31 +30,29 @@ struct LidarSweep {
               const cv::Range& scan_range,
               bool tbb = false);
 
-  int CalcScanCurve(const cv::Mat& scan, cv::Mat grid, bool tbb = false);
-  int CalcScanCurveRow(const cv::Mat& scan, cv::Mat& grid, int r);
-
   /// @brief Reset range to [0,0), sweep and grid to nan, keep cell_size
   void Reset();
 
   /// @brief whether sweep is full
-  bool full() const noexcept { return width() == sweep_.cols; }
-
-  const auto& XyzrAt(const cv::Point& px) const {
-    return sweep_.at<cv::Vec4f>(px);
-  }
-  cv::Point PixelToCell(const cv::Point& px_s) const;
-
-  /// @brief getters
-  cv::Range range() const noexcept { return range_; }
-  const cv::Mat& sweep() const noexcept { return sweep_; }
-  const cv::Mat& grid() const noexcept { return grid_; }
-  cv::Size cell_size() const noexcept { return cell_size_; }
-
-  /// @brief basic info
-  int width() const noexcept { return range_.end; }
-  int grid_width() const noexcept { return width() / cell_size_.width; }
+  bool full() const noexcept { return width() == xyzr_.cols; }
 
   cv::Mat CellAt(const cv::Point& grid_px) const;
+  cv::Point Pixel2CellInd(const cv::Point& sweep_px) const;
+  const auto& XyzrAt(const cv::Point& sweep_px) const {
+    return xyzr_.at<cv::Vec4f>(sweep_px);
+  }
+
+  /// @brief getters
+  cv::Range range() const noexcept { return col_range_; }
+  cv::Size cell_size() const noexcept { return cell_size_; }
+  cv::Size grid_size() const noexcept { return {grid_.cols, grid_.rows}; }
+  cv::Size xyzr_size() const noexcept { return {xyzr_.cols, xyzr_.rows}; }
+  const cv::Mat& grid() const noexcept { return grid_; }
+  const cv::Mat& xyzr() const noexcept { return xyzr_; }
+
+  /// @brief basic info
+  int width() const noexcept { return col_range_.end; }
+  int grid_width() const noexcept { return width() / cell_size_.width; }
 };
 
 }  // namespace sv

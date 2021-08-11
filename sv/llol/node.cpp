@@ -178,7 +178,7 @@ class LlolNode {
 
     if (vis_) {
       cv::Mat sweep_disp;
-      cv::extractChannel(sweep_.sweep(), sweep_disp, 3);
+      cv::extractChannel(sweep_.xyzr(), sweep_disp, 3);
       Imshow("sweep", ApplyCmap(sweep_disp, 1 / 30.0, cv::COLORMAP_PINK, 0));
       Imshow("grid", ApplyCmap(sweep_.grid(), 5, cv::COLORMAP_VIRIDIS, 255));
     }
@@ -199,7 +199,9 @@ class LlolNode {
 
       // display good match
       Imshow("match",
-             ApplyCmap(matcher_.Draw(sweep_), 1.0, cv::COLORMAP_VIRIDIS));
+             ApplyCmap(matcher_.Draw(sweep_),
+                       1.0 / matcher_.pano_win_size_.area(),
+                       cv::COLORMAP_VIRIDIS));
 
       {  /// Optimization
 
@@ -226,10 +228,10 @@ class LlolNode {
       int num_added = 0;
       {
         auto _ = tm_.Scoped("Pano/AddSweep");
-        num_added = pano_.AddSweep(sweep_.sweep(), tbb_);
+        num_added = pano_.AddSweep(sweep_.xyzr(), tbb_);
       }
       ROS_INFO_STREAM("Num added: " << num_added << ", sweep total: "
-                                    << sweep_.sweep().total());
+                                    << sweep_.xyzr().total());
 
       int num_rendered = 0;
       {

@@ -8,14 +8,14 @@
 namespace sv {
 
 /// @struct Match
+// struct alignas(128) PointMatch {
 struct PointMatch {
   cv::Point src_px{-1, -1};
   cv::Point dst_px{-1, -1};
   MeanCovar3f src{};  // sweep
   MeanCovar3f dst{};  // pano
-  uint8_t pad[128 - 120];
 };
-static_assert(sizeof(PointMatch) == 128, "PointMatch size is not 128");
+// static_assert(sizeof(PointMatch) == 128, "PointMatch size is not 128");
 
 /// @class Feature Matcher
 struct MatcherParams {
@@ -24,16 +24,6 @@ struct MatcherParams {
   double max_curve{0.01};
   double range_ratio{0.1};
 };
-
-/// @brief Mat must be 32FC4
-void MatXyzr2MeanCovar(const cv::Mat& mat, MeanCovar3f& mc);
-
-float CalcRangeDiffRel(float rg1, float rg2) {
-  return std::abs(rg1 - rg2) / std::max(rg1, rg2);
-}
-
-/// @brief Check if a point is a good candidate for matching
-bool IsCellGood(const cv::Mat& grid, cv::Point px, double max_curve, bool nms);
 
 // TODO: rename to GridMatcher
 struct PointMatcher {
@@ -45,7 +35,6 @@ struct PointMatcher {
   friend std::ostream& operator<<(std::ostream& os, const PointMatcher& rhs);
 
   /// @brief getters
-  cv::Size win_size() const noexcept { return win_size_; }
   const auto& matches() const noexcept { return matches_; }
 
   /// @brief Match features in sweep to pano
@@ -58,9 +47,8 @@ struct PointMatcher {
   cv::Mat Draw(const LidarSweep& sweep) const;
 
   MatcherParams params_;
-  cv::Size win_size_;
+  cv::Size pano_win_size_;
   std::vector<PointMatch> matches_;
-  std::vector<PointMatch> matches_out_;
 };
 
 }  // namespace sv

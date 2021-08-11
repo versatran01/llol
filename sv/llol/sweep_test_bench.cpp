@@ -22,9 +22,9 @@ TEST(LidarSweepTest, TestCtor) {
   EXPECT_EQ(ls.width(), 0);
   EXPECT_EQ(ls.full(), false);
 
-  EXPECT_EQ(ls.sweep().rows, 4);
-  EXPECT_EQ(ls.sweep().cols, 8);
-  EXPECT_EQ(ls.sweep().channels(), 4);
+  EXPECT_EQ(ls.xyzr().rows, 4);
+  EXPECT_EQ(ls.xyzr().cols, 8);
+  EXPECT_EQ(ls.xyzr().channels(), 4);
 
   EXPECT_EQ(ls.grid().rows, 4);
   EXPECT_EQ(ls.grid().cols, 4);

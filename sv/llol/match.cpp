@@ -8,6 +8,14 @@
 
 namespace sv {
 
+/// @brief Check if a point is a good candidate for matching
+bool IsCellGood(const cv::Mat& grid, cv::Point px, double max_curve, bool nms);
+
+float CalcRangeDiffRel(float rg1, float rg2) {
+  return std::abs(rg1 - rg2) / std::max(rg1, rg2);
+}
+
+/// @brief Mat must be 32FC4
 void MatXyzr2MeanCovar(const cv::Mat& mat, MeanCovar3f& mc) {
   for (int r = 0; r < mat.rows; ++r) {
     for (int c = 0; c < mat.cols; ++c) {
@@ -21,17 +29,19 @@ void MatXyzr2MeanCovar(const cv::Mat& mat, MeanCovar3f& mc) {
 /// PointMatcher ===============================================================
 PointMatcher::PointMatcher(int max_matches, const MatcherParams& params)
     : params_{params},
-      win_size_{params.half_rows * 8 + 1, params.half_rows * 2 + 1} {
+      pano_win_size_{params.half_rows * 8 + 1, params.half_rows * 2 + 1} {
   matches_.reserve(max_matches);
 }
 
 std::string PointMatcher::Repr() const {
   return fmt::format(
-      "PointMatcher(max_matches={}, max_score={}, nms={}, win_size={})",
+      "PointMatcher(max_matches={}, max_score={}, nms={}, range_ratio={}, "
+      "win_size={})",
       matches_.capacity(),
       params_.max_curve,
       params_.nms,
-      sv::Repr(win_size_));
+      params_.range_ratio,
+      sv::Repr(pano_win_size_));
 }
 
 std::ostream& operator<<(std::ostream& os, const PointMatcher& rhs) {
@@ -96,7 +106,7 @@ void PointMatcher::Match(const LidarSweep& sweep,
   // Clean up
   // TODO: keep matches_ intact, for multiple rounds for match
   // Instead generate a compact version by copying valid ones and return
-  const int min_pts = 0.5 * win_size_.area();
+  const int min_pts = 0.5 * pano_win_size_.area();
   const auto it = std::remove_if(
       matches_.begin(), matches_.end(), [min_pts](const PointMatch& m) {
         return m.dst.n < min_pts;
@@ -132,7 +142,7 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
 
   // Compute normal dist around pano point
   match.dst_px = px_p;
-  const auto win = pano.BoundWinCenterAt(px_p, win_size_);
+  const auto win = pano.BoundWinCenterAt(px_p, pano_win_size_);
 
   for (int wr = 0; wr < win.height; ++wr) {
     for (int wc = 0; wc < win.width; ++wc) {
@@ -148,11 +158,14 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
 }
 
 cv::Mat PointMatcher::Draw(const LidarSweep& sweep) const {
-  cv::Mat disp(cv::Size{sweep.grid().cols, sweep.grid().rows}, CV_32FC1, kNaNF);
-  float max_pts = win_size_.area();
+  cv::Mat disp(sweep.grid_size(), CV_32FC1, kNaNF);
+
   for (const auto& match : matches_) {
-    disp.at<float>(sweep.PixelToCell(match.src_px)) = match.dst.n / max_pts;
+    if (match.src_px.x >= 0) {
+      disp.at<float>(sweep.Pixel2CellInd(match.src_px)) = match.dst.n;
+    }
   }
+
   return disp;
 }
 

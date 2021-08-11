@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <opencv2/core/types.hpp>
@@ -10,7 +9,7 @@ namespace sv {
 /// @struct LidarModel
 struct LidarModel {
   LidarModel() = default;
-  LidarModel(cv::Size size, float hfov);
+  LidarModel(const cv::Size& size, float hfov);
 
   cv::Size size() const noexcept { return size_; }
 
@@ -26,10 +25,6 @@ struct LidarModel {
   /// @brief Check if r/c inside image
   bool RowInside(int r) const noexcept { return 0 <= r && r < size_.height; }
   bool ColInside(int c) const noexcept { return 0 <= c && c < size_.width; }
-
-  /// @brief width / height
-  double WidthHeightRatio() const { return size_.aspectRatio(); }
-  float ElevAzimRatio() const { return elev_delta_ / azim_delta_; }
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const LidarModel& rhs);
