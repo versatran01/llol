@@ -98,6 +98,7 @@ struct MeanCovar {
 using MeanCovar3f = MeanCovar<float, 3>;
 using MeanCovar3d = MeanCovar<double, 3>;
 
+/// @brief Computes matrix square root using Cholesky
 template <typename T, int N>
 Eigen::Matrix<T, N, N> MatrixSqrtUtU(const Eigen::Matrix<T, N, N>& A) {
   return A.template selfadjointView<Eigen::Upper>().llt().matrixU();
@@ -107,8 +108,7 @@ Eigen::Matrix<T, N, N> MatrixSqrtUtU(const Eigen::Matrix<T, N, N>& A) {
 Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);
 
 /// @brief force the axis to be right handed for 3D
-/// @details sometimes eigvecs has det -1 (reflection), this makes it a proper
-/// rotation
+/// @details sometimes eigvecs has det -1 (reflection), this makes it a rotation
 /// @ref
 /// https://docs.ros.org/en/noetic/api/rviz/html/c++/covariance__visual_8cpp_source.html
 void MakeRightHanded(Eigen::Vector3d& eigvals, Eigen::Matrix3d& eigvecs);

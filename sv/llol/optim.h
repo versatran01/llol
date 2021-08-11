@@ -8,7 +8,7 @@
 
 namespace sv {
 
-using Sophus::SE3d;
+using SE3d = Sophus::SE3d;
 
 class LocalParamSE3 final : public ceres::LocalParameterization {
  public:

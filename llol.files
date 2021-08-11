@@ -33,7 +33,6 @@ sv/llol/pano_test_bench.cpp
 sv/llol/sweep.cpp
 sv/llol/sweep.h
 sv/llol/sweep_test_bench.cpp
-sv/llol/test.h
 sv/llol/viz.cpp
 sv/llol/viz.h
 sv/util/CMakeLists.txt

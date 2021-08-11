@@ -75,7 +75,6 @@ cc_library(
   SRCS "llol/optim.cpp"
   DEPS sv_llol_match Ceres::ceres Sophus::Sophus)
 
-
 # node =========================================================================
 if(catkin_FOUND)
   cc_library(

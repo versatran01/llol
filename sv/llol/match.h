@@ -31,7 +31,7 @@ struct MatcherParams {
 struct PointMatcher {
   PointMatcher() = default;
   // TODO: use grid size
-  PointMatcher(int max_matches, const MatcherParams& params);
+  PointMatcher(const cv::Size& grid_size, const MatcherParams& params);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const PointMatcher& rhs);

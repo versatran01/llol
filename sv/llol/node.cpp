@@ -6,6 +6,7 @@
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
+#include <tf2_ros/transform_listener.h>
 
 #include "sv/llol/match.h"
 #include "sv/llol/optim.h"
@@ -25,7 +26,13 @@ class LlolNode {
   ros::NodeHandle pnh_;
   image_transport::ImageTransport it_;
   image_transport::CameraSubscriber sub_camera_;
+  ros::Subscriber sub_imu_;
   ros::Publisher pub_marray_;
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
+
+  std::string lidar_frame_;
+  std::optional<geometry_msgs::TransformStamped> tf_imu_lidar_;
 
   bool vis_{};
   bool tbb_{};
@@ -39,7 +46,9 @@ class LlolNode {
   Sophus::SE3d T_p_s_;
 
  public:
-  explicit LlolNode(const ros::NodeHandle& pnh) : pnh_{pnh}, it_{pnh} {
+  explicit LlolNode(const ros::NodeHandle& pnh)
+      : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
+    sub_imu_ = pnh_.subscribe("imu", 100, &LlolNode::ImuCb, this);
     sub_camera_ = it_.subscribeCamera("image", 10, &LlolNode::CameraCb, this);
     pub_marray_ = pnh_.advertise<visualization_msgs::MarkerArray>("marray", 1);
 
@@ -57,8 +66,43 @@ class LlolNode {
     ROS_INFO_STREAM(pano_);
   }
 
+  void ImuCb(const sensor_msgs::Imu& imu_msg) {
+    // tf stuff
+    if (lidar_frame_.empty()) {
+      ROS_WARN_STREAM_THROTTLE(1, "Lidar frame is not set, waiting");
+      return;
+    }
+
+    if (!tf_imu_lidar_.has_value()) {
+      try {
+        tf_imu_lidar_ = tf_buffer_.lookupTransform(
+            imu_msg.header.frame_id, lidar_frame_, ros::Time(0));
+
+        const auto& t = tf_imu_lidar_->transform.translation;
+        const auto& q = tf_imu_lidar_->transform.rotation;
+        const Eigen::Vector3d t_imu_lidar{t.x, t.y, t.z};
+        const Eigen::Quaterniond q_imu_lidar{q.w, q.x, q.y, q.z};
+        const SE3d T_imu_lidar{q_imu_lidar, t_imu_lidar};
+
+        ROS_INFO_STREAM("Transform from lidar to imu\n"
+                        << T_imu_lidar.matrix());
+      } catch (tf2::TransformException& ex) {
+        ROS_WARN_STREAM(ex.what());
+        return;
+      }
+    }
+  }
+
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
+    if (lidar_frame_.empty()) {
+      lidar_frame_ = image_msg->header.frame_id;
+      ROS_INFO_STREAM("Lidar frame: " << lidar_frame_);
+    }
+
+    // Currently disabled
+    return;
+
     if (!init_) {
       // Initialized sweep
       {
@@ -74,11 +118,11 @@ class LlolNode {
       // Initialize matcher
       {
         auto match_nh = ros::NodeHandle{pnh_, "match"};
-        MatcherParams mp;
-        mp.nms = match_nh.param<bool>("nms", false);
-        mp.half_rows = match_nh.param<int>("half_rows", 2);
-        mp.max_curve = match_nh.param<double>("max_curve", 0.01);
-        matcher_ = PointMatcher(sweep_.grid().total(), mp);
+        MatcherParams params;
+        params.nms = match_nh.param<bool>("nms", false);
+        params.half_rows = match_nh.param<int>("half_rows", 2);
+        params.max_curve = match_nh.param<double>("max_curve", 0.01);
+        matcher_ = PointMatcher(sweep_.grid_size(), params);
         ROS_INFO_STREAM(matcher_);
       }
 

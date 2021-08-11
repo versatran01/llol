@@ -190,4 +190,4 @@ class TimerManager final : public StatsManagerBase<absl::Duration> {
 /// @brief Get the global timer manager
 TimerManager& GlobalTimerManager();
 
-}  // namespace llol
+}  // namespace sv

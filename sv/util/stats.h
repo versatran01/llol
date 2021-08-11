@@ -50,4 +50,4 @@ class Stats {
 using StatsF = Stats<float>;
 using StatsD = Stats<double>;
 
-}  // namespace llol
+}  // namespace sv

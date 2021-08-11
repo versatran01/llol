@@ -1,5 +1,3 @@
 #pragma once
 
-namespace sv {
-
-}
+namespace sv {}

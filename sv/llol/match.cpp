@@ -29,10 +29,11 @@ void MatXyzr2MeanCovar(const cv::Mat& mat, MeanCovar3f& mc) {
 }
 
 /// PointMatcher ===============================================================
-PointMatcher::PointMatcher(int max_matches, const MatcherParams& params)
+PointMatcher::PointMatcher(const cv::Size& grid_size,
+                           const MatcherParams& params)
     : params_{params},
       pano_win_size_{params.half_rows * 8 + 1, params.half_rows * 2 + 1} {
-  matches_.reserve(max_matches);
+  matches_.reserve(grid_size.area());
 }
 
 std::string PointMatcher::Repr() const {
@@ -74,19 +75,6 @@ void PointMatcher::Match(const LidarSweep& sweep,
   matches_.resize(grid.total());
 
   const int pad = static_cast<int>(params_.nms);
-
-  //  if (tbb) {
-  //    tbb::parallel_for(tbb::blocked_range<int>(0, matches_.size()),
-  //                      [&](const auto& block) {
-  //                        for (int i = block.begin(); i < block.end(); ++i) {
-  //                          MatchSingle(sweep, pano, i);
-  //                        }
-  //                      });
-  //  } else {
-  //    for (int i = 0; i < matches_.size(); ++i) {
-  //      MatchSingle(sweep, pano, i);
-  //    }
-  //  }
 
   if (tbb) {
     tbb::parallel_for(tbb::blocked_range<int>(0, grid.rows),
