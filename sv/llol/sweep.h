@@ -12,10 +12,11 @@ struct LidarSweep {
   cv::Mat xyzr_;
 
   /// stores curvature scores of each cell in sweep
-  cv::Size cell_size_;
+  cv::Size cell_size_;  // only use first row
   cv::Mat grid_;
 
-  std::vector<int> offsets;  // not used
+  cv::Mat offsets_;     // pixel offsets per row
+  cv::Mat transforms_;  // Nx7 [qx,qy,qz,qw,x,y,z]
 
   /// @brief Ctors
   LidarSweep() = default;
@@ -36,7 +37,7 @@ struct LidarSweep {
   /// @brief whether sweep is full
   bool IsFull() const noexcept { return width() == xyzr_.cols; }
 
-  cv::Mat CellAt(const cv::Point& px_grid) const;
+  cv::Rect CellAt(const cv::Point& px_g) const;
   cv::Point Pixel2CellInd(const cv::Point& px_sweep) const;
   const auto& XyzrAt(const cv::Point& px_sweep) const {
     return xyzr_.at<cv::Vec4f>(px_sweep);

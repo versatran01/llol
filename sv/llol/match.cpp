@@ -28,12 +28,32 @@ void MatXyzr2MeanCovar(const cv::Mat& mat, MeanCovar3f& mc) {
   }
 }
 
+/// @brief Compute mean covar of cell in sweep
+void SweepCellMeanCovar(const LidarSweep& sweep,
+                        const cv::Point& px_grid,
+                        MeanCovar3f& mc) {
+  const auto cell = sweep.CellAt(px_grid);
+
+  for (int r = 0; r < cell.height; ++r) {
+    for (int c = 0; c < cell.width; ++c) {
+      const auto& xyzr = sweep.XyzrAt({cell.x + c, cell.y + r});
+      if (std::isnan(xyzr[0])) continue;
+      mc.Add({xyzr[0], xyzr[1], xyzr[2]});
+    }
+  }
+}
+
+/// @brief Compute mean covar of cell in pano
+void PanoCellMeanCovar(const DepthPano& pano,
+                       const cv::Point& px_pano,
+                       MeanCovar3f& mc) {}
+
 /// PointMatcher ===============================================================
 PointMatcher::PointMatcher(const cv::Size& grid_size,
                            const MatcherParams& params)
     : params_{params},
       pano_win_size_{params.half_rows * 8 + 1, params.half_rows * 2 + 1} {
-  matches_.reserve(grid_size.area());
+  matches_.resize(grid_size.area());
 }
 
 std::string PointMatcher::Repr() const {
@@ -106,22 +126,21 @@ void PointMatcher::Match(const LidarSweep& sweep,
 
 void PointMatcher::MatchSingle(const LidarSweep& sweep,
                                const DepthPano& pano,
-                               const cv::Point& gpx) {
+                               const cv::Point& px_g) {
   // Check if grid cell is good
-  if (!IsCellGood(sweep.grid(), gpx, params_.max_curve, params_.nms)) {
+  if (!IsCellGood(sweep.grid(), px_g, params_.max_curve, params_.nms)) {
     return;
   }
 
-  const int i = gpx.y * sweep.grid().cols + gpx.x;
+  const int i = px_g.y * sweep.grid().cols + px_g.x;
   auto& match = matches_.at(i);
 
-  match.src_px.x = (gpx.x + 0.5) * sweep.cell_size().width;
-  match.src_px.y = gpx.y * sweep.cell_size().height;
+  match.src_px.x = (px_g.x + 0.5) * sweep.cell_size().width;
+  match.src_px.y = px_g.y * sweep.cell_size().height;
 
   // Compute normal dist around sweep cell
-  const auto cell = sweep.CellAt(gpx);
-  MatXyzr2MeanCovar(cell, match.src);
-  CHECK_GE(match.src.n, 0.75 * cell.cols);
+  SweepCellMeanCovar(sweep, px_g, match.src);
+  CHECK(match.src.ok()) << match.src.n;
 
   // Transform to pano frame
   const Eigen::Vector3f pt_p = Eigen::Matrix3f::Identity() * match.src.mean;
@@ -148,15 +167,14 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
   }
 }
 
-cv::Mat PointMatcher::Draw(const LidarSweep& sweep) const {
+cv::Mat DrawMatches(const LidarSweep& sweep,
+                    const std::vector<PointMatch>& matches) {
   cv::Mat disp(sweep.grid_size(), CV_32FC1, kNaNF);
 
-  for (const auto& match : matches_) {
-    if (match.src_px.x >= 0) {
-      disp.at<float>(sweep.Pixel2CellInd(match.src_px)) = match.dst.n;
-    }
+  for (const auto& match : matches) {
+    if (match.src_px.x < 0) continue;
+    disp.at<float>(sweep.Pixel2CellInd(match.src_px)) = match.dst.n;
   }
-
   return disp;
 }
 

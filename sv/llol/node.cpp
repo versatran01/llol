@@ -67,6 +67,7 @@ class LlolNode {
   }
 
   void ImuCb(const sensor_msgs::Imu& imu_msg) {
+    return;
     // tf stuff
     if (lidar_frame_.empty()) {
       ROS_WARN_STREAM_THROTTLE(1, "Lidar frame is not set, waiting");
@@ -101,7 +102,7 @@ class LlolNode {
     }
 
     // Currently disabled
-    return;
+    //    return;
 
     if (!init_) {
       // Initialized sweep
@@ -191,12 +192,12 @@ class LlolNode {
 
       // display good match
       Imshow("match",
-             ApplyCmap(matcher_.Draw(sweep_),
+             ApplyCmap(DrawMatches(sweep_, matcher_.matches()),
                        1.0 / matcher_.pano_win_size_.area(),
                        cv::COLORMAP_VIRIDIS));
 
       cs::Solver::Summary summary;
-      {  /// Optimization
+      if (0) {  /// Optimization
 
         auto _ = tm_.Scoped("ICP/Solve");
         std::unique_ptr<ceres::LocalParameterization> local_params =
@@ -229,8 +230,8 @@ class LlolNode {
         solver_opt.minimizer_progress_to_stdout = true;
         cs::Solve(solver_opt, &problem, &summary);
       }
-      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
-      ROS_INFO_STREAM(summary.BriefReport());
+      //      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
+      //      ROS_INFO_STREAM(summary.BriefReport());
     }
 
     /// Got a full sweep

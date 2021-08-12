@@ -17,6 +17,7 @@ struct Pixel {
   float metric() const noexcept { return raw / kScale; }
 };
 
+// TODO (chao): make this a member function
 int PanoRender(const LidarModel& model,
                const cv::Mat& dbuf1,
                cv::Mat& dbuf2,

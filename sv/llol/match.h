@@ -10,14 +10,14 @@ class LidarSweep;
 class DepthPano;
 
 /// @struct Match
-// struct alignas(128) PointMatch {
 struct PointMatch {
-  cv::Point src_px{-1, -1};
-  cv::Point dst_px{-1, -1};
-  MeanCovar3f src{};  // sweep
-  MeanCovar3f dst{};  // pano
+  cv::Point src_px{-1, -1};  // 8
+  cv::Point dst_px{-1, -1};  // 8
+  MeanCovar3f src{};         // sweep 52
+  MeanCovar3f dst{};         // pano 52
+  Eigen::Matrix3d U;         // 72
 };
-// static_assert(sizeof(PointMatch) == 128, "PointMatch size is not 128");
+static_assert(sizeof(PointMatch) == 192, "PointMatch size is not 192");
 
 /// @class Feature Matcher
 struct MatcherParams {
@@ -45,12 +45,13 @@ struct PointMatcher {
                    const DepthPano& pano,
                    const cv::Point& gpx);
 
-  /// @brief Draw match, valid pixel is percentage of pano points in window
-  cv::Mat Draw(const LidarSweep& sweep) const;
-
   MatcherParams params_;
   cv::Size pano_win_size_;
   std::vector<PointMatch> matches_;
 };
+
+/// @brief Draw match, valid pixel is percentage of pano points in window
+cv::Mat DrawMatches(const LidarSweep& sweep,
+                    const std::vector<PointMatch>& matches);
 
 }  // namespace sv

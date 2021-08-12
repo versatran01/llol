@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
   for (int i = 0; i < X.cols(); ++i) mc.Add(X.col(i));
 
   ROS_INFO_STREAM("mean:\n " << mc.mean.transpose());
-  ROS_INFO_STREAM("covar:\n " << mc.covar());
+  ROS_INFO_STREAM("covar:\n " << mc.Covar());
 
   Marker m_points;
   m_points.header.frame_id = "os_lidar";
@@ -63,7 +63,7 @@ int main(int argc, char** argv) {
     m_points.points.push_back(p);
   }
   SelfAdjointEigenSolver<Matrix3d> es;
-  es.compute(mc.covar());
+  es.compute(mc.Covar());
   Vector3d eigvals = es.eigenvalues();
   Matrix3d eigvecs = es.eigenvectors();
   MakeRightHanded(eigvecs, eigvals);

@@ -112,7 +112,7 @@ void Match2Markers(std::vector<Marker>& markers,
 
   for (int i = 0; i < matches.size(); ++i) {
     const auto& match = matches[i];
-    es.compute(match.dst.covar());
+    es.compute(match.dst.Covar());
     MeanCovar2Marker(pano_mk,
                      match.dst.mean.cast<double>(),
                      es.eigenvalues().cast<double>(),
@@ -122,7 +122,7 @@ void Match2Markers(std::vector<Marker>& markers,
     pano_mk.id = i;
     markers.push_back(pano_mk);
 
-    es.compute(match.src.covar());
+    es.compute(match.src.Covar());
     MeanCovar2Marker(sweep_mk,
                      match.src.mean.cast<double>(),
                      es.eigenvalues().cast<double>(),

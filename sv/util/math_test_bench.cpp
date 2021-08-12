@@ -27,7 +27,7 @@ TEST(MathTest, TestMeanCovar) {
 
     MeanCovar3d mc;
     for (int j = 0; j < X.cols(); ++j) mc.Add(X.col(j));
-    const auto cov1 = mc.covar();
+    const auto cov1 = mc.Covar();
 
     EXPECT_TRUE(cov0.isApprox(cov1));
     EXPECT_TRUE(mc.mean.isApprox(m));
@@ -57,7 +57,7 @@ void BM_MeanCovar(benchmark::State& state) {
   for (auto _ : state) {
     MeanCovar3d mc;
     for (int i = 0; i < X.cols(); ++i) mc.Add(X.col(i));
-    const auto cov = mc.covar();
+    const auto cov = mc.Covar();
     benchmark::DoNotOptimize(cov);
   }
 }

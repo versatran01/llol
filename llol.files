@@ -20,6 +20,7 @@ sv/llol/lidar.cpp
 sv/llol/lidar.h
 sv/llol/match.cpp
 sv/llol/match.h
+sv/llol/match_test_bench.cpp
 sv/llol/node.cpp
 sv/llol/odom.cpp
 sv/llol/odom.h

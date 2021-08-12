@@ -78,7 +78,11 @@ struct MeanCovar {
   int n{0};
   Vector mean{Vector::Zero()};
   Matrix covar_sum_{Matrix::Zero()};
-  Matrix covar() const { return covar_sum_ / (n - 1); }
+
+  /// @brief compute covariance
+  Matrix Covar() const { return covar_sum_ / (n - 1); }
+
+  /// @brief whether result is ok
   bool ok() const noexcept { return n > 1; }
 
   void Add(const Vector& x) {
@@ -97,6 +101,7 @@ struct MeanCovar {
 
 using MeanCovar3f = MeanCovar<float, 3>;
 using MeanCovar3d = MeanCovar<double, 3>;
+static_assert(sizeof(MeanCovar3f) == 52, "size of MeanCovar3f is 52 bytes");
 
 /// @brief Computes matrix square root using Cholesky
 template <typename T, int N>

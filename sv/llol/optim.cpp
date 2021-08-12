@@ -26,7 +26,7 @@ bool LocalParamSE3::ComputeJacobian(const double* _T, double* _J) const {
 GicpFactor::GicpFactor(const PointMatch& match) {
   pt_s = match.src.mean.cast<double>();
   pt_p = match.dst.mean.cast<double>();
-  Eigen::Matrix3d covar = match.dst.covar().cast<double>();
+  Eigen::Matrix3d covar = match.dst.Covar().cast<double>();
   covar.diagonal().array() += 1e-6;
   Eigen::Matrix3d info = covar.inverse();
   U = MatrixSqrtUtU(covar);
