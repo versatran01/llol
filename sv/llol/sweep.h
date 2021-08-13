@@ -7,20 +7,22 @@ namespace sv {
 /// @class Lidar Sweep covers 360 degree horizontal fov
 struct LidarSweep {
   /// Data
+  int id{-1};
   /// incrementally stores scan into sweep
-  cv::Range col_range_;
-  cv::Mat xyzr_;
+  cv::Range col_range;  // range of last added scan
+  cv::Mat xyzr_;        // [x,y,z,r] from driver
 
   /// stores curvature scores of each cell in sweep
-  cv::Size cell_size_;  // only use first row
-  cv::Mat grid_;
+  cv::Size cell_size;  // only use first row
+  cv::Mat grid_;       // stores curvature, could be nan
 
-  cv::Mat offsets_;     // pixel offsets per row
-  cv::Mat transforms_;  // Nx7 [qx,qy,qz,qw,x,y,z]
+  std::vector<uint8_t> offsets;  // pixel offsets per row
 
   /// @brief Ctors
   LidarSweep() = default;
   LidarSweep(const cv::Size& sweep_size, const cv::Size& cell_size);
+
+  void SetOffsets(const std::vector<double>& offsets_in);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs);
@@ -31,29 +33,24 @@ struct LidarSweep {
               const cv::Range& scan_range,
               bool tbb = false);
 
-  /// @brief Reset range to [0,0), sweep and grid to nan, keep cell_size
-  void Reset();
-
   /// @brief whether sweep is full
   bool IsFull() const noexcept { return width() == xyzr_.cols; }
 
-  cv::Rect CellAt(const cv::Point& px_g) const;
-  cv::Point Pixel2CellInd(const cv::Point& px_sweep) const;
+  cv::Rect CellAt(const cv::Point& px_grid) const;
   const auto& XyzrAt(const cv::Point& px_sweep) const {
     return xyzr_.at<cv::Vec4f>(px_sweep);
   }
+  cv::Point Pix2Cell(const cv::Point& px_sweep) const;
 
   /// @brief getters
-  cv::Range range() const noexcept { return col_range_; }
-  cv::Size cell_size() const noexcept { return cell_size_; }
   cv::Size grid_size() const noexcept { return {grid_.cols, grid_.rows}; }
   cv::Size xyzr_size() const noexcept { return {xyzr_.cols, xyzr_.rows}; }
   const cv::Mat& grid() const noexcept { return grid_; }
   const cv::Mat& xyzr() const noexcept { return xyzr_; }
 
   /// @brief basic info
-  int width() const noexcept { return col_range_.end; }
-  int grid_width() const noexcept { return width() / cell_size_.width; }
+  int width() const noexcept { return col_range.end; }
+  int grid_width() const noexcept { return width() / cell_size.width; }
 };
 
 cv::Mat MakeTestScan(const cv::Size& size);

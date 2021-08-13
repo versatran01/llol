@@ -38,13 +38,13 @@ TEST(LidarSweepTest, TestAddScan) {
 
   const int n = ls.AddScan(scan, {0, 4}, false);
 
-  EXPECT_EQ(ls.range().start, 0);
-  EXPECT_EQ(ls.range().end, 4);
+  EXPECT_EQ(ls.col_range.start, 0);
+  EXPECT_EQ(ls.col_range.end, 4);
   EXPECT_EQ(n, 8);
 
   const int n2 = ls.AddScan(scan, {4, 8}, false);
-  EXPECT_EQ(ls.range().start, 4);
-  EXPECT_EQ(ls.range().end, 8);
+  EXPECT_EQ(ls.col_range.start, 4);
+  EXPECT_EQ(ls.col_range.end, 8);
   EXPECT_EQ(n2, 8);
   EXPECT_EQ(ls.IsFull(), true);
 }

@@ -13,19 +13,9 @@ namespace sv {
 /// @brief Check if a point is a good candidate for matching
 bool IsCellGood(const cv::Mat& grid, cv::Point px, double max_curve, bool nms);
 
+// TODO (chao): improve this by considering distance to center
 float CalcRangeDiffRel(float rg1, float rg2) {
   return std::abs(rg1 - rg2) / std::max(rg1, rg2);
-}
-
-/// @brief Mat must be 32FC4
-void MatXyzr2MeanCovar(const cv::Mat& mat, MeanCovar3f& mc) {
-  for (int r = 0; r < mat.rows; ++r) {
-    for (int c = 0; c < mat.cols; ++c) {
-      const auto& xyzr = mat.at<cv::Vec4f>(r, c);
-      if (std::isnan(xyzr[0])) continue;
-      mc.Add({xyzr[0], xyzr[1], xyzr[2]});
-    }
-  }
 }
 
 /// @brief Compute mean covar of cell in sweep
@@ -52,6 +42,7 @@ void PanoCellMeanCovar(const DepthPano& pano,
 PointMatcher::PointMatcher(const cv::Size& grid_size,
                            const MatcherParams& params)
     : params_{params},
+      // TODO (chao): consider a better window size
       pano_win_size_{params.half_rows * 8 + 1, params.half_rows * 2 + 1} {
   matches_.resize(grid_size.area());
 }
@@ -132,11 +123,13 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
     return;
   }
 
+  // TODO (chao): project first and then compute mean and covar
+  // Also don't compute src again
   const int i = px_g.y * sweep.grid().cols + px_g.x;
   auto& match = matches_.at(i);
 
-  match.src_px.x = (px_g.x + 0.5) * sweep.cell_size().width;
-  match.src_px.y = px_g.y * sweep.cell_size().height;
+  match.px_s.x = (px_g.x + 0.5) * sweep.cell_size.width;
+  match.px_s.y = px_g.y * sweep.cell_size.height;
 
   // Compute normal dist around sweep cell
   SweepCellMeanCovar(sweep, px_g, match.src);
@@ -151,7 +144,7 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
   if (px_p.x < 0) return;
 
   // Compute normal dist around pano point
-  match.dst_px = px_p;
+  match.px_d = px_p;
   const auto win = pano.BoundWinCenterAt(px_p, pano_win_size_);
 
   for (int wr = 0; wr < win.height; ++wr) {
@@ -172,8 +165,8 @@ cv::Mat DrawMatches(const LidarSweep& sweep,
   cv::Mat disp(sweep.grid_size(), CV_32FC1, kNaNF);
 
   for (const auto& match : matches) {
-    if (match.src_px.x < 0) continue;
-    disp.at<float>(sweep.Pixel2CellInd(match.src_px)) = match.dst.n;
+    if (match.px_s.x < 0) continue;
+    disp.at<float>(sweep.Pix2Cell(match.px_s)) = match.dst.n;
   }
   return disp;
 }

@@ -82,10 +82,19 @@ int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb) {
 /// LidarSweep =================================================================
 LidarSweep::LidarSweep(const cv::Size& sweep_size, const cv::Size& cell_size)
     : xyzr_(sweep_size, CV_32FC4),
-      cell_size_(cell_size),
-      grid_(sweep_size / cell_size, CV_32FC1),
-      offsets_(1, sweep_size.width, CV_8UC1),
-      transforms_(sweep_size.width, 7, CV_64FC1) {}
+      cell_size(cell_size),
+      grid_(sweep_size / cell_size, CV_32FC1) {
+  offsets.reserve(sweep_size.width);
+}
+
+void LidarSweep::SetOffsets(const std::vector<double>& offsets_in) {
+  CHECK_EQ(offsets.size(), xyzr_.cols);
+  CHECK(offsets.empty());
+
+  for (const auto& offset : offsets_in) {
+    offsets.push_back(static_cast<uint8_t>(offset));
+  }
+}
 
 int LidarSweep::AddScan(const cv::Mat& scan,
                         const cv::Range& scan_range,
@@ -97,41 +106,39 @@ int LidarSweep::AddScan(const cv::Mat& scan,
   // Check scan width is not bigger than sweep
   CHECK_LE(scan.cols, xyzr_.cols);
   // Check that the new scan start right after
-  CHECK_EQ(scan_range.start, IsFull() ? 0 : col_range_.end);
+  CHECK_EQ(scan_range.start, IsFull() ? 0 : col_range.end);
+
+  // Increment id when we got a new sweep
+  if (scan_range.start == 0) ++id;
 
   // Save range and copy to storage
-  col_range_ = scan_range;
-  scan.copyTo(xyzr_.colRange(col_range_));  // x,y,w,h
+  col_range = scan_range;
+  scan.copyTo(xyzr_.colRange(col_range));  // x,y,w,h
 
   // Compute curvature of scan and save to grid
-  auto grid = grid_.colRange(scan_range / cell_size().width);
+  auto grid = grid_.colRange(scan_range / cell_size.width);
   return CalcScanCurve(scan, grid, tbb);
 }
 
-void LidarSweep::Reset() {
-  col_range_ = {0, 0};
-  xyzr_.setTo(kNaNF);
-  grid_.setTo(kNaNF);
-}
-
-cv::Point LidarSweep::Pixel2CellInd(const cv::Point& px_sweep) const {
-  return {px_sweep.x / cell_size_.width, px_sweep.y / cell_size_.height};
+cv::Point LidarSweep::Pix2Cell(const cv::Point& px_sweep) const {
+  return {px_sweep.x / cell_size.width, px_sweep.y / cell_size.height};
 }
 
 cv::Rect LidarSweep::CellAt(const cv::Point& grid_px) const {
-  const int sr = grid_px.y * cell_size_.height;
-  const int sc = grid_px.x * cell_size_.width;
-  return {sc, sr, cell_size_.width, 1};
-  //  return xyzr_.row(sr).colRange(sc, sc + cell_size_.width);
+  const int sr = grid_px.y * cell_size.height;
+  const int sc = grid_px.x * cell_size.width;
+  return {sc, sr, cell_size.width, 1};
 }
 
 std::string LidarSweep::Repr() const {
   using sv::Repr;
-  return fmt::format("LidarSweep(xyzr={}, col_range={}, grid={}, cell_size={})",
-                     Repr(xyzr_),
-                     Repr(col_range_),
-                     Repr(grid_),
-                     Repr(cell_size_));
+  return fmt::format(
+      "LidarSweep(id={}, xyzr={}, col_range={}, grid={}, cell_size={})",
+      id,
+      Repr(xyzr_),
+      Repr(col_range),
+      Repr(grid_),
+      Repr(cell_size));
 }
 
 std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs) {

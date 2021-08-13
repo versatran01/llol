@@ -11,11 +11,14 @@ class DepthPano;
 
 /// @struct Match
 struct PointMatch {
-  cv::Point src_px{-1, -1};  // 8
-  cv::Point dst_px{-1, -1};  // 8
-  MeanCovar3f src{};         // sweep 52
-  MeanCovar3f dst{};         // pano 52
-  Eigen::Matrix3d U;         // 72
+  cv::Point px_s{-1, -1};  // 8
+  MeanCovar3f src{};       // sweep 52
+  cv::Point px_d{-1, -1};  // 8
+  MeanCovar3f dst{};       // pano 52
+  Eigen::Matrix3d U;       // 72
+
+  /// @brief Wether this match is good
+  bool ok() const {}
 };
 static_assert(sizeof(PointMatch) == 192, "PointMatch size is not 192");
 
