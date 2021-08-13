@@ -1,6 +1,8 @@
 ~/miniconda3/envs/ros1n/include
 ~/miniconda3/envs/ros1n/include/eigen3
 ~/miniconda3/envs/ros1n/include/opencv4
+~/miniconda3/envs/ros1n/include/pcl-1.11
+
 .
 sv
 sv/util

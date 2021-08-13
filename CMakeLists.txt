@@ -20,11 +20,14 @@ find_package(
   catkin QUIET
   COMPONENTS roscpp
              tf2_ros
+             pcl_ros
              cv_bridge
              image_transport
+             pcl_conversions
              nav_msgs
              sensor_msgs
-             image_geometry)
+             diagnostic_msgs
+             visualization_msgs)
 
 find_package(TBB REQUIRED)
 find_package(fmt REQUIRED)
@@ -44,7 +47,7 @@ if(BUILD_BENCHMARK)
 endif()
 
 if(catkin_FOUND)
-  catkin_package(INCLUDE_DIRS ${CMAKE_SOURCE_DIR})
+  catkin_package()
 
   cc_library(
     NAME ros1

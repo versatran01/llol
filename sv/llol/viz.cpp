@@ -1,6 +1,8 @@
 #include "sv/llol/viz.h"
 
 #include <glog/logging.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <tbb/parallel_for.h>
 
 #include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
@@ -82,9 +84,9 @@ void MeanCovar2Marker(Marker& marker,
 //  return markers;
 //}
 
-void Match2Markers(std::vector<Marker>& markers,
+void Match2Markers(const std::vector<PointMatch>& matches,
                    const std_msgs::Header& header,
-                   const std::vector<PointMatch>& matches,
+                   std::vector<Marker>& markers,
                    double scale) {
   markers.reserve(matches.size() * 2);
 
@@ -155,6 +157,36 @@ void Imshow(const std::string& name, const cv::Mat& mat, int flag) {
   cv::namedWindow(name, flag);
   cv::imshow(name, mat);
   cv::waitKey(1);
+}
+
+void Pano2Cloud(const DepthPano& pano,
+                const std_msgs::Header header,
+                Cloud& cloud) {
+  const auto size = pano.size();
+  if (cloud.empty()) {
+    cloud.resize(pano.total());
+    cloud.width = size.width;
+    cloud.height = size.height;
+  }
+
+  pcl_conversions::toPCL(header, cloud.header);
+  tbb::parallel_for(tbb::blocked_range<int>(0, size.height),
+                    [&](const auto& blk) {
+                      for (int r = blk.begin(); r < blk.end(); ++r) {
+                        for (int c = 0; c < size.width; ++c) {
+                          const auto rg = pano.RangeAt({c, r});
+                          auto& pc = cloud.at(c, r);
+                          if (rg == 0) {
+                            pc.x = pc.y = pc.z = kNaNF;
+                          } else {
+                            const auto pp = pano.model_.Backward(r, c, rg);
+                            pc.x = pp.x;
+                            pc.y = pp.y;
+                            pc.z = pp.z;
+                          }
+                        }
+                      }
+                    });
 }
 
 }  // namespace sv

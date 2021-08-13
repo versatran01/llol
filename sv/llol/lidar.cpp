@@ -66,8 +66,4 @@ std::string LidarModel::Repr() const {
       Rad2Deg(azim_delta_));
 }
 
-std::ostream& operator<<(std::ostream& os, const LidarModel& rhs) {
-  return os << rhs;
-}
-
 }  // namespace sv

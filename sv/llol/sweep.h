@@ -17,15 +17,16 @@ struct LidarSweep {
   cv::Mat grid_;       // stores curvature, could be nan
 
   std::vector<uint8_t> offsets;  // pixel offsets per row
+  void SetOffsets(const std::vector<double>& offsets_in);
 
   /// @brief Ctors
   LidarSweep() = default;
   LidarSweep(const cv::Size& sweep_size, const cv::Size& cell_size);
 
-  void SetOffsets(const std::vector<double>& offsets_in);
-
   std::string Repr() const;
-  friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs);
+  friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs) {
+    return os << rhs.Repr();
+  }
 
   /// @brief Add a scan to this sweep (tbb makes this slower)
   /// @return num of valid cells

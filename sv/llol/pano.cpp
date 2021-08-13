@@ -9,8 +9,12 @@
 
 namespace sv {
 
+cv::Rect WinCenterAt(const cv::Point& pt, const cv::Size& size) {
+  return {cv::Point{pt.x - size.width / 2, pt.y - size.height / 2}, size};
+}
+
 bool SetBufAt(cv::Mat& buf, const cv::Point& px, float rg) {
-  const uint16_t rg_raw = rg * DepthPano::kScale;
+  const uint16_t rg_raw = rg * Pixel::kScale;
   auto& tgt = buf.at<ushort>(px);
   if (tgt == 0) {
     tgt = rg_raw;
@@ -21,61 +25,6 @@ bool SetBufAt(cv::Mat& buf, const cv::Point& px, float rg) {
   }
 }
 
-int RenderPanoRow(const LidarModel& model,
-                  const cv::Mat& dbuf1,
-                  int r1,
-                  cv::Mat& dbuf2) {
-  int n = 0;
-  for (int c1 = 0; c1 < dbuf1.cols; ++c1) {
-    const float rg1 = dbuf1.at<ushort>(r1, c1) / DepthPano::kScale;
-    if (rg1 == 0) continue;
-
-    // px1 -> xyz1
-    const auto xyz1 = model.Backward(r1, c1, rg1);
-    Eigen::Map<const Eigen::Vector3f> xyz1_map(&xyz1.x);
-
-    // xyz1 -> xyz2
-    const Eigen::Vector3f xyz2 =
-        Eigen::Matrix3f::Identity() * xyz1_map + Eigen::Vector3f::Zero();
-    const auto rg2 = xyz2.norm();
-
-    // xyz2 -> px2
-    const auto px2 = model.Forward(xyz2.x(), xyz2.y(), xyz2.z(), rg2);
-    if (px2.x < 0) continue;
-
-    // check max range
-    if (rg2 >= DepthPano::kMaxRange) continue;
-
-    // Check occlusion
-    n += SetBufAt(dbuf2, px2, rg2);
-  }
-  return n;
-}
-
-int PanoRender(const LidarModel& model,
-               const cv::Mat& dbuf1,
-               cv::Mat& dbuf2,
-               bool tbb) {
-  int n = 0;
-  if (tbb) {
-    n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, dbuf1.rows),
-        0,
-        [&](const tbb::blocked_range<int>& blk, int total) {
-          for (int r = blk.begin(); r < blk.end(); ++r) {
-            total += RenderPanoRow(model, dbuf1, r, dbuf2);
-          }
-          return total;
-        },
-        std::plus<>{});
-  } else {
-    for (int r = 0; r < dbuf1.rows; ++r) {
-      n += RenderPanoRow(model, dbuf1, r, dbuf2);
-    }
-  }
-  return n;
-}
-
 DepthPano::DepthPano(const cv::Size& size, float hfov)
     : model_{size, hfov}, dbuf_{size, CV_16UC1}, dbuf2_{size, CV_16UC1} {}
 
@@ -83,18 +32,8 @@ std::string DepthPano::Repr() const {
   return fmt::format("DepthPano({}, model={}, scale={}, max_range={})",
                      sv::Repr(dbuf_),
                      model_.Repr(),
-                     kScale,
-                     kMaxRange);
-}
-
-std::ostream& operator<<(std::ostream& os, const DepthPano& rhs) {
-  return os << rhs.Repr();
-}
-
-cv::Rect DepthPano::WinCenterAt(const cv::Point& pt,
-                                const cv::Size& win_size) const {
-  return {cv::Point{pt.x - win_size.width / 2, pt.y - win_size.height / 2},
-          win_size};
+                     Pixel::kScale,
+                     Pixel::kMaxRange);
 }
 
 cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
@@ -153,7 +92,53 @@ int DepthPano::AddSweepRow(const cv::Mat& sweep, int sr) {
 int DepthPano::Render(bool tbb) {
   // clear pano2
   dbuf2_.setTo(0);
-  return PanoRender(model_, dbuf_, dbuf2_, tbb);
+
+  int n = 0;
+  if (tbb) {
+    n = tbb::parallel_reduce(
+        tbb::blocked_range<int>(0, dbuf_.rows),
+        0,
+        [&](const tbb::blocked_range<int>& blk, int total) {
+          for (int r = blk.begin(); r < blk.end(); ++r) {
+            total += RenderRow(r);
+          }
+          return total;
+        },
+        std::plus<>{});
+  } else {
+    for (int r = 0; r < dbuf_.rows; ++r) {
+      n += RenderRow(r);
+    }
+  }
+  return n;
+}
+
+int DepthPano::RenderRow(int r1) {
+  int n = 0;
+  for (int c1 = 0; c1 < dbuf_.cols; ++c1) {
+    const float rg1 = RangeAt({c1, r1});
+    if (rg1 == 0) continue;
+
+    // px1 -> xyz1
+    const auto xyz1 = model_.Backward(r1, c1, rg1);
+    Eigen::Map<const Eigen::Vector3f> xyz1_map(&xyz1.x);
+
+    // xyz1 -> xyz2
+    const Eigen::Vector3f xyz2 =
+        Eigen::Matrix3f::Identity() * xyz1_map + Eigen::Vector3f::Zero();
+    const auto rg2 = xyz2.norm();
+
+    // xyz2 -> px2
+    const auto px2 = model_.Forward(xyz2.x(), xyz2.y(), xyz2.z(), rg2);
+    if (px2.x < 0) continue;
+
+    // check max range
+    if (rg2 >= Pixel::kMaxRange) continue;
+
+    // Check occlusion
+    n += SetBufAt(dbuf2_, px2, rg2);
+  }
+  return n;
 }
 
 }  // namespace sv

@@ -1,13 +1,18 @@
 #pragma once
 
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include "sv/llol/match.h"
+#include "sv/llol/pano.h"
 
 namespace sv {
+
+using Cloud = pcl::PointCloud<pcl::PointXYZ>;
 
 /// @brief Apply color map to mat
 /// @details input must be 1-channel, assume after scale the max will be 1
@@ -31,9 +36,13 @@ void MeanCovar2Marker(visualization_msgs::Marker& marker,
 // std::vector<visualization_msgs::Marker> Sweep2Markers(
 //    const std_msgs::Header& header, const LidarSweep& sweep, float max_curve);
 
-void Match2Markers(std::vector<visualization_msgs::Marker>& markers,
+void Match2Markers(const std::vector<PointMatch>& matches,
                    const std_msgs::Header& header,
-                   const std::vector<PointMatch>& matches,
+                   std::vector<visualization_msgs::Marker>& markers,
                    double scale = 1.0);
+
+void Pano2Cloud(const DepthPano& pano,
+                const std_msgs::Header header,
+                Cloud& cloud);
 
 }  // namespace sv

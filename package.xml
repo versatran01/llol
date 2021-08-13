@@ -10,11 +10,14 @@
 
     <depend>roscpp</depend>
     <depend>tf2_ros</depend>
+    <depend>pcl_ros</depend>
     <depend>cv_bridge</depend>
     <depend>image_transport</depend>
+    <depend>pcl_conversions</depend>
 
     <depend>nav_msgs</depend>
     <depend>sensor_msgs</depend>
+    <depend>diagnostic_msgs</depend>
     <depend>visualization_msgs</depend>
 
     <export>

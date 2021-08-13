@@ -141,10 +141,6 @@ std::string LidarSweep::Repr() const {
       Repr(cell_size));
 }
 
-std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs) {
-  return os << rhs.Repr();
-}
-
 cv::Mat MakeTestScan(const cv::Size& size) {
   cv::Mat sweep = cv::Mat::zeros(size, CV_32FC4);
 

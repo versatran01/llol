@@ -7,5 +7,5 @@ sweep:
   cell_cols: 16
 match:
   nms: True
-  half_rows: 2
   max_score: 0.1
+  half_rows: 2

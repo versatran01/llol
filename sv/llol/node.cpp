@@ -2,6 +2,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <image_transport/camera_subscriber.h>
 #include <image_transport/image_transport.h>
+#include <pcl_ros/point_cloud.h>
 #include <ros/ros.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
@@ -21,6 +22,8 @@
 namespace sv {
 
 namespace cs = ceres;
+using visualization_msgs::MarkerArray;
+
 class LlolNode {
  private:
   ros::NodeHandle pnh_;
@@ -28,6 +31,7 @@ class LlolNode {
   image_transport::CameraSubscriber sub_camera_;
   ros::Subscriber sub_imu_;
   ros::Publisher pub_marray_;
+  ros::Publisher pub_pano_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
 
@@ -41,7 +45,9 @@ class LlolNode {
   LidarSweep sweep_;
   DepthPano pano_;
   PointMatcher matcher_;
+
   TimerManager tm_{"llol"};
+  StatsManager sm_{"llol"};
 
   Sophus::SE3d T_p_s_;
 
@@ -50,7 +56,8 @@ class LlolNode {
       : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
     sub_imu_ = pnh_.subscribe("imu", 100, &LlolNode::ImuCb, this);
     sub_camera_ = it_.subscribeCamera("image", 10, &LlolNode::CameraCb, this);
-    pub_marray_ = pnh_.advertise<visualization_msgs::MarkerArray>("marray", 1);
+    pub_marray_ = pnh_.advertise<MarkerArray>("marray", 1);
+    pub_pano_ = pnh_.advertise<Cloud>("pano", 1);
 
     vis_ = pnh_.param<bool>("vis", true);
     ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -101,12 +108,8 @@ class LlolNode {
       ROS_INFO_STREAM("Lidar frame: " << lidar_frame_);
     }
 
-    // Currently disabled
-    //    return;
-
     if (!init_) {
-      // Initialized sweep
-      {
+      {  /// Initialized sweep
         auto odom_nh = ros::NodeHandle{pnh_, "sweep"};
         int cell_rows = odom_nh.param<int>("cell_rows", 2);
         int cell_cols = odom_nh.param<int>("cell_cols", 16);
@@ -116,13 +119,12 @@ class LlolNode {
         ROS_INFO_STREAM(sweep_);
       }
 
-      // Initialize matcher
-      {
+      {  /// Initialize matcher
         auto match_nh = ros::NodeHandle{pnh_, "match"};
         MatcherParams params;
         params.nms = match_nh.param<bool>("nms", false);
-        params.half_rows = match_nh.param<int>("half_rows", 2);
         params.max_curve = match_nh.param<double>("max_curve", 0.01);
+        params.half_rows = match_nh.param<int>("half_rows", 2);
         matcher_ = PointMatcher(sweep_.grid_size(), params);
         ROS_INFO_STREAM(matcher_);
       }
@@ -130,8 +132,8 @@ class LlolNode {
       init_ = true;
     }
 
-    static bool wait_for_scan0{true};
     // Wait for the start of the sweep
+    static bool wait_for_scan0{true};
     if (wait_for_scan0) {
       if (cinfo_msg->binning_x == 0) {
         ROS_INFO_STREAM("Start of sweep");
@@ -188,7 +190,7 @@ class LlolNode {
       }
 
       ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
-      Match2Markers(marray.markers, image_msg->header, matcher_.matches());
+      Match2Markers(matcher_.matches(), image_msg->header, marray.markers);
 
       // display good match
       Imshow("match",
@@ -238,7 +240,7 @@ class LlolNode {
     if (cinfo_msg->binning_x + 1 == cinfo_msg->binning_y) {
       ROS_INFO_STREAM("End of sweep");
       int num_added = 0;
-      {
+      {  /// Add sweep to pano
         auto _ = tm_.Scoped("Pano/AddSweep");
         num_added = pano_.AddSweep(sweep_.xyzr(), tbb_);
       }
@@ -246,7 +248,7 @@ class LlolNode {
                                     << sweep_.xyzr().total());
 
       int num_rendered = 0;
-      {
+      {  /// Render pano at new location
         auto _ = tm_.Scoped("Pano/Render");
         num_rendered = pano_.Render(tbb_);
       }
@@ -254,9 +256,13 @@ class LlolNode {
                                        << ", pano total: " << pano_.total());
 
       if (vis_) {
-        Imshow("pano", ApplyCmap(pano_.dbuf_, 1 / DepthPano::kScale / 30.0));
-        Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / DepthPano::kScale / 30.0));
+        Imshow("pano", ApplyCmap(pano_.dbuf_, 1 / Pixel::kScale / 30.0));
+        Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
       }
+
+      static Cloud pano_cloud;
+      Pano2Cloud(pano_, image_msg->header, pano_cloud);
+      pub_pano_.publish(pano_cloud);
     }
 
     pub_marray_.publish(marray);

@@ -9,7 +9,7 @@ namespace {
 
 TEST(DepthPanoTest, TestWinAt) {
   DepthPano dp({256, 64});
-  const auto win = dp.WinCenterAt({0, 0}, {5, 7});
+  const auto win = WinCenterAt({0, 0}, {5, 7});
   EXPECT_EQ(win.x, -2);
   EXPECT_EQ(win.y, -3);
   EXPECT_EQ(win.width, 5);

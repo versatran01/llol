@@ -27,7 +27,9 @@ struct LidarModel {
   bool ColInside(int c) const noexcept { return 0 <= c && c < size_.width; }
 
   std::string Repr() const;
-  friend std::ostream& operator<<(std::ostream& os, const LidarModel& rhs);
+  friend std::ostream& operator<<(std::ostream& os, const LidarModel& rhs) {
+    return os << rhs.Repr();
+  }
 
   cv::Size size_{};
   float elev_max_{};
