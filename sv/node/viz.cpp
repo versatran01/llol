@@ -1,4 +1,4 @@
-#include "sv/llol/viz.h"
+#include "sv/node/viz.h"
 
 #include <glog/logging.h>
 #include <pcl_conversions/pcl_conversions.h>

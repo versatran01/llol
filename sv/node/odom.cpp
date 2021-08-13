@@ -13,7 +13,7 @@
 #include "sv/llol/optim.h"
 #include "sv/llol/pano.h"
 #include "sv/llol/sweep.h"
-#include "sv/llol/viz.h"
+#include "sv/node/viz.h"
 #include "sv/util/manager.h"
 
 // ceres
@@ -189,23 +189,24 @@ class LlolNode {
         matcher_.Match(sweep_, pano_, tbb_);
       }
 
-      ROS_INFO_STREAM("Num matches: " << matcher_.matches().size());
+      ROS_INFO_STREAM("Num matches: " << matcher_.NumMatches());
       Match2Markers(matcher_.matches(), image_msg->header, marray.markers);
 
-      // display good match
-      Imshow("match",
-             ApplyCmap(DrawMatches(sweep_, matcher_.matches()),
-                       1.0 / matcher_.pano_win_size_.area(),
-                       cv::COLORMAP_VIRIDIS));
+      if (vis_) {
+        // display good match
+        Imshow("match",
+               ApplyCmap(DrawMatches(sweep_, matcher_.matches()),
+                         1.0 / matcher_.pano_win_size_.area(),
+                         cv::COLORMAP_VIRIDIS));
+      }
 
       cs::Solver::Summary summary;
-      if (0) {  /// Optimization
+      {  /// Optimization
 
-        auto _ = tm_.Scoped("ICP/Solve");
         std::unique_ptr<ceres::LocalParameterization> local_params =
             std::make_unique<LocalParamSE3>();
-        std::unique_ptr<ceres::LossFunction> loss =
-            std::make_unique<cs::HuberLoss>(3);
+        //        std::unique_ptr<ceres::LossFunction> loss =
+        //            std::make_unique<cs::HuberLoss>(3);
         cs::Problem::Options problem_opt;
         problem_opt.loss_function_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
         problem_opt.local_parameterization_ownership =
@@ -216,15 +217,21 @@ class LlolNode {
             T_p_s_.data(), SE3d::num_parameters, local_params.get());
 
         // Build problem
-        for (const auto& match : matcher_.matches()) {
-          cs::CostFunction* cost =
-              new cs::AutoDiffCostFunction<GicpFactor,
-                                           GicpFactor::kNumResiduals,
-                                           GicpFactor::kNumParams>(
-                  new GicpFactor(match));
-          problem.AddResidualBlock(cost, loss.get(), T_p_s_.data());
+        {
+          auto _ = tm_.Scoped("ICP/Build");
+          for (const auto& match : matcher_.matches()) {
+            if (match.ok()) {
+              cs::CostFunction* cost =
+                  new cs::AutoDiffCostFunction<GicpFactor,
+                                               GicpFactor::kNumResiduals,
+                                               GicpFactor::kNumParams>(
+                      new GicpFactor(match));
+              problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
+            }
+          }
         }
 
+        auto _ = tm_.Scoped("ICP/Solve");
         cs::Solver::Options solver_opt;
         solver_opt.linear_solver_type = ceres::DENSE_QR;
         solver_opt.max_num_iterations = 5;
@@ -232,8 +239,8 @@ class LlolNode {
         solver_opt.minimizer_progress_to_stdout = true;
         cs::Solve(solver_opt, &problem, &summary);
       }
-      //      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
-      //      ROS_INFO_STREAM(summary.BriefReport());
+      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
+      ROS_INFO_STREAM(summary.BriefReport());
     }
 
     /// Got a full sweep

@@ -5,6 +5,7 @@
 #include <tbb/parallel_for.h>
 
 #include <Eigen/Geometry>
+#include <numeric>
 
 #include "sv/llol/pano.h"
 #include "sv/llol/sweep.h"
@@ -68,13 +69,23 @@ PointMatcher::PointMatcher(const cv::Size& grid_size,
   pano_win_size_.height = params_.half_rows * 2 + 1;
   pano_win_size_.width = pano_win_size_.height * 2 + 1;
   matches_.resize(grid_size.area());
+  min_pts_ = params_.half_rows * pano_win_size_.width;
 }
 
 std::string PointMatcher::Repr() const {
-  return fmt::format("PointMatcher(max_matches={}, win_size={}, params=({}))",
-                     matches_.capacity(),
-                     sv::Repr(pano_win_size_),
-                     params_.Repr());
+  return fmt::format(
+      "PointMatcher(max_matches={}, win_size={}, min_pts={}, params=({}))",
+      matches_.capacity(),
+      sv::Repr(pano_win_size_),
+      min_pts_,
+      params_.Repr());
+}
+
+int PointMatcher::NumMatches() const {
+  return std::accumulate(
+      matches_.begin(), matches_.end(), 0, [&](int n, const PointMatch& m) {
+        return n + static_cast<int>(m.ok());
+      });
 }
 
 bool IsCellGood(const cv::Mat& grid,
@@ -125,12 +136,11 @@ void PointMatcher::Match(const LidarSweep& sweep,
   // Clean up
   // TODO (chao): keep matches_ intact, for multiple rounds for match
   // Instead generate a compact version by copying valid ones and return
-  const int min_pts = 0.5 * pano_win_size_.area();
-  const auto it = std::remove_if(
-      matches_.begin(), matches_.end(), [min_pts](const PointMatch& m) {
-        return m.dst.n < 5;
-      });
-  matches_.erase(it, matches_.end());
+  //  const auto it = std::remove_if(
+  //      matches_.begin(), matches_.end(), [&](const PointMatch& m) {
+  //        return m.dst.n < min_pts_;
+  //      });
+  //  matches_.erase(it, matches_.end());
 }
 
 void PointMatcher::MatchSingle(const LidarSweep& sweep,
@@ -151,10 +161,8 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
   match.px_s.y = px_g.y * sweep.cell_size.height;
 
   // Compute normal dist around sweep cell (if it is not already computed)
-  if (!match.src.ok()) {
-    const auto cell = sweep.CellAt(px_g);
-    SweepCellMeanCovar(sweep, cell, match.src);
-  }
+  const auto cell = sweep.CellAt(px_g);
+  SweepCellMeanCovar(sweep, cell, match.src);
 
   // Transform to pano frame
   const Eigen::Vector3f pt_p = Eigen::Matrix3f::Identity() * match.src.mean;
@@ -166,15 +174,13 @@ void PointMatcher::MatchSingle(const LidarSweep& sweep,
 
   // Compute normal dist around pano point
   // TODO (chao): Check if px_p is close enough to match.px_p
-  if (!match.dst.ok()) {
-    match.px_p = px_p;
-    const auto win = pano.BoundWinCenterAt(px_p, pano_win_size_);
-    PanoWinMeanCovar(pano, win, rg_p, params_.range_ratio, match.dst);
+  match.px_p = px_p;
+  const auto win = pano.BoundWinCenterAt(px_p, pano_win_size_);
+  PanoWinMeanCovar(pano, win, rg_p, params_.range_ratio, match.dst);
 
-    // if we have enough points then compute U
-    if (match.dst.n > pano_win_size_.area() * 0.4) {
-      match.U = MatrixSqrtUtU(match.dst.Covar().inverse().eval());
-    }
+  // if we don't have enough points then reset dst
+  if (match.dst.n < min_pts_) {
+    match.dst.Reset();
   }
 }
 

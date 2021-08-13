@@ -78,12 +78,12 @@ cc_library(
 # node =========================================================================
 if(catkin_FOUND)
   cc_library(
-    NAME llol_viz
-    SRCS "llol/viz.cpp"
+    NAME node_viz
+    SRCS "node/viz.cpp"
     DEPS sv_llol_sweep sv_llol_match sv_ros1)
 
   cc_binary(
-    NAME llol_node
-    SRCS "llol/node.cpp"
-    DEPS sv_llol_match sv_llol_optim sv_llol_viz sv_util_manager sv_ros1)
+    NAME node_odom
+    SRCS "node/odom.cpp"
+    DEPS sv_llol_match sv_llol_optim sv_node_viz sv_util_manager)
 endif()

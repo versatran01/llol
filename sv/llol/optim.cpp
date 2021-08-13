@@ -29,7 +29,7 @@ GicpFactor::GicpFactor(const PointMatch& match) {
   Eigen::Matrix3d covar = match.dst.Covar().cast<double>();
   covar.diagonal().array() += 1e-6;
   Eigen::Matrix3d info = covar.inverse();
-  U = MatrixSqrtUtU(covar);
+  U = MatrixSqrtUtU(info);
 }
 
 }  // namespace sv

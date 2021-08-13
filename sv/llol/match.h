@@ -10,19 +10,18 @@ class LidarSweep;
 class DepthPano;
 
 /// @struct Match
-struct PointMatch {
+struct alignas(128) PointMatch {
   cv::Point px_s{-100, -100};  // 8
   MeanCovar3f src{};           // 52 sweep
   cv::Point px_p{-100, -100};  // 8
   MeanCovar3f dst{};           // 52 pano
-  Eigen::Matrix3f U;           // 36
 
   /// @brief Wether this match is good
   bool ok() const noexcept {
     return px_s.x >= 0 && px_p.x >= 0 && src.ok() && dst.ok();
   }
 };
-static_assert(sizeof(PointMatch) == 156, "PointMatch size is not 192");
+static_assert(sizeof(PointMatch) == 128, "PointMatch size is not 128");
 
 /// @class Feature Matcher
 struct MatcherParams {
@@ -50,14 +49,18 @@ struct PointMatcher {
   /// @brief getters
   const auto& matches() const noexcept { return matches_; }
 
+  int NumMatches() const;
+
   /// @brief Match features in sweep to pano
   void Match(const LidarSweep& sweep, const DepthPano& pano, bool tbb = false);
   void MatchSingle(const LidarSweep& sweep,
                    const DepthPano& pano,
                    const cv::Point& gpx);
 
-  MatcherParams params_;
   cv::Size pano_win_size_;
+  int min_pts_;
+
+  MatcherParams params_;
   std::vector<PointMatch> matches_;
 };
 

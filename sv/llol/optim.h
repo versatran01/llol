@@ -52,4 +52,6 @@ struct GicpFactor {
   Eigen::Matrix3d U;
 };
 
+struct PoseSolver {};
+
 }  // namespace sv
