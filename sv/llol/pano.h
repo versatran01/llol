@@ -3,6 +3,7 @@
 #include <opencv2/core/mat.hpp>
 
 #include "sv/llol/lidar.h"
+#include "sv/llol/sweep.h"
 
 namespace sv {
 
@@ -49,8 +50,8 @@ struct DepthPano {
   cv::Rect BoundWinCenterAt(const cv::Point& pt, const cv::Size& size) const;
 
   /// @brief Add a sweep to the pano
-  int AddSweep(const cv::Mat& sweep, bool tbb = false);
-  int AddSweepRow(const cv::Mat& sweep, int row);
+  int AddSweep(const LidarSweep& sweep, bool tbb = false);
+  int AddSweepRow(const LidarSweep& sweep, int row);
 
   /// @brief Render pano at a new location
   int Render(bool tbb);

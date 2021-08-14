@@ -4,7 +4,16 @@
 
 namespace sv {
 
-/// @class Lidar Sweep covers 360 degree horizontal fov
+/// @struct Lidar Scan
+struct LidarScan {
+  LidarScan() = default;
+  LidarScan(const cv::Mat& xyzr, const cv::Range& col_range);
+
+  cv::Mat xyzr;
+  cv::Range col_range{0, 0};
+};
+
+/// @struct Lidar Sweep covers 360 degree horizontal fov
 struct LidarSweep {
   /// Data
   int id{-1};
@@ -30,9 +39,7 @@ struct LidarSweep {
 
   /// @brief Add a scan to this sweep (tbb makes this slower)
   /// @return num of valid cells
-  int AddScan(const cv::Mat& scan,
-              const cv::Range& scan_range,
-              bool tbb = false);
+  int AddScan(const LidarScan& scan, bool tbb = false);
 
   /// @brief whether sweep is full
   bool IsFull() const noexcept { return width() == xyzr_.cols; }
@@ -54,6 +61,8 @@ struct LidarSweep {
   int grid_width() const noexcept { return width() / cell_size.width; }
 };
 
-cv::Mat MakeTestScan(const cv::Size& size);
+cv::Mat MakeTestXyzr(const cv::Size& size);
+LidarScan MakeTestScan(const cv::Size& size);
+LidarSweep MakeTestSweep(const cv::Size& size);
 
 }  // namespace sv

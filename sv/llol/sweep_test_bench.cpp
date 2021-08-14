@@ -32,17 +32,17 @@ TEST(LidarSweepTest, TestCtor) {
 
 TEST(LidarSweepTest, TestAddScan) {
   LidarSweep ls({8, 4}, {2, 1});
-  cv::Mat scan;
-  scan.create(4, 4, CV_32FC4);
-  scan.setTo(1);
+  LidarScan scan = MakeTestScan({4, 4});
+  scan.col_range = {0, 4};
 
-  const int n = ls.AddScan(scan, {0, 4}, false);
+  const int n = ls.AddScan(scan, false);
 
   EXPECT_EQ(ls.col_range.start, 0);
   EXPECT_EQ(ls.col_range.end, 4);
   EXPECT_EQ(n, 8);
 
-  const int n2 = ls.AddScan(scan, {4, 8}, false);
+  scan.col_range = {4, 8};
+  const int n2 = ls.AddScan(scan, false);
   EXPECT_EQ(ls.col_range.start, 4);
   EXPECT_EQ(ls.col_range.end, 8);
   EXPECT_EQ(n2, 8);
@@ -52,10 +52,10 @@ TEST(LidarSweepTest, TestAddScan) {
 void BM_AddScanSeq(benchmark::State& state) {
   const cv::Size size{1024, 64};
   LidarSweep sweep(size, {16, 2});
-  const auto scan = MakeTestScan(size);
+  LidarScan scan = MakeTestScan(size);
 
   for (auto _ : state) {
-    auto n = sweep.AddScan(scan, {0, size.width}, false);
+    auto n = sweep.AddScan(scan, false);
     benchmark::DoNotOptimize(n);
   }
 }
@@ -67,7 +67,7 @@ void BM_AddScanPar(benchmark::State& state) {
   const auto scan = MakeTestScan(size);
 
   for (auto _ : state) {
-    auto n = sweep.AddScan(scan, {0, size.width}, true);
+    auto n = sweep.AddScan(scan, true);
     benchmark::DoNotOptimize(n);
   }
 }

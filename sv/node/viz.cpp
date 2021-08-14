@@ -112,9 +112,13 @@ void Match2Markers(const std::vector<PointMatch>& matches,
   sweep_mk.color.g = 0.0;
   sweep_mk.color.b = 0.0;
 
+  Eigen::Matrix3f covar;
+
   for (int i = 0; i < matches.size(); ++i) {
     const auto& match = matches[i];
-    es.compute(match.dst.Covar());
+    covar = match.dst.Covar();
+    covar.diagonal().array() += 1e-6;
+    es.compute(covar);
     MeanCovar2Marker(pano_mk,
                      match.dst.mean.cast<double>(),
                      es.eigenvalues().cast<double>(),
@@ -124,7 +128,9 @@ void Match2Markers(const std::vector<PointMatch>& matches,
     pano_mk.id = i;
     markers.push_back(pano_mk);
 
-    es.compute(match.src.Covar());
+    covar = match.src.Covar();
+    covar.diagonal().array() += 1e-6;
+    es.compute(covar);
     MeanCovar2Marker(sweep_mk,
                      match.src.mean.cast<double>(),
                      es.eigenvalues().cast<double>(),

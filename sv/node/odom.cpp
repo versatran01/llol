@@ -153,10 +153,10 @@ class LlolNode {
       return;
     }
 
-    const auto& scan = cv_ptr->image;
-    const int col_beg = cinfo_msg->roi.x_offset;
-    const int col_end = col_beg + cinfo_msg->roi.width;
-    const cv::Range range(col_beg, col_end);
+    const LidarScan scan{
+        cv_ptr->image,
+        cv::Range(cinfo_msg->roi.x_offset,
+                  cinfo_msg->roi.x_offset + cinfo_msg->roi.width)};
 
     // Predict poses, wrt pano
     //    times_[0] = cinfo_msg->header.stamp.toSec();
@@ -166,7 +166,7 @@ class LlolNode {
     int num_valid_cells = 0;
     {  /// Add scan to sweep
       auto _ = tm_.Scoped("Sweep/AddScan");
-      num_valid_cells = sweep_.AddScan(scan, range, tbb_);
+      num_valid_cells = sweep_.AddScan(scan, tbb_);
     }
 
     ROS_INFO_STREAM("Num valid cells: " << num_valid_cells);
@@ -249,7 +249,7 @@ class LlolNode {
       int num_added = 0;
       {  /// Add sweep to pano
         auto _ = tm_.Scoped("Pano/AddSweep");
-        num_added = pano_.AddSweep(sweep_.xyzr(), tbb_);
+        num_added = pano_.AddSweep(sweep_, tbb_);
       }
       ROS_INFO_STREAM("Num added: " << num_added << ", sweep total: "
                                     << sweep_.xyzr().total());

@@ -41,12 +41,12 @@ cc_library(
 cc_library(
   NAME llol_lidar
   SRCS "llol/lidar.cpp"
-  DEPS sv_base sv_log sv_util_math sv_util_ocv)
+  DEPS sv_util_math sv_util_ocv)
 
 cc_library(
   NAME llol_sweep
   SRCS "llol/sweep.cpp"
-  DEPS sv_base sv_log sv_util_math sv_util_ocv)
+  DEPS sv_util_math sv_util_ocv)
 cc_test(
   NAME llol_sweep_test
   SRCS "llol/sweep_test_bench.cpp"
@@ -59,15 +59,15 @@ cc_bench(
 cc_library(
   NAME llol_pano
   SRCS "llol/pano.cpp"
-  DEPS sv_llol_lidar TBB::tbb)
+  DEPS sv_llol_lidar sv_llol_sweep TBB::tbb)
 cc_test(
   NAME llol_pano_test
   SRCS "llol/pano_test_bench.cpp"
-  DEPS sv_llol_pano sv_llol_sweep benchmark::benchmark)
+  DEPS sv_llol_pano benchmark::benchmark)
 cc_bench(
   NAME llol_pano_bench
   SRCS "llol/pano_test_bench.cpp"
-  DEPS sv_llol_pano sv_llol_sweep GTest::GTest)
+  DEPS sv_llol_pano GTest::GTest)
 
 cc_library(
   NAME llol_match
