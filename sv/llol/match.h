@@ -38,6 +38,14 @@ struct MatcherParams {
 };
 
 struct PointMatcher {
+  /// Data
+  cv::Size pano_win_size_;
+  int min_pts_;
+
+  MatcherParams params_;
+  std::vector<PointMatch> matches_;
+
+  /// @brief Ctors
   PointMatcher() = default;
   PointMatcher(const cv::Size& grid_size, const MatcherParams& params);
 
@@ -49,6 +57,7 @@ struct PointMatcher {
   /// @brief getters
   const auto& matches() const noexcept { return matches_; }
 
+  /// @brief number of good matches
   int NumMatches() const;
 
   /// @brief Match features in sweep to pano
@@ -57,11 +66,6 @@ struct PointMatcher {
                    const DepthPano& pano,
                    const cv::Point& gpx);
 
-  cv::Size pano_win_size_;
-  int min_pts_;
-
-  MatcherParams params_;
-  std::vector<PointMatch> matches_;
 };
 
 /// @brief Draw match, valid pixel is percentage of pano points in window

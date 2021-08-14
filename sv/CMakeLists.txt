@@ -4,6 +4,10 @@ cc_library(
   INCLUDES ${CMAKE_SOURCE_DIR}
   INTERFACE)
 
+if(BUILD_MARCH_NATIVE)
+  target_compile_options(sv_base INTERFACE "-march=native")
+endif()
+
 cc_library(
   NAME log
   DEPS fmt::fmt glog::glog

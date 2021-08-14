@@ -6,6 +6,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option(BUILD_TESTING "Build tests" Off)
 option(BUILD_BENCHMARK "Build benchmarks" Off)
+option(BUILD_MARCH_NATIVE "Build with -march=native" OFF)
 
 set(CC_TARGET_PREFIX sv)
 include(CMakeHelpers)

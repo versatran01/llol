@@ -254,17 +254,18 @@ class LlolNode {
       ROS_INFO_STREAM("Num added: " << num_added << ", sweep total: "
                                     << sweep_.xyzr().total());
 
-      int num_rendered = 0;
-      {  /// Render pano at new location
-        auto _ = tm_.Scoped("Pano/Render");
-        num_rendered = pano_.Render(tbb_);
-      }
-      ROS_INFO_STREAM("Num rendered: " << num_rendered
-                                       << ", pano total: " << pano_.total());
+      // int num_rendered = 0;
+      // {  /// Render pano at new location
+      //   auto _ = tm_.Scoped("Pano/Render");
+      //   num_rendered = pano_.Render(tbb_);
+      //  }
+      //  ROS_INFO_STREAM("Num rendered: " << num_rendered
+      //                                   << ", pano total: " <<
+      //                                   pano_.total());
 
       if (vis_) {
         Imshow("pano", ApplyCmap(pano_.dbuf_, 1 / Pixel::kScale / 30.0));
-        Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
+        //  Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
       }
 
       static Cloud pano_cloud;

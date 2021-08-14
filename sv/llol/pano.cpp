@@ -29,7 +29,7 @@ DepthPano::DepthPano(const cv::Size& size, float hfov)
     : model_{size, hfov}, dbuf_{size, CV_16UC1}, dbuf2_{size, CV_16UC1} {}
 
 std::string DepthPano::Repr() const {
-  return fmt::format("DepthPano({}, model={}, scale={}, max_range={})",
+  return fmt::format("DepthPano({}, model={}, pixel=(scale={}, max_range={})",
                      sv::Repr(dbuf_),
                      model_.Repr(),
                      Pixel::kScale,
