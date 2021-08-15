@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.15)
 project(llol)
 
 set(CMAKE_CXX_STANDARD 17)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
+option(BUILD_NODE "Build ros nodes" Off)
 option(BUILD_TESTING "Build tests" Off)
 option(BUILD_BENCHMARK "Build benchmarks" Off)
 option(BUILD_MARCH_NATIVE "Build with -march=native" OFF)
@@ -47,7 +48,7 @@ if(BUILD_BENCHMARK)
   find_package(benchmark REQUIRED)
 endif()
 
-if(catkin_FOUND)
+if(catkin_FOUND AND BUILD_NODE)
   catkin_package()
 
   cc_library(

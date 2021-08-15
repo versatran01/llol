@@ -1,3 +1,4 @@
+# base =========================================================================
 cc_library(
   NAME base
   DEPS sv_options
@@ -7,6 +8,12 @@ cc_library(
 if(BUILD_MARCH_NATIVE)
   target_compile_options(sv_base INTERFACE "-march=native")
 endif()
+
+cc_library(
+  NAME tbb
+  DEPS ${TBB_LIBRARIES}
+  INCLUDES ${TBB_INCLUDE_DIRS}
+  INTERFACE)
 
 cc_library(
   NAME log
@@ -46,7 +53,7 @@ cc_library(
 cc_library(
   NAME llol_sweep
   SRCS "llol/sweep.cpp"
-  DEPS sv_util_math sv_util_ocv)
+  DEPS sv_util_math sv_util_ocv sv_tbb)
 cc_test(
   NAME llol_sweep_test
   SRCS "llol/sweep_test_bench.cpp"
@@ -59,7 +66,7 @@ cc_bench(
 cc_library(
   NAME llol_pano
   SRCS "llol/pano.cpp"
-  DEPS sv_llol_lidar sv_llol_sweep TBB::tbb)
+  DEPS sv_llol_lidar sv_llol_sweep)
 cc_test(
   NAME llol_pano_test
   SRCS "llol/pano_test_bench.cpp"
@@ -80,7 +87,7 @@ cc_library(
   DEPS sv_llol_match Ceres::ceres Sophus::Sophus)
 
 # node =========================================================================
-if(catkin_FOUND)
+if(catkin_FOUND AND BUILD_NODE)
   cc_library(
     NAME node_viz
     SRCS "node/viz.cpp"
