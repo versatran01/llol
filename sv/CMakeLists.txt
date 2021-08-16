@@ -98,3 +98,8 @@ if(catkin_FOUND AND BUILD_NODE)
     SRCS "node/odom.cpp"
     DEPS sv_llol_match sv_llol_optim sv_node_viz sv_util_manager)
 endif()
+
+cc_binary(
+  NAME jet
+  SRCS jet.cpp
+  DEPS Ceres::ceres)
