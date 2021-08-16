@@ -43,12 +43,12 @@ cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
 }
 
 int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
-  CHECK(sweep.IsFull());
+  CHECK(sweep.full());
 
   int n = 0;
   if (tbb) {
     n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, sweep.xyzr().rows),
+        tbb::blocked_range<int>(0, sweep.xyzr.rows),
         0,
         [&](const auto& block, int total) {
           for (int sr = block.begin(); sr < block.end(); ++sr) {
@@ -58,7 +58,7 @@ int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
         },
         std::plus<>{});
   } else {
-    for (int sr = 0; sr < sweep.xyzr().rows; ++sr) {
+    for (int sr = 0; sr < sweep.xyzr.rows; ++sr) {
       n += AddSweepRow(sweep, sr);
     }
   }
@@ -70,10 +70,10 @@ int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
 int DepthPano::AddSweepRow(const LidarSweep& sweep, int sr) {
   int n = 0;
 
-  const int sweep_cols = sweep.xyzr().cols;
+  const int sweep_cols = sweep.xyzr.cols;
 
   for (int sc = 0; sc < sweep_cols; ++sc) {
-    const auto& xyzr = sweep.XyzrAt({sc, sr});
+    const auto& xyzr = sweep.PixAt({sc, sr});
     const float rg_s = xyzr[3];  // precomputed range
     if (!(rg_s > 0)) continue;   // filter out nan
 

@@ -9,9 +9,7 @@ namespace sv {
 /// @struct LidarModel
 struct LidarModel {
   LidarModel() = default;
-  LidarModel(const cv::Size& size, float hfov);
-
-  cv::Size size() const noexcept { return size_; }
+  explicit LidarModel(const cv::Size& size, float hfov = -1.0F);
 
   /// @brief xyzr to pixel, bad result is {-1, -1}
   cv::Point2i Forward(float x, float y, float z, float r) const;
@@ -23,20 +21,20 @@ struct LidarModel {
   int ToCol(float x, float y) const;
 
   /// @brief Check if r/c inside image
-  bool RowInside(int r) const noexcept { return 0 <= r && r < size_.height; }
-  bool ColInside(int c) const noexcept { return 0 <= c && c < size_.width; }
+  bool RowInside(int r) const noexcept { return 0 <= r && r < size.height; }
+  bool ColInside(int c) const noexcept { return 0 <= c && c < size.width; }
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const LidarModel& rhs) {
     return os << rhs.Repr();
   }
 
-  cv::Size size_{};
-  float elev_max_{};
-  float elev_delta_{};
-  float azim_delta_{};
-  std::vector<SinCosF> elevs_{};
-  std::vector<SinCosF> azims_{};
+  cv::Size size{};
+  float elev_max{};
+  float elev_delta{};
+  float azim_delta{};
+  std::vector<SinCosF> elevs{};
+  std::vector<SinCosF> azims{};
 };
 
 }  // namespace sv

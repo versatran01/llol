@@ -1,35 +1,44 @@
 #pragma once
 
 #include <opencv2/core/mat.hpp>
+#include <sophus/se3.hpp>
 
 namespace sv {
 
 /// @struct Lidar Scan
 struct LidarScan {
-  LidarScan() = default;
-  LidarScan(const cv::Mat& xyzr, const cv::Range& col_range);
+  using PixelT = cv::Vec4f;
+  static constexpr int kDtype = CV_32FC4;
 
-  cv::Mat xyzr;
-  cv::Range col_range{0, 0};
+  LidarScan() = default;
+  /// @brief Ctor for allocating storage
+  LidarScan(const cv::Size& size) : xyzr{size, kDtype} {}
+  /// @brief Ctor for incoming lidar scan
+  LidarScan(double t0,
+            double dt,
+            const cv::Mat& xyzr,
+            const cv::Range& col_range);
+
+  virtual ~LidarScan() noexcept = default;
+
+  double t0{};
+  double dt{};
+  cv::Mat xyzr{};
+  cv::Range col_range{};
 };
 
 /// @struct Lidar Sweep covers 360 degree horizontal fov
-struct LidarSweep {
+struct LidarSweep final : public LidarScan {
   /// Data
   int id{-1};
-  /// incrementally stores scan into sweep
-  cv::Mat xyzr_;        // [x,y,z,r] from driver
-  cv::Range col_range;  // range of last added scan
+  std::vector<Sophus::SE3f> tfs;
 
   /// stores curvature scores of each cell in sweep
-  cv::Mat grid_;       // stores curvature, could be nan
-  cv::Size cell_size;  // only use first row
+  cv::Mat grid{};        // stores curvature, could be nan
+  cv::Size cell_size{};  // only use first row
 
-  std::vector<uint8_t> offsets;  // pixel offsets per row
-  void SetOffsets(const std::vector<double>& offsets_in);
-
-  /// @brief Ctors
   LidarSweep() = default;
+  /// @brief Ctors for allocating storage
   LidarSweep(const cv::Size& sweep_size, const cv::Size& cell_size);
 
   std::string Repr() const;
@@ -41,24 +50,23 @@ struct LidarSweep {
   /// @return num of valid cells
   int AddScan(const LidarScan& scan, bool tbb = false);
 
-  /// @brief whether sweep is full
-  bool IsFull() const noexcept { return width() == xyzr_.cols; }
-
+  /// @brief Indexing related
   cv::Rect CellAt(const cv::Point& px_grid) const;
-  const auto& XyzrAt(const cv::Point& px_sweep) const {
-    return xyzr_.at<cv::Vec4f>(px_sweep);
-  }
   cv::Point Pix2Cell(const cv::Point& px_sweep) const;
-
-  /// @brief getters
-  cv::Size grid_size() const noexcept { return {grid_.cols, grid_.rows}; }
-  cv::Size xyzr_size() const noexcept { return {xyzr_.cols, xyzr_.rows}; }
-  const cv::Mat& grid() const noexcept { return grid_; }
-  const cv::Mat& xyzr() const noexcept { return xyzr_; }
+  cv::Point Cell2Pix(const cv::Point& px_grid) const;
+  const auto& PixAt(const cv::Point& px_sweep) const {
+    return xyzr.at<PixelT>(px_sweep);
+  }
 
   /// @brief basic info
   int width() const noexcept { return col_range.end; }
+  bool full() const noexcept { return width() == xyzr.cols; }
+  cv::Size size() const noexcept { return {xyzr.cols, xyzr.rows}; }
   int grid_width() const noexcept { return width() / cell_size.width; }
+  cv::Size grid_size() const noexcept { return {grid.cols, grid.rows}; }
+  cv::Range grid_range() const noexcept {
+    return {col_range.start / cell_size.width, col_range.end / cell_size.width};
+  }
 };
 
 cv::Mat MakeTestXyzr(const cv::Size& size);

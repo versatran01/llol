@@ -19,10 +19,24 @@
 // ceres
 #include <ceres/ceres.h>
 
+#include <sophus/se3.hpp>
+
 namespace sv {
 
 namespace cs = ceres;
 using visualization_msgs::MarkerArray;
+
+LidarScan MakeScan(const sensor_msgs::ImageConstPtr& image_msg,
+                   const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
+  cv_bridge::CvImageConstPtr cv_ptr;
+  cv_ptr = cv_bridge::toCvShare(image_msg, "32FC4");
+
+  return {image_msg->header.stamp.toSec(),    // t
+          cinfo_msg->K[0],                    // dt
+          cv_ptr->image,                      // xyzr
+          cv::Range(cinfo_msg->roi.x_offset,  // col_range
+                    cinfo_msg->roi.x_offset + cinfo_msg->roi.width)};
+}
 
 class LlolNode {
  private:
@@ -44,7 +58,7 @@ class LlolNode {
 
   LidarSweep sweep_;
   DepthPano pano_;
-  PointMatcher matcher_;
+  ProjMatcher matcher_;
 
   TimerManager tm_{"llol"};
   StatsManager sm_{"llol"};
@@ -90,7 +104,7 @@ class LlolNode {
         const auto& q = tf_imu_lidar_->transform.rotation;
         const Eigen::Vector3d t_imu_lidar{t.x, t.y, t.z};
         const Eigen::Quaterniond q_imu_lidar{q.w, q.x, q.y, q.z};
-        const SE3d T_imu_lidar{q_imu_lidar, t_imu_lidar};
+        const Sophus::SE3d T_imu_lidar{q_imu_lidar, t_imu_lidar};
 
         ROS_INFO_STREAM("Transform from lidar to imu\n"
                         << T_imu_lidar.matrix());
@@ -122,9 +136,10 @@ class LlolNode {
       auto match_nh = ros::NodeHandle{pnh_, "match"};
       MatcherParams params;
       params.nms = match_nh.param<bool>("nms", false);
-      params.max_curve = match_nh.param<double>("max_curve", 0.01);
       params.half_rows = match_nh.param<int>("half_rows", 2);
-      matcher_ = PointMatcher(sweep_.grid_size(), params);
+      params.max_curve = match_nh.param<double>("max_curve", 0.01);
+      params.range_ratio = match_nh.param<double>("range_ratio", 0.1);
+      matcher_ = ProjMatcher(sweep_.grid_size(), params);
       ROS_INFO_STREAM(matcher_);
 
       init_ = true;
@@ -152,8 +167,10 @@ class LlolNode {
     }
 
     const LidarScan scan{
-        cv_ptr->image,
-        cv::Range(cinfo_msg->roi.x_offset,
+        image_msg->header.stamp.toSec(),    // t
+        cinfo_msg->K[0],                    // dt
+        cv_ptr->image,                      // xyzr
+        cv::Range(cinfo_msg->roi.x_offset,  // col_range
                   cinfo_msg->roi.x_offset + cinfo_msg->roi.width)};
 
     // Predict poses, wrt pano
@@ -171,9 +188,9 @@ class LlolNode {
 
     if (vis_) {
       cv::Mat sweep_disp;
-      cv::extractChannel(sweep_.xyzr(), sweep_disp, 3);
+      cv::extractChannel(sweep_.xyzr, sweep_disp, 3);
       Imshow("sweep", ApplyCmap(sweep_disp, 1 / 30.0, cv::COLORMAP_PINK, 0));
-      Imshow("grid", ApplyCmap(sweep_.grid(), 5, cv::COLORMAP_VIRIDIS, 255));
+      Imshow("grid", ApplyCmap(sweep_.grid, 5, cv::COLORMAP_VIRIDIS, 255));
     }
 
     visualization_msgs::MarkerArray marray;
@@ -182,19 +199,29 @@ class LlolNode {
     if (pano_.num_sweeps() == 0) {
       ROS_INFO_STREAM("Pano is not initialized");
     } else {
+      int num_mask = 0;
+      {  /// Filter grid
+        auto _ = tm_.Scoped("Matcher/Filter");
+        num_mask = matcher_.Filter(sweep_);
+      }
+      ROS_INFO_STREAM("Num mask: " << num_mask);
+
+      // TODO: icp iters
+
+      int num_matches = 0;
       {  /// Match Features
         auto _ = tm_.Scoped("Matcher/Match");
-        matcher_.Match(sweep_, pano_, tbb_);
+        num_matches = matcher_.Match(sweep_, pano_, tbb_);
       }
 
-      ROS_INFO_STREAM("Num matches: " << matcher_.NumMatches());
-      Match2Markers(matcher_.matches(), image_msg->header, marray.markers);
+      ROS_INFO_STREAM("Num matches: " << num_matches);
+      Match2Markers(matcher_.matches, image_msg->header, marray.markers);
 
       if (vis_) {
         // display good match
         Imshow("match",
-               ApplyCmap(DrawMatches(sweep_, matcher_.matches()),
-                         1.0 / matcher_.pano_win_size_.area(),
+               ApplyCmap(DrawMatches(sweep_, matcher_.matches),
+                         1.0 / matcher_.pano_win_size.area(),
                          cv::COLORMAP_VIRIDIS));
       }
 
@@ -217,7 +244,7 @@ class LlolNode {
         // Build problem
         {
           auto _ = tm_.Scoped("ICP/Build");
-          for (const auto& match : matcher_.matches()) {
+          for (const auto& match : matcher_.matches) {
             if (match.ok()) {
               cs::CostFunction* cost =
                   new cs::AutoDiffCostFunction<GicpFactor,
@@ -237,8 +264,8 @@ class LlolNode {
         solver_opt.minimizer_progress_to_stdout = true;
         cs::Solve(solver_opt, &problem, &summary);
       }
-      //      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
-      //      ROS_INFO_STREAM(summary.BriefReport());
+      // ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
+      // ROS_INFO_STREAM(summary.BriefReport());
     }
 
     /// Got a full sweep
@@ -250,7 +277,7 @@ class LlolNode {
         num_added = pano_.AddSweep(sweep_, tbb_);
       }
       ROS_INFO_STREAM("Num added: " << num_added << ", sweep total: "
-                                    << sweep_.xyzr().total());
+                                    << sweep_.xyzr.total());
 
       // int num_rendered = 0;
       // {  /// Render pano at new location
@@ -263,8 +290,11 @@ class LlolNode {
 
       if (vis_) {
         Imshow("pano", ApplyCmap(pano_.dbuf_, 1 / Pixel::kScale / 30.0));
-        //  Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
+        // Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
       }
+
+      // Reset everything
+      matcher_.Reset();
 
       static Cloud pano_cloud;
       Pano2Cloud(pano_, image_msg->header, pano_cloud);

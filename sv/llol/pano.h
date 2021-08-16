@@ -40,7 +40,7 @@ struct DepthPano {
   bool empty() const { return dbuf_.empty(); }
   size_t total() const { return dbuf_.total(); }
   bool num_sweeps() const noexcept { return num_sweeps_; }
-  cv::Size size() const noexcept { return model_.size(); }
+  cv::Size size() const noexcept { return model_.size; }
 
   float RangeAt(const cv::Point& pt) const {
     return dbuf_.at<Pixel>(pt).Metric();

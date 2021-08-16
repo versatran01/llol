@@ -5,17 +5,19 @@
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 
-#include <Eigen/Core>
-#include <opencv2/core/core.hpp>
-
 #include "sv/util/math.h"
 #include "sv/util/ocv.h"
 
 namespace sv {
 
-LidarScan::LidarScan(const cv::Mat& xyzr, const cv::Range& col_range)
-    : xyzr(xyzr), col_range(col_range) {
-  CHECK_EQ(xyzr.type(), CV_32FC4);
+LidarScan::LidarScan(double t0,
+                     double dt,
+                     const cv::Mat& xyzr,
+                     const cv::Range& col_range)
+    : t0{t0}, dt{dt}, xyzr{xyzr}, col_range{col_range} {
+  CHECK_GE(t0, 0);
+  CHECK_GT(dt, 0);
+  CHECK_EQ(xyzr.type(), kDtype);
   CHECK_EQ(xyzr.cols, col_range.size());
 }
 
@@ -34,6 +36,7 @@ float CalcCellCurve(const cv::Mat& scan, int row, const cv::Range& col_range) {
     ++num;
   }
 
+  // Discard if there are too many nans in this cell
   if (num < 0.75 * n) return kNaNF;
 
   // range of mid point
@@ -43,17 +46,17 @@ float CalcCellCurve(const cv::Mat& scan, int row, const cv::Range& col_range) {
   return std::abs(sum / mid / num - 1);
 }
 
-int CalcScanCurveRow(const cv::Mat& xyzr, cv::Mat& grid, int gr) {
+int CalcScanCurveRow(const cv::Mat& scan, cv::Mat& grid, int gr) {
   int n = 0;
-  const int cell_rows = xyzr.rows / grid.rows;
-  const int cell_cols = xyzr.cols / grid.cols;
+  const int cell_rows = scan.rows / grid.rows;
+  const int cell_cols = scan.cols / grid.cols;
   for (int gc = 0; gc < grid.cols; ++gc) {
     const int sr = gr * cell_rows;
     const int sc = gc * cell_cols;
     // Note that we only take the first row regardless of row size
     // this is because ouster lidar image is staggered.
     // Maybe we will handle it later
-    const auto curve = CalcCellCurve(xyzr, sr, {sc, sc + cell_cols});
+    const auto curve = CalcCellCurve(scan, sr, {sc, sc + cell_cols});
     grid.at<float>(gr, gc) = curve;
     n += static_cast<int>(!std::isnan(curve));
   }
@@ -62,6 +65,7 @@ int CalcScanCurveRow(const cv::Mat& xyzr, cv::Mat& grid, int gr) {
 
 int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb) {
   int n = 0;
+
   if (tbb) {
     n = tbb::parallel_reduce(
         tbb::blocked_range<int>(0, grid.rows),
@@ -78,50 +82,50 @@ int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb) {
       n += CalcScanCurveRow(scan, grid, gr);
     }
   }
+
   return n;
 }
 
 /// LidarSweep =================================================================
 LidarSweep::LidarSweep(const cv::Size& sweep_size, const cv::Size& cell_size)
-    : xyzr_(sweep_size, CV_32FC4),
+    : LidarScan{sweep_size},
       cell_size(cell_size),
-      grid_(sweep_size / cell_size, CV_32FC1) {
-  offsets.reserve(sweep_size.width);
-}
-
-void LidarSweep::SetOffsets(const std::vector<double>& offsets_in) {
-  CHECK_EQ(offsets.size(), xyzr_.cols);
-  CHECK(offsets.empty());
-
-  for (const auto& offset : offsets_in) {
-    offsets.push_back(static_cast<uint8_t>(offset));
-  }
-}
+      grid(sweep_size / cell_size, CV_32FC1) {}
 
 int LidarSweep::AddScan(const LidarScan& scan, bool tbb) {
   // Check scan type is compatible
-  CHECK_EQ(scan.xyzr.type(), xyzr_.type());
+  CHECK_EQ(scan.xyzr.type(), xyzr.type());
   // Check rows match between scan and mat
-  CHECK_EQ(scan.xyzr.rows, xyzr_.rows);
+  CHECK_EQ(scan.xyzr.rows, xyzr.rows);
   // Check scan width is not bigger than sweep
-  CHECK_LE(scan.xyzr.cols, xyzr_.cols);
+  CHECK_LE(scan.xyzr.cols, xyzr.cols);
   // Check that the new scan start right after
-  CHECK_EQ(scan.col_range.start, IsFull() ? 0 : col_range.end);
+  CHECK_EQ(scan.col_range.start, full() ? 0 : col_range.end);
+  // Check dt is consistent
+  if (dt == 0) dt = scan.dt;
+  CHECK_EQ(dt, scan.dt);
 
   // Increment id when we got a new sweep
-  if (scan.col_range.start == 0) ++id;
+  if (scan.col_range.start == 0) {
+    ++id;
+    t0 = scan.t0;  // update time
+  }
 
   // Save range and copy to storage
   col_range = scan.col_range;
-  scan.xyzr.copyTo(xyzr_.colRange(col_range));  // x,y,w,h
+  scan.xyzr.copyTo(xyzr.colRange(col_range));  // x,y,w,h
 
   // Compute curvature of scan and save to grid
-  auto grid = grid_.colRange(scan.col_range / cell_size.width);
-  return CalcScanCurve(scan.xyzr, grid, tbb);
+  auto subgrid = grid.colRange(scan.col_range / cell_size.width);
+  return CalcScanCurve(scan.xyzr, subgrid, tbb);
 }
 
 cv::Point LidarSweep::Pix2Cell(const cv::Point& px_sweep) const {
   return {px_sweep.x / cell_size.width, px_sweep.y / cell_size.height};
+}
+
+cv::Point LidarSweep::Cell2Pix(const cv::Point& px_grid) const {
+  return {px_grid.x * cell_size.width, px_grid.y * cell_size.height};
 }
 
 cv::Rect LidarSweep::CellAt(const cv::Point& grid_px) const {
@@ -133,17 +137,20 @@ cv::Rect LidarSweep::CellAt(const cv::Point& grid_px) const {
 std::string LidarSweep::Repr() const {
   using sv::Repr;
   return fmt::format(
-      "LidarSweep(id={}, xyzr={}, col_range={}, grid={}, cell_size={})",
+      "LidarSweep(id={}, t0={}, dt={}, xyzr={}, col_range={}, grid={}, "
+      "cell_size={})",
       id,
-      Repr(xyzr_),
+      t0,
+      dt,
+      Repr(xyzr),
       Repr(col_range),
-      Repr(grid_),
+      Repr(grid),
       Repr(cell_size));
 }
 
 /// Test Related ===============================================================
 cv::Mat MakeTestXyzr(const cv::Size& size) {
-  cv::Mat xyzr = cv::Mat::zeros(size, CV_32FC4);
+  cv::Mat xyzr = cv::Mat::zeros(size, LidarScan::kDtype);
 
   const float azim_delta = M_PI * 2 / size.width;
   const float elev_max = M_PI_4 / 2;
@@ -166,7 +173,7 @@ cv::Mat MakeTestXyzr(const cv::Size& size) {
 }
 
 LidarScan MakeTestScan(const cv::Size& size) {
-  return {MakeTestXyzr(size), {0, size.width}};
+  return {0, 0.1 / size.width, MakeTestXyzr(size), {0, size.width}};
 }
 
 LidarSweep MakeTestSweep(const cv::Size& size) {

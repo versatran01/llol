@@ -49,11 +49,15 @@ cc_library(
   NAME llol_lidar
   SRCS "llol/lidar.cpp"
   DEPS sv_util_math sv_util_ocv)
+cc_test(
+  NAME llol_lidar_test
+  SRCS "llol/lidar_test.cpp"
+  DEPS sv_llol_lidar)
 
 cc_library(
   NAME llol_sweep
   SRCS "llol/sweep.cpp"
-  DEPS sv_util_math sv_util_ocv sv_tbb)
+  DEPS sv_util_math sv_util_ocv sv_tbb Sophus::Sophus)
 cc_test(
   NAME llol_sweep_test
   SRCS "llol/sweep_test_bench.cpp"
@@ -91,15 +95,16 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_library(
     NAME node_viz
     SRCS "node/viz.cpp"
-    DEPS sv_llol_sweep sv_llol_match sv_ros1)
+    DEPS sv_llol_match sv_llol_pano sv_ros1)
 
   cc_binary(
     NAME node_odom
     SRCS "node/odom.cpp"
-    DEPS sv_llol_match sv_llol_optim sv_node_viz sv_util_manager)
+    DEPS sv_llol_match sv_node_viz sv_util_manager)
 endif()
 
+# node =========================================================================
 cc_binary(
-  NAME jet
-  SRCS jet.cpp
+  NAME curve_fitting
+  SRCS "temp/curve_fitting.cpp"
   DEPS Ceres::ceres)

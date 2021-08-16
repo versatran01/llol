@@ -11,7 +11,7 @@ TEST(LidarSweepTest, TestDefault) {
   std::cout << ls << "\n";
 
   EXPECT_EQ(ls.width(), 0);
-  EXPECT_EQ(ls.IsFull(), true);
+  EXPECT_EQ(ls.full(), true);
 }
 
 TEST(LidarSweepTest, TestCtor) {
@@ -19,15 +19,15 @@ TEST(LidarSweepTest, TestCtor) {
   std::cout << ls << "\n";
 
   EXPECT_EQ(ls.width(), 0);
-  EXPECT_EQ(ls.IsFull(), false);
+  EXPECT_EQ(ls.full(), false);
 
-  EXPECT_EQ(ls.xyzr().rows, 4);
-  EXPECT_EQ(ls.xyzr().cols, 8);
-  EXPECT_EQ(ls.xyzr().channels(), 4);
+  EXPECT_EQ(ls.xyzr.rows, 4);
+  EXPECT_EQ(ls.xyzr.cols, 8);
+  EXPECT_EQ(ls.xyzr.channels(), 4);
 
-  EXPECT_EQ(ls.grid().rows, 4);
-  EXPECT_EQ(ls.grid().cols, 4);
-  EXPECT_EQ(ls.grid().channels(), 1);
+  EXPECT_EQ(ls.grid.rows, 4);
+  EXPECT_EQ(ls.grid.cols, 4);
+  EXPECT_EQ(ls.grid.channels(), 1);
 }
 
 TEST(LidarSweepTest, TestAddScan) {
@@ -39,14 +39,24 @@ TEST(LidarSweepTest, TestAddScan) {
 
   EXPECT_EQ(ls.col_range.start, 0);
   EXPECT_EQ(ls.col_range.end, 4);
+  EXPECT_EQ(ls.id, 0);
   EXPECT_EQ(n, 8);
 
   scan.col_range = {4, 8};
   const int n2 = ls.AddScan(scan, false);
   EXPECT_EQ(ls.col_range.start, 4);
   EXPECT_EQ(ls.col_range.end, 8);
+  EXPECT_EQ(ls.id, 0);
+  EXPECT_EQ(ls.full(), true);
   EXPECT_EQ(n2, 8);
-  EXPECT_EQ(ls.IsFull(), true);
+
+  scan.col_range = {0, 4};
+  const int n3 = ls.AddScan(scan, false);
+  EXPECT_EQ(ls.col_range.start, 0);
+  EXPECT_EQ(ls.col_range.end, 4);
+  EXPECT_EQ(ls.id, 1);
+  EXPECT_EQ(ls.full(), false);
+  EXPECT_EQ(n3, 8);
 }
 
 void BM_AddScanSeq(benchmark::State& state) {
