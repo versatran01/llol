@@ -18,12 +18,12 @@ struct LidarSweep {
   /// Data
   int id{-1};
   /// incrementally stores scan into sweep
-  cv::Range col_range;  // range of last added scan
   cv::Mat xyzr_;        // [x,y,z,r] from driver
+  cv::Range col_range;  // range of last added scan
 
   /// stores curvature scores of each cell in sweep
-  cv::Size cell_size;  // only use first row
   cv::Mat grid_;       // stores curvature, could be nan
+  cv::Size cell_size;  // only use first row
 
   std::vector<uint8_t> offsets;  // pixel offsets per row
   void SetOffsets(const std::vector<double>& offsets_in);

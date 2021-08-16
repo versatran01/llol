@@ -4,7 +4,7 @@ project(llol)
 set(CMAKE_CXX_STANDARD 17)
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-option(BUILD_NODE "Build ros nodes" Off)
+option(BUILD_NODE "Build ros nodes" On)
 option(BUILD_TESTING "Build tests" Off)
 option(BUILD_BENCHMARK "Build benchmarks" Off)
 option(BUILD_MARCH_NATIVE "Build with -march=native" OFF)

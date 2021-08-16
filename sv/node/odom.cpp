@@ -109,25 +109,23 @@ class LlolNode {
     }
 
     if (!init_) {
-      {  /// Initialized sweep
-        auto odom_nh = ros::NodeHandle{pnh_, "sweep"};
-        int cell_rows = odom_nh.param<int>("cell_rows", 2);
-        int cell_cols = odom_nh.param<int>("cell_cols", 16);
+      /// Initialized sweep
+      auto odom_nh = ros::NodeHandle{pnh_, "sweep"};
+      int cell_rows = odom_nh.param<int>("cell_rows", 2);
+      int cell_cols = odom_nh.param<int>("cell_cols", 16);
 
-        sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height),
-                            {cell_cols, cell_rows}};
-        ROS_INFO_STREAM(sweep_);
-      }
+      sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height),
+                          {cell_cols, cell_rows}};
+      ROS_INFO_STREAM(sweep_);
 
-      {  /// Initialize matcher
-        auto match_nh = ros::NodeHandle{pnh_, "match"};
-        MatcherParams params;
-        params.nms = match_nh.param<bool>("nms", false);
-        params.max_curve = match_nh.param<double>("max_curve", 0.01);
-        params.half_rows = match_nh.param<int>("half_rows", 2);
-        matcher_ = PointMatcher(sweep_.grid_size(), params);
-        ROS_INFO_STREAM(matcher_);
-      }
+      /// Initialize matcher
+      auto match_nh = ros::NodeHandle{pnh_, "match"};
+      MatcherParams params;
+      params.nms = match_nh.param<bool>("nms", false);
+      params.max_curve = match_nh.param<double>("max_curve", 0.01);
+      params.half_rows = match_nh.param<int>("half_rows", 2);
+      matcher_ = PointMatcher(sweep_.grid_size(), params);
+      ROS_INFO_STREAM(matcher_);
 
       init_ = true;
     }
@@ -201,7 +199,7 @@ class LlolNode {
       }
 
       cs::Solver::Summary summary;
-      {  /// Optimization
+      if (0) {  /// Optimization
 
         std::unique_ptr<ceres::LocalParameterization> local_params =
             std::make_unique<LocalParamSE3>();
@@ -239,8 +237,8 @@ class LlolNode {
         solver_opt.minimizer_progress_to_stdout = true;
         cs::Solve(solver_opt, &problem, &summary);
       }
-      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
-      ROS_INFO_STREAM(summary.BriefReport());
+      //      ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
+      //      ROS_INFO_STREAM(summary.BriefReport());
     }
 
     /// Got a full sweep

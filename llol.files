@@ -14,6 +14,7 @@ package.xml
 sv/CMakeLists.txt
 sv/cov_viz.cpp
 sv/llol/CMakeLists.txt
+sv/llol/api.h
 sv/llol/imu.cpp
 sv/llol/imu.h
 sv/llol/lidar.cpp

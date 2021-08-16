@@ -5,7 +5,8 @@ pano:
 sweep:
   cell_rows: 2
   cell_cols: 16
-match:
-  nms: True
   max_score: 0.1
+  nms: True
+match:
   half_rows: 2
+  range_ratio: 0.1

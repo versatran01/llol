@@ -28,7 +28,7 @@ struct MatcherParams {
   bool nms{true};
   int half_rows{2};
   float max_curve{0.01};
-  float range_ratio{0.1};  // TODO (chao): consider surface angle
+  float range_ratio{0.1};
   float tan_phi{std::tan(static_cast<float>(M_PI / 2.5))};
 
   std::string Repr() const;
@@ -65,7 +65,6 @@ struct PointMatcher {
   void MatchSingle(const LidarSweep& sweep,
                    const DepthPano& pano,
                    const cv::Point& gpx);
-
 };
 
 /// @brief Draw match, valid pixel is percentage of pano points in window

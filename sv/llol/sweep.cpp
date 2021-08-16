@@ -15,15 +15,11 @@ namespace sv {
 
 LidarScan::LidarScan(const cv::Mat& xyzr, const cv::Range& col_range)
     : xyzr(xyzr), col_range(col_range) {
-  CHECK_EQ(xyzr.cols, col_range.size());
   CHECK_EQ(xyzr.type(), CV_32FC4);
+  CHECK_EQ(xyzr.cols, col_range.size());
 }
 
 /// @brief Compute scan curvature and store to grid
-int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb = false);
-int CalcScanCurveRow(const cv::Mat& scan, cv::Mat& grid, int r);
-float CalcCellCurve(const cv::Mat& cell);
-
 float CalcCellCurve(const cv::Mat& scan, int row, const cv::Range& col_range) {
   using T = cv::Vec4f;
   // compute sum of range in cell
@@ -70,7 +66,7 @@ int CalcScanCurve(const cv::Mat& scan, cv::Mat& grid, bool tbb) {
     n = tbb::parallel_reduce(
         tbb::blocked_range<int>(0, grid.rows),
         0,
-        [&](const tbb::blocked_range<int>& block, int total) {
+        [&](const auto& block, int total) {
           for (int gr = block.begin(); gr < block.end(); ++gr) {
             total += CalcScanCurveRow(scan, grid, gr);
           }
