@@ -51,11 +51,6 @@ endif()
 if(catkin_FOUND AND BUILD_NODE)
   catkin_package()
 
-  cc_library(
-    NAME ros1
-    DEPS ${catkin_LIBRARIES}
-    INCLUDES ${catkin_INCLUDE_DIRS}
-    INTERFACE)
 endif()
 
 enable_testing()

@@ -12,7 +12,7 @@ namespace sv {
 
 static constexpr float kValidCellRatio = 0.75F;
 
-/// @brief Compute scan curvature and store to grid
+/// @brief Compute scan curvature starting from px with size (width, 1)
 float CalcCellCurve(const LidarScan& scan, const cv::Point& px, int width) {
   // compute sum of range in cell
   int num = 0;
@@ -55,16 +55,16 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
 std::string SweepGrid::Repr() const {
   return fmt::format("SweepGrid(size={}, col_range={}, params={})",
                      sv::Repr(size()),
-                     sv::Repr(col_range),
+                     sv::Repr(col_rg),
                      params.Repr());
 }
 
 int SweepGrid::Reduce(const LidarScan& scan, bool tbb) {
-  // Check that
-  CHECK_EQ(scan.col_range.start, full() ? 0 : col_range.end * params.cell_cols);
+  // Check
+  CHECK_EQ(scan.col_rg.start, full() ? 0 : col_rg.end * params.cell_cols);
   CHECK_EQ(score.rows * params.cell_rows, scan.xyzr.rows);
-  col_range = scan.col_range / params.cell_cols;
-  CHECK_LE(col_range.end, score.cols);
+  col_rg = scan.col_rg / params.cell_cols;
+  CHECK_LE(col_rg.end, score.cols);
 
   int n = 0;
   if (tbb) {
@@ -88,7 +88,7 @@ int SweepGrid::Reduce(const LidarScan& scan, bool tbb) {
 
 int SweepGrid::ReduceRow(const LidarScan& scan, int r) {
   int n = 0;
-  for (int c = col_range.start; c < col_range.end; ++c) {
+  for (int c = col_rg.start; c < col_rg.end; ++c) {
     const cv::Point px_g{c, r};
     const auto px_s = Grid2Sweep(px_g);
     // Note that we only take the first row regardless of row size
@@ -105,7 +105,7 @@ int SweepGrid::Filter() {
   int n = 0;
   const int pad = static_cast<int>(params.nms);
   for (int gr = 0; gr < mask.rows; ++gr) {
-    for (int gc = col_range.start + pad; gc < col_range.end - pad; ++gc) {
+    for (int gc = col_rg.start + pad; gc < col_rg.end - pad; ++gc) {
       const cv::Point px{gc, gr};
       const int good = static_cast<int>(IsCellGood(px));
       MaskAt(px) = good;
@@ -145,7 +145,7 @@ cv::Point SweepGrid::Grid2Sweep(const cv::Point& px_grid) const {
   return {px_grid.x * params.cell_cols, px_grid.y * params.cell_rows};
 }
 
-int SweepGrid::Pix2Ind(const cv::Point& px_grid) const {
+int SweepGrid::Grid2Ind(const cv::Point& px_grid) const {
   return px_grid.y * score.cols + px_grid.x;
 }
 

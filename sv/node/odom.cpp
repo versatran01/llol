@@ -9,9 +9,9 @@
 #include <sensor_msgs/Imu.h>
 #include <tf2_ros/transform_listener.h>
 
+#include "sv/llol/factor.h"
 #include "sv/llol/grid.h"
 #include "sv/llol/match.h"
-#include "sv/llol/optim.h"
 #include "sv/llol/pano.h"
 #include "sv/llol/scan.h"
 #include "sv/node/viz.h"
@@ -250,7 +250,7 @@ class LlolNode {
         cs::Problem problem{problem_opt};
 
         problem.AddParameterBlock(
-            T_p_s_.data(), SE3d::num_parameters, local_params.get());
+            T_p_s_.data(), Sophus::SE3d::num_parameters, local_params.get());
 
         // Build problem
         {

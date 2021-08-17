@@ -8,31 +8,26 @@
 
 namespace sv {
 
-using SE3d = Sophus::SE3d;
-
+// Taken from Sophus github
 class LocalParamSE3 final : public ceres::LocalParameterization {
  public:
   // SE3 plus operation for Ceres
-  //
   //  T * exp(x)
-  //
   bool Plus(double const* _T,
             double const* _x,
             double* _T_plus_x) const override;
 
   // Jacobian of SE3 plus operation for Ceres
-  //
   // Dx T * exp(x)  with  x=0
-  //
   bool ComputeJacobian(double const* _T, double* _J) const override;
 
-  int GlobalSize() const override { return SE3d::num_parameters; }
-  int LocalSize() const override { return SE3d::DoF; }
+  int GlobalSize() const override { return Sophus::SE3d::num_parameters; }
+  int LocalSize() const override { return Sophus::SE3d::DoF; }
 };
 
 struct GicpFactor {
   static constexpr int kNumResiduals = 3;
-  static constexpr int kNumParams = SE3d::num_parameters;
+  static constexpr int kNumParams = Sophus::SE3d::num_parameters;
 
   template <typename T>
   using Vector3 = Eigen::Matrix<T, kNumResiduals, 1>;
@@ -51,7 +46,5 @@ struct GicpFactor {
   Eigen::Vector3d pt_p;
   Eigen::Matrix3d U;
 };
-
-struct PoseSolver {};
 
 }  // namespace sv

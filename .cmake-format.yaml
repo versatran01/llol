@@ -16,7 +16,7 @@ additional_commands:
       DEFINES: "*"
       LINKOPTS: "*"
       DEPS: "*"
-      INCLUDES: "*"
+      INCS: "*"
   cc_binary:
     kwargs:
       SRCS: "*"

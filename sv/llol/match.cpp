@@ -140,7 +140,7 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
                            const SweepGrid& grid,
                            const DepthPano& pano,
                            const cv::Point& px_g) {
-  const int mi = grid.Pix2Ind(px_g);
+  const int mi = grid.Grid2Ind(px_g);
   auto& match = matches.at(mi);
 
   // Record sweep px
@@ -197,7 +197,9 @@ cv::Mat DrawMatches(const SweepGrid& grid,
   cv::Mat disp(grid.size(), CV_32FC1, kNaNF);
 
   for (const auto& match : matches) {
-    disp.at<float>(grid.Sweep2Grid(match.px_s)) = match.mc_p.n;
+    const auto px_g = grid.Sweep2Grid(match.px_s);
+    if (px_g.x >= grid.width()) continue;
+    disp.at<float>(px_g) = match.mc_p.n;
   }
   return disp;
 }

@@ -1,8 +1,10 @@
-#include "sv/llol/optim.h"
+#include "sv/llol/factor.h"
 
 #include <glog/logging.h>
 
 namespace sv {
+
+using SE3d = Sophus::SE3d;
 
 bool LocalParamSE3::Plus(const double* _T,
                          const double* _x,

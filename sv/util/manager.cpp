@@ -60,8 +60,8 @@ std::string TimerManager::ReportStats(const std::string& name,
   std::string str =
       fmt::format(fmt::fg(fmt::color::light_sky_blue), "[{:<16}]", name);
   str += fmt::format(
-      " n: {:<8} | sum: {:<12} | min: {:<12} | max: {:<12} | "
-      "mean: {:<12} | last: {:<12} |",
+      " n: {:<8} | sum: {:<12} | min: {:<12} | max: {:<12} | mean: {:<12} | "
+      "last: {:<12} |",
       stats.count(),
       stats.sum(),
       stats.min(),

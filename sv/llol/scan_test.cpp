@@ -29,25 +29,25 @@ TEST(LidarSweepTest, TestCtor) {
 TEST(LidarSweepTest, TestAddScan) {
   LidarSweep ls({8, 4});
   LidarScan scan = MakeTestScan({4, 4});
-  scan.col_range = {0, 4};
+  scan.col_rg = {0, 4};
 
   ls.AddScan(scan);
 
-  EXPECT_EQ(ls.col_range.start, 0);
-  EXPECT_EQ(ls.col_range.end, 4);
+  EXPECT_EQ(ls.col_rg.start, 0);
+  EXPECT_EQ(ls.col_rg.end, 4);
   EXPECT_EQ(ls.id, 0);
 
-  scan.col_range = {4, 8};
+  scan.col_rg = {4, 8};
   ls.AddScan(scan);
-  EXPECT_EQ(ls.col_range.start, 4);
-  EXPECT_EQ(ls.col_range.end, 8);
+  EXPECT_EQ(ls.col_rg.start, 4);
+  EXPECT_EQ(ls.col_rg.end, 8);
   EXPECT_EQ(ls.id, 0);
   EXPECT_EQ(ls.full(), true);
 
-  scan.col_range = {0, 4};
+  scan.col_rg = {0, 4};
   ls.AddScan(scan);
-  EXPECT_EQ(ls.col_range.start, 0);
-  EXPECT_EQ(ls.col_range.end, 4);
+  EXPECT_EQ(ls.col_rg.start, 0);
+  EXPECT_EQ(ls.col_rg.end, 4);
   EXPECT_EQ(ls.id, 1);
   EXPECT_EQ(ls.full(), false);
 

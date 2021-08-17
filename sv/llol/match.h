@@ -14,12 +14,10 @@ struct PointMatch {
 
   cv::Point px_s{kBad, kBad};  // 8
   MeanCovar3f mc_s{};          // 52 sweep
-
   cv::Point px_p{kBad, kBad};  // 8
   MeanCovar3f mc_p{};          // 52 pano
-  Eigen::Matrix3f U;
-
-  Sophus::SE3f tf_p_s{};  // 14
+  Sophus::SE3f tf_p_s{};       // 14
+  Eigen::Matrix3f U;           // sqrt of inv cov
 
   /// @brief Whether this match is good
   bool ok() const noexcept {
@@ -44,10 +42,9 @@ struct MatcherParams {
 
 struct ProjMatcher {
   /// Data
-  cv::Size pano_win_size;  // win size in pano used to compute mean covar
   int min_pts;             // min pts in pano win for a valid match
-
-  cv::Size grid_size;
+  cv::Size grid_size;      // copy of grid_size from SweepGrid
+  cv::Size pano_win_size;  // win size in pano used to compute mean covar
   MatcherParams params;
   std::vector<PointMatch> matches;
 

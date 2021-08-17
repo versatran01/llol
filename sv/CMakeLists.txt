@@ -2,7 +2,7 @@
 cc_library(
   NAME base
   DEPS sv_options
-  INCLUDES ${CMAKE_SOURCE_DIR}
+  INCS ${CMAKE_SOURCE_DIR}
   INTERFACE)
 
 if(BUILD_MARCH_NATIVE)
@@ -12,7 +12,7 @@ endif()
 cc_library(
   NAME tbb
   DEPS ${TBB_LIBRARIES}
-  INCLUDES ${TBB_INCLUDE_DIRS}
+  INCS ${TBB_INCLUDE_DIRS}
   INTERFACE)
 
 cc_library(
@@ -22,9 +22,15 @@ cc_library(
 
 # util =========================================================================
 cc_library(
+  NAME util_timer
+  HDRS "util/timer.h"
+  DEPS sv_base absl::time
+  INTERFACE)
+
+cc_library(
   NAME util_manager
   SRCS "util/manager.cpp"
-  DEPS sv_base sv_log absl::time absl::flat_hash_map)
+  DEPS sv_base sv_log sv_util_timer absl::flat_hash_map)
 
 cc_library(
   NAME util_math
@@ -99,12 +105,18 @@ cc_library(
   DEPS sv_llol_scan sv_llol_grid sv_llol_pano)
 
 cc_library(
-  NAME llol_optim
-  SRCS "llol/optim.cpp"
-  DEPS sv_llol_match Ceres::ceres Sophus::Sophus)
+  NAME llol_factor
+  SRCS "llol/factor.cpp"
+  DEPS sv_llol_match Sophus::Sophus)
 
 # node =========================================================================
 if(catkin_FOUND AND BUILD_NODE)
+  cc_library(
+    NAME ros1
+    DEPS ${catkin_LIBRARIES}
+    INCS ${catkin_INCLUDE_DIRS}
+    INTERFACE)
+
   cc_library(
     NAME node_viz
     SRCS "node/viz.cpp"
@@ -120,4 +132,4 @@ endif()
 cc_binary(
   NAME curve_fitting
   SRCS "temp/curve_fitting.cpp"
-  DEPS Ceres::ceres)
+  DEPS sv_util_timer Ceres::ceres)

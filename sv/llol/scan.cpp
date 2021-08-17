@@ -12,7 +12,7 @@ LidarScan::LidarScan(double t0,
                      double dt,
                      const cv::Mat& xyzr,
                      const cv::Range& col_range)
-    : t0{t0}, dt{dt}, xyzr{xyzr}, col_range{col_range} {
+    : t0{t0}, dt{dt}, xyzr{xyzr}, col_rg{col_range} {
   CHECK_GE(t0, 0);
   CHECK_GT(dt, 0);
   CHECK_EQ(xyzr.type(), kDtype);
@@ -27,9 +27,9 @@ int LidarSweep::AddScan(const LidarScan& scan) {
   CHECK_EQ(scan.xyzr.rows, xyzr.rows);
   // Check scan width is not bigger than sweep
   CHECK_LE(scan.xyzr.cols, xyzr.cols);
-  CHECK_LE(scan.col_range.end, xyzr.cols);
+  CHECK_LE(scan.col_rg.end, xyzr.cols);
   // Check that the new scan start right after
-  CHECK_EQ(scan.col_range.start, full() ? 0 : col_range.end);
+  CHECK_EQ(scan.col_rg.start, full() ? 0 : col_rg.end);
   // Check dt is consistent, assume it stays the same
   if (dt == 0) dt = scan.dt;
   CHECK_EQ(dt, scan.dt);
@@ -37,14 +37,14 @@ int LidarSweep::AddScan(const LidarScan& scan) {
 
   // Increment id when we got a new sweep (indicated by the starting col of the
   // incoming scan being 0)
-  if (scan.col_range.start == 0) {
+  if (scan.col_rg.start == 0) {
     ++id;
     t0 = scan.t0;  // update time
   }
 
   // Save range and copy to storage
-  col_range = scan.col_range;
-  scan.xyzr.copyTo(xyzr.colRange(col_range));  // x,y,w,h
+  col_rg = scan.col_rg;
+  scan.xyzr.copyTo(xyzr.colRange(col_rg));  // x,y,w,h
   return scan.xyzr.total();
 }
 
@@ -59,7 +59,7 @@ std::string LidarSweep::Repr() const {
                      t0,
                      dt,
                      Repr(xyzr),
-                     Repr(col_range));
+                     Repr(col_rg));
 }
 
 /// Test Related ===============================================================

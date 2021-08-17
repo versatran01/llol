@@ -1,3 +1,5 @@
+#include <absl/time/clock.h>
+
 #include "ceres/ceres.h"
 #include "glog/logging.h"
 
@@ -91,49 +93,103 @@ const double data[] = {
 // clang-format on
 
 struct ExponentialResidual {
-  ExponentialResidual(int i, double x, double y) : i_(i), x_(x), y_(y) {}
+  ExponentialResidual(double x, double y) : x_(x), y_(y) {}
 
   template <typename T>
   bool operator()(const T* const m, const T* const c, T* residual) const {
-    if (i_ > 5) {
-      residual[0] = y_ - exp(m[0] * x_ + c[0]);
-    } else {
-      residual[0] = T(0);
-    }
+    residual[0] = y_ - exp(m[0] * x_ + c[0]);
     return true;
   }
 
  private:
-  const int i_;
   const double x_;
   const double y_;
+};
+
+struct SignleResidual {
+  SignleResidual(int size, const double* data) : size_{size}, data_{data} {}
+
+  template <typename T>
+  bool operator()(const T* const m, const T* const c, T* residual) const {
+    residual[0] = T(0);
+
+    for (int i = 0; i < size_; ++i) {
+      residual[0] += data_[2 * i + 1] - exp(m[0] * data_[2 * i] + c[0]);
+    }
+
+    return true;
+  }
+
+  int size_;
+  const double* data_;
 };
 
 int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
 
-  double m = 0.1;
-  double c = 0.1;
+  {
+    std::cout << "\nSingle Residual\n";
+    double m = 0.0;
+    double c = 0.0;
+    const auto t0 = absl::GetCurrentTimeNanos();
+    Problem problem;
+    problem.AddResidualBlock(new AutoDiffCostFunction<SignleResidual, 1, 1, 1>(
+                                 new SignleResidual(kNumObservations, data)),
+                             nullptr,
+                             &m,
+                             &c);
+    const auto t1 = absl::GetCurrentTimeNanos();
+    std::cout << "Time Build: " << (t1 - t0) / 1e6 << "ms\n";
 
-  Problem problem;
-  for (int i = 0; i < kNumObservations; ++i) {
-    problem.AddResidualBlock(
-        new AutoDiffCostFunction<ExponentialResidual, 1, 1, 1>(
-            new ExponentialResidual(i, data[2 * i], data[2 * i + 1])),
-        NULL,
-        &m,
-        &c);
+    Solver::Options options;
+    options.max_num_iterations = 25;
+    options.linear_solver_type = ceres::DENSE_QR;
+    options.minimizer_progress_to_stdout = true;
+
+    Solver::Summary summary;
+    const auto t2 = absl::GetCurrentTimeNanos();
+    Solve(options, &problem, &summary);
+    const auto t3 = absl::GetCurrentTimeNanos();
+    std::cout << "Time Solve: " << (t3 - t2) / 1e6 << "ms\n";
+
+    std::cout << summary.BriefReport() << "\n";
+    std::cout << "Initial m: " << 0.0 << " c: " << 0.0 << "\n";
+    std::cout << "Final   m: " << m << " c: " << c << "\n";
   }
 
-  Solver::Options options;
-  options.max_num_iterations = 25;
-  options.linear_solver_type = ceres::DENSE_QR;
-  options.minimizer_progress_to_stdout = true;
+  {
+    std::cout << "\nMultiple Residuals\n";
+    double m = 0.0;
+    double c = 0.0;
+    const auto t0 = absl::GetCurrentTimeNanos();
+    Problem problem;
+    for (int i = 0; i < kNumObservations; ++i) {
+      problem.AddResidualBlock(
+          new AutoDiffCostFunction<ExponentialResidual, 1, 1, 1>(
+              new ExponentialResidual(data[2 * i], data[2 * i + 1])),
+          NULL,
+          &m,
+          &c);
+    }
+    const auto t1 = absl::GetCurrentTimeNanos();
+    std::cout << "Time Build: " << (t1 - t0) / 1e6 << "ms\n";
 
-  Solver::Summary summary;
-  Solve(options, &problem, &summary);
-  std::cout << summary.BriefReport() << "\n";
-  std::cout << "Initial m: " << 0.1 << " c: " << 0.1 << "\n";
-  std::cout << "Final   m: " << m << " c: " << c << "\n";
+    Solver::Options options;
+    options.max_num_iterations = 25;
+    options.linear_solver_type = ceres::DENSE_QR;
+    options.minimizer_progress_to_stdout = true;
+    options.num_threads = 4;
+
+    Solver::Summary summary;
+    const auto t2 = absl::GetCurrentTimeNanos();
+    Solve(options, &problem, &summary);
+    const auto t3 = absl::GetCurrentTimeNanos();
+    std::cout << "Time Solve: " << (t3 - t2) / 1e6 << "ms\n";
+
+    std::cout << summary.BriefReport() << "\n";
+    std::cout << "Initial m: " << 0.0 << " c: " << 0.0 << "\n";
+    std::cout << "Final   m: " << m << " c: " << c << "\n";
+  }
+
   return 0;
 }

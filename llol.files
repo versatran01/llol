@@ -14,6 +14,8 @@ package.xml
 sv/CMakeLists.txt
 sv/cov_viz.cpp
 sv/llol/CMakeLists.txt
+sv/llol/factor.cpp
+sv/llol/factor.h
 sv/llol/grid.cpp
 sv/llol/grid.h
 sv/llol/grid_test.cpp
@@ -30,14 +32,14 @@ sv/llol/odom.cpp
 sv/llol/odom.h
 sv/llol/odom_bench.cpp
 sv/llol/odom_test.cpp
-sv/llol/optim.cpp
-sv/llol/optim.h
 sv/llol/pano.cpp
 sv/llol/pano.h
 sv/llol/pano_test.cpp
 sv/llol/scan.cpp
 sv/llol/scan.h
 sv/llol/scan_test.cpp
+sv/llol/traj.cpp
+sv/llol/traj.h
 sv/llol/viz.cpp
 sv/llol/viz.h
 sv/node.cpp
@@ -45,6 +47,7 @@ sv/node/cov_viz.cpp
 sv/node/odom.cpp
 sv/node/viz.cpp
 sv/node/viz.h
+sv/temp/curve_fitting.cpp
 sv/util/CMakeLists.txt
 sv/util/angle.h
 sv/util/manager.cpp

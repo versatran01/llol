@@ -9,7 +9,7 @@
 # SRCS: List of source files for the library
 # DEPS: List of other libraries to be linked in to the binary targets
 # COPTS: List of private compile options
-# DEFINES: List of public defines
+# DEFINES: List of public definitions
 # LINKOPTS: List of link options
 #
 # Note:
@@ -45,9 +45,8 @@
 # )
 # cmake-format: on
 function(cc_library)
-  cmake_parse_arguments(
-    CC_LIB "INTERFACE" "NAME" "HDRS;SRCS;COPTS;DEFINES;LINKOPTS;DEPS;INCLUDES"
-    ${ARGN})
+  cmake_parse_arguments(CC_LIB "INTERFACE" "NAME"
+                        "HDRS;SRCS;COPTS;DEFINES;LINKOPTS;DEPS;INCS" ${ARGN})
 
   if(CC_TARGET_PREFIX)
     set(_NAME "${CC_TARGET_PREFIX}_${CC_LIB_NAME}")
@@ -86,7 +85,7 @@ function(cc_library)
     # unconditionally.
     set_property(TARGET ${_NAME} PROPERTY LINKER_LANGUAGE "CXX")
 
-    target_include_directories(${_NAME} PUBLIC ${CC_LIB_INCLUDES})
+    target_include_directories(${_NAME} PUBLIC ${CC_LIB_INCS})
     target_compile_definitions(${_NAME} PUBLIC ${CC_LIB_DEFINES})
     target_compile_options(${_NAME} PRIVATE ${CC_LIB_COPTS})
 
@@ -96,7 +95,7 @@ function(cc_library)
   else()
     # Generating header-only library
     add_library(${_NAME} INTERFACE)
-    target_include_directories(${_NAME} INTERFACE ${CC_LIB_INCLUDES})
+    target_include_directories(${_NAME} INTERFACE ${CC_LIB_INCS})
     target_link_libraries(${_NAME} INTERFACE ${CC_LIB_DEPS} ${CC_LIB_LINKOPTS})
     target_compile_definitions(${_NAME} INTERFACE ${CC_LIB_DEFINES})
     target_compile_options(${_NAME} INTERFACE ${CC_LIB_COPTS})
@@ -116,7 +115,7 @@ endfunction()
 # SRCS: List of source files for the binary
 # DEPS: List of other libraries to be linked in to the binary targets
 # COPTS: List of private compile options
-# DEFINES: List of public defines
+# DEFINES: List of public definitions
 # LINKOPTS: List of link options
 #
 # Note:
@@ -179,7 +178,7 @@ endfunction()
 # SRCS: List of source files for the binary
 # DEPS: List of other libraries to be linked in to the binary targets
 # COPTS: List of private compile options
-# DEFINES: List of public defines
+# DEFINES: List of public definitions
 # LINKOPTS: List of link options
 #
 # Note:
@@ -249,7 +248,7 @@ endfunction()
 # SRCS: List of source files for the binary
 # DEPS: List of other libraries to be linked in to the binary targets
 # COPTS: List of private compile options
-# DEFINES: List of public defines
+# DEFINES: List of public definitions
 # LINKOPTS: List of link options
 #
 # Note:

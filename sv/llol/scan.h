@@ -5,10 +5,15 @@
 
 namespace sv {
 
-/// @struct Lidar Scan
+/// @struct Lidar Scan like an image, with pixel (x,y,z,r)
 struct LidarScan {
   using PixelT = cv::Vec4f;
   static constexpr int kDtype = CV_32FC4;
+
+  double t0{};         // time stamp of the first column
+  double dt{};         // delta time between two columns
+  cv::Range col_rg{};  // indicates scan range within a sweep
+  cv::Mat xyzr{};      // data
 
   LidarScan() = default;
 
@@ -27,21 +32,16 @@ struct LidarScan {
   float RangeAt(const cv::Point& px) const { return xyzr.at<PixelT>(px)[3]; }
   const auto& XyzrAt(const cv::Point& px) const { return xyzr.at<PixelT>(px); }
 
-  /// @brief Mat
+  /// @brief Info
   int total() const { return xyzr.total(); }
   cv::Size size() const noexcept { return {xyzr.cols, xyzr.rows}; }
-
-  double t0{};
-  double dt{};
-  cv::Range col_range{};  // working range
-  cv::Mat xyzr{};
 };
 
 /// @struct Lidar Sweep is a Lidar Scan that covers 360 degree horizontal fov
 struct LidarSweep final : public LidarScan {
   /// Data
-  int id{-1};
-  std::vector<Sophus::SE3f> tfs;
+  int id{-1};                     // sweep id
+  std::vector<Sophus::SE3f> tfs;  // transforms of each columns to some frame
 
   LidarSweep() = default;
   explicit LidarSweep(const cv::Size& size);
@@ -56,7 +56,7 @@ struct LidarSweep final : public LidarScan {
   int AddScan(const LidarScan& scan);
 
   /// @brief Info
-  int width() const noexcept { return col_range.end; }
+  int width() const noexcept { return col_rg.end; }
   bool full() const noexcept { return width() == xyzr.cols; }
 };
 
