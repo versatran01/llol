@@ -44,7 +44,7 @@ struct LidarSweep final : public LidarScan {
   std::vector<Sophus::SE3f> tfs;
 
   LidarSweep() = default;
-  explicit LidarSweep(const cv::Size& size) : LidarScan{size} {}
+  explicit LidarSweep(const cv::Size& size);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs) {
