@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "sv/llol/pano.h"
-#include "sv/llol/sweep.h"  // MakeTestScan
+#include "sv/llol/scan.h"  // MakeTestScan
 
 namespace sv {
 namespace {

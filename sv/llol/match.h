@@ -1,14 +1,12 @@
 #pragma once
 
 #include <opencv2/core/mat.hpp>
-#include <sophus/se3.hpp>
 
-#include "sv/util/math.h"
+#include "sv/llol/grid.h"
+#include "sv/llol/pano.h"
+#include "sv/util/math.h"  // MeanCovar
 
 namespace sv {
-
-class LidarSweep;
-class DepthPano;
 
 /// @struct Match
 struct PointMatch {
@@ -31,13 +29,10 @@ struct PointMatch {
 
 /// @class Feature Matcher
 struct MatcherParams {
-  bool nms{true};         // non-minimum suppression
-  float max_curve{0.01};  // max curvature to be considered a good match
-
   int half_rows{2};        // half rows of pano win
-  float min_dist2{2};      // min dist^2 for recompute mc in pano
+  float min_dist{2.0};     // min dist for recompute mc in pano
   float range_ratio{0.1};  // range ratio when computing mc in pano
-  float lambda{1e-6};      // lambda added to diagonal of cov when inverting
+  float cov_lambda{1e-6};  // lambda added to diagonal of cov when inverting
 
   float tan_phi{std::tan(static_cast<float>(M_PI / 2.5))};  // not used
 
@@ -52,11 +47,8 @@ struct ProjMatcher {
   cv::Size pano_win_size;  // win size in pano used to compute mean covar
   int min_pts;             // min pts in pano win for a valid match
 
-  int id{-1};
-  cv::Mat mask;         // binary mask indicating good (1) vs bad (0) cell
-  cv::Range col_range;  // current range
+  cv::Size grid_size;
   MatcherParams params;
-  std::vector<Sophus::SE3f> tfs;  // transforms from sweep to pano
   std::vector<PointMatch> matches;
 
   /// @brief Ctors
@@ -68,26 +60,26 @@ struct ProjMatcher {
     return os << rhs.Repr();
   }
 
-  /// @brief Filter grid to mask
-  /// @return Number of putative matches
-  int Filter(const LidarSweep& sweep);
-
   /// @brief Match features in sweep to pano using mask
   /// @return Number of final matches
-  int Match(const LidarSweep& sweep, const DepthPano& pano, bool tbb = false);
-  int MatchRow(const LidarSweep& sweep, const DepthPano& pano, int gr);
+  int Match(const LidarSweep& sweep,
+            const SweepGrid& grid,
+            const DepthPano& pano,
+            bool tbb = false);
+  int MatchRow(const LidarSweep& sweep,
+               const SweepGrid& grid,
+               const DepthPano& pano,
+               int gr);
   int MatchCell(const LidarSweep& sweep,
+                const SweepGrid& grid,
                 const DepthPano& pano,
-                const cv::Point& gpx);
-
-  int width() const noexcept { return col_range.end; }
-  bool full() const noexcept { return width() == mask.cols; }
+                const cv::Point& px_g);
 
   void Reset();
 };
 
 /// @brief Draw match, valid pixel is percentage of pano points in window
-cv::Mat DrawMatches(const LidarSweep& sweep,
+cv::Mat DrawMatches(const SweepGrid& grid,
                     const std::vector<PointMatch>& matches);
 
 }  // namespace sv

@@ -55,35 +55,48 @@ cc_test(
   DEPS sv_llol_lidar)
 
 cc_library(
-  NAME llol_sweep
-  SRCS "llol/sweep.cpp"
-  DEPS sv_util_math sv_util_ocv sv_tbb Sophus::Sophus)
+  NAME llol_scan
+  SRCS "llol/scan.cpp"
+  DEPS sv_util_ocv Sophus::Sophus)
 cc_test(
-  NAME llol_sweep_test
-  SRCS "llol/sweep_test_bench.cpp"
-  DEPS sv_llol_sweep benchmark::benchmark)
+  NAME llol_scan_test
+  SRCS "llol/scan_test.cpp"
+  DEPS sv_llol_scan benchmark::benchmark)
 cc_bench(
-  NAME llol_sweep_bench
-  SRCS "llol/sweep_test_bench.cpp"
-  DEPS sv_llol_sweep GTest::GTest)
+  NAME llol_scan_bench
+  SRCS "llol/scan_test.cpp"
+  DEPS sv_llol_scan GTest::GTest)
+
+cc_library(
+  NAME llol_grid
+  SRCS "llol/grid.cpp"
+  DEPS sv_util_math sv_llol_scan sv_tbb)
+cc_test(
+  NAME llol_grid_test
+  SRCS "llol/grid_test.cpp"
+  DEPS sv_llol_grid benchmark::benchmark)
+cc_bench(
+  NAME llol_grid_bench
+  SRCS "llol/grid_test.cpp"
+  DEPS sv_llol_grid GTest::GTest)
 
 cc_library(
   NAME llol_pano
   SRCS "llol/pano.cpp"
-  DEPS sv_llol_lidar sv_llol_sweep)
+  DEPS sv_llol_lidar sv_llol_scan sv_tbb)
 cc_test(
   NAME llol_pano_test
-  SRCS "llol/pano_test_bench.cpp"
+  SRCS "llol/pano_test.cpp"
   DEPS sv_llol_pano benchmark::benchmark)
 cc_bench(
   NAME llol_pano_bench
-  SRCS "llol/pano_test_bench.cpp"
+  SRCS "llol/pano_test.cpp"
   DEPS sv_llol_pano GTest::GTest)
 
 cc_library(
   NAME llol_match
   SRCS "llol/match.cpp"
-  DEPS sv_llol_sweep sv_llol_pano)
+  DEPS sv_llol_scan sv_llol_grid sv_llol_pano)
 
 cc_library(
   NAME llol_optim

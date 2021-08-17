@@ -2,7 +2,7 @@
 
 #include <fmt/core.h>
 #include <glog/logging.h>
-#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
 #include <tbb/parallel_reduce.h>
 
 #include "sv/util/ocv.h"  // Repr
@@ -70,10 +70,8 @@ int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
 int DepthPano::AddSweepRow(const LidarSweep& sweep, int sr) {
   int n = 0;
 
-  const int sweep_cols = sweep.xyzr.cols;
-
-  for (int sc = 0; sc < sweep_cols; ++sc) {
-    const auto& xyzr = sweep.PixAt({sc, sr});
+  for (int sc = 0; sc < sweep.xyzr.cols; ++sc) {
+    const auto& xyzr = sweep.XyzrAt({sc, sr});
     const float rg_s = xyzr[3];  // precomputed range
     if (!(rg_s > 0)) continue;   // filter out nan
 

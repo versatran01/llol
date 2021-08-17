@@ -2,11 +2,9 @@
 
 #include <fmt/core.h>
 #include <glog/logging.h>
-#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
 #include <tbb/parallel_reduce.h>
 
-#include "sv/llol/pano.h"
-#include "sv/llol/sweep.h"
 #include "sv/util/ocv.h"
 
 namespace sv {
@@ -42,7 +40,7 @@ void SweepCellMeanCovar(const LidarSweep& sweep,
                         MeanCovar3f& mc) {
   for (int r = 0; r < cell.height; ++r) {
     for (int c = 0; c < cell.width; ++c) {
-      const auto& xyzr = sweep.PixAt({cell.x + c, cell.y + r});
+      const auto& xyzr = sweep.XyzrAt({cell.x + c, cell.y + r});
       if (std::isnan(xyzr[0])) continue;
       mc.Add({xyzr[0], xyzr[1], xyzr[2]});
     }
@@ -67,22 +65,21 @@ void PanoWinMeanCovar(const DepthPano& pano,
 }
 
 std::string MatcherParams::Repr() const {
-  return fmt::format("nms={}, half_rows={}, max_score={}, range_ratio={}",
-                     nms,
+  return fmt::format("half_rows={}, min_dist={}, range_ratio={}, cov_lambda={}",
                      half_rows,
-                     max_curve,
-                     range_ratio);
+                     min_dist,
+                     range_ratio,
+                     cov_lambda);
 }
 
 /// ProjMatcher ================================================================
 ProjMatcher::ProjMatcher(const cv::Size& grid_size, const MatcherParams& params)
-    : params{params}, mask{grid_size, CV_8UC1} {
+    : grid_size{grid_size}, params{params} {
   pano_win_size.height = params.half_rows * 2 + 1;
   pano_win_size.width = pano_win_size.height * 2 + 1;
   min_pts = params.half_rows * pano_win_size.width;
 
-  matches.resize(mask.total());
-  tfs.resize(mask.cols);
+  matches.resize(grid_size.area());
 }
 
 std::string ProjMatcher::Repr() const {
@@ -94,55 +91,31 @@ std::string ProjMatcher::Repr() const {
       params.Repr());
 }
 
-int ProjMatcher::Filter(const LidarSweep& sweep) {
-  const auto& grid = sweep.grid;
-  const auto grid_range = sweep.grid_range();
-
-  CHECK_EQ(mask.rows, grid.rows);
-  CHECK_LE(mask.cols, grid.cols);
-  // Check that the new grid start right after
-  CHECK_EQ(grid_range.start, full() ? 0 : col_range.end);
-
-  // Update internal
-  id = sweep.id;
-  col_range = grid_range;
-
-  int n = 0;
-  const int pad = static_cast<int>(params.nms);
-  for (int gr = 0; gr < grid.rows; ++gr) {
-    for (int gc = col_range.start + pad; gc < col_range.end - pad; ++gc) {
-      bool good = IsCellGood(grid, {gc, gr}, params.max_curve, params.nms);
-      mask.at<uint8_t>(gr, gc) = good;
-      n += good;
-    }
-  }
-
-  return n;
-}
-
 int ProjMatcher::Match(const LidarSweep& sweep,
+                       const SweepGrid& grid,
                        const DepthPano& pano,
                        bool tbb) {
-  // sweep id same as internal id
-  CHECK_EQ(id, sweep.id);
-  // width same as grid width
-  CHECK_EQ(width(), sweep.grid_width());
+  CHECK_EQ(matches.size(), grid.size().area());
+  CHECK_EQ(grid_size.width, grid.size().width);
+  CHECK_EQ(grid_size.height, grid.size().height);
+
+  const auto rows = grid.size().height;
 
   int n = 0;
   if (tbb) {
     n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, mask.rows),
+        tbb::blocked_range<int>(0, rows),
         0,
         [&](const auto& block, int total) {
           for (int gr = block.begin(); gr < block.end(); ++gr) {
-            total += MatchRow(sweep, pano, gr);
+            total += MatchRow(sweep, grid, pano, gr);
           }
           return total;
         },
         std::plus<>{});
   } else {
-    for (int gr = 0; gr < mask.rows; ++gr) {
-      n += MatchRow(sweep, pano, gr);
+    for (int gr = 0; gr < rows; ++gr) {
+      n += MatchRow(sweep, grid, pano, gr);
     }
   }
 
@@ -150,36 +123,38 @@ int ProjMatcher::Match(const LidarSweep& sweep,
 }
 
 int ProjMatcher::MatchRow(const LidarSweep& sweep,
+                          const SweepGrid& grid,
                           const DepthPano& pano,
                           int gr) {
   int n = 0;
   // Note that here we use width instead of col_range, which means we will redo
   // earlier matches
-  for (int gc = 0; gc < width(); ++gc) {
-    if (mask.at<uint8_t>(gr, gc) == 0) continue;
-    n += MatchCell(sweep, pano, {gc, gr});
+  for (int gc = 0; gc < grid.width(); ++gc) {
+    if (grid.MaskAt({gc, gr}) == 0) continue;
+    n += MatchCell(sweep, grid, pano, {gc, gr});
   }
   return n;
 }
 
 int ProjMatcher::MatchCell(const LidarSweep& sweep,
+                           const SweepGrid& grid,
                            const DepthPano& pano,
                            const cv::Point& px_g) {
-  const int mi = px_g.y * mask.cols + px_g.x;
+  const int mi = grid.Pix2Ind(px_g);
   auto& match = matches.at(mi);
 
   // Record sweep px
-  match.px_s.x = (px_g.x + 0.5) * sweep.cell_size.width;
-  match.px_s.y = px_g.y * sweep.cell_size.height;
+  match.px_s = grid.Grid2Sweep(px_g);
+  match.px_s.x += grid.cell_size().width / 2;
 
   // Compute normal dist around sweep cell (if it is not already computed)
   if (!match.mc_s.ok()) {
-    const auto cell = sweep.CellAt(px_g);
+    const auto cell = grid.SweepCell(px_g);
     SweepCellMeanCovar(sweep, cell, match.mc_s);
   }
 
   // Transform to pano frame
-  const Eigen::Vector3f pt_p = tfs[px_g.x] * match.mc_s.mean;
+  const Eigen::Vector3f pt_p = grid.tfs[px_g.x] * match.mc_s.mean;
   const float rg_p = pt_p.norm();
 
   // Project to pano
@@ -195,7 +170,7 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
   const auto px_dist2 = px_diff.x * px_diff.x + px_diff.y * px_diff.y;
 
   // If new and old are too far and mc not ok, recompute
-  if (px_dist2 > params.min_dist2 || !match.mc_p.ok()) {
+  if (px_dist2 > params.min_dist * params.min_dist || !match.mc_p.ok()) {
     // Compute normal dist around pano point
     match.px_p = px_p;
     match.mc_p.Reset();
@@ -214,15 +189,15 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
 
 void ProjMatcher::Reset() {
   matches.clear();
-  matches.resize(mask.total());
+  matches.resize(grid_size.area());
 }
 
-cv::Mat DrawMatches(const LidarSweep& sweep,
+cv::Mat DrawMatches(const SweepGrid& grid,
                     const std::vector<PointMatch>& matches) {
-  cv::Mat disp(sweep.grid_size(), CV_32FC1, kNaNF);
+  cv::Mat disp(grid.size(), CV_32FC1, kNaNF);
 
   for (const auto& match : matches) {
-    disp.at<float>(sweep.Pix2Cell(match.px_s)) = match.mc_p.n;
+    disp.at<float>(grid.Sweep2Grid(match.px_s)) = match.mc_p.n;
   }
   return disp;
 }

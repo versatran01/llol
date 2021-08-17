@@ -9,10 +9,11 @@
 #include <sensor_msgs/Imu.h>
 #include <tf2_ros/transform_listener.h>
 
+#include "sv/llol/grid.h"
 #include "sv/llol/match.h"
 #include "sv/llol/optim.h"
 #include "sv/llol/pano.h"
-#include "sv/llol/sweep.h"
+#include "sv/llol/scan.h"
 #include "sv/node/viz.h"
 #include "sv/util/manager.h"
 
@@ -57,6 +58,7 @@ class LlolNode {
   bool init_{false};
 
   LidarSweep sweep_;
+  SweepGrid grid_;
   DepthPano pano_;
   ProjMatcher matcher_;
 
@@ -123,23 +125,27 @@ class LlolNode {
     }
 
     if (!init_) {
-      /// Initialized sweep
-      auto odom_nh = ros::NodeHandle{pnh_, "sweep"};
-      int cell_rows = odom_nh.param<int>("cell_rows", 2);
-      int cell_cols = odom_nh.param<int>("cell_cols", 16);
-
-      sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height),
-                          {cell_cols, cell_rows}};
+      /// Init sweep
+      sweep_ = LidarSweep{cv::Size(cinfo_msg->width, cinfo_msg->height)};
       ROS_INFO_STREAM(sweep_);
 
-      /// Initialize matcher
-      auto match_nh = ros::NodeHandle{pnh_, "match"};
-      MatcherParams params;
-      params.nms = match_nh.param<bool>("nms", false);
-      params.half_rows = match_nh.param<int>("half_rows", 2);
-      params.max_curve = match_nh.param<double>("max_curve", 0.01);
-      params.range_ratio = match_nh.param<double>("range_ratio", 0.1);
-      matcher_ = ProjMatcher(sweep_.grid_size(), params);
+      /// Init grid
+
+      auto gnh = ros::NodeHandle{pnh_, "grid"};
+      GridParams gp;
+      gp.cell_rows = gnh.param<int>("cell_rows", 2);
+      gp.cell_cols = gnh.param<int>("cell_cols", 16);
+      gp.nms = gnh.param<bool>("nms", false);
+      gp.max_score = gnh.param<double>("max_curve", 0.01);
+      grid_ = SweepGrid(sweep_.size(), gp);
+
+      /// Init matcher
+      auto mnh = ros::NodeHandle{pnh_, "match"};
+      MatcherParams mp;
+      mp.half_rows = mnh.param<int>("half_rows", 2);
+      mp.min_dist = mnh.param<double>("min_dist", 2.0);
+      mp.range_ratio = mnh.param<double>("range_ratio", 0.1);
+      matcher_ = ProjMatcher(grid_.size(), mp);
       ROS_INFO_STREAM(matcher_);
 
       init_ = true;
@@ -178,19 +184,33 @@ class LlolNode {
     //    times_[1] = times_[0] = cinfo_msg->width * cinfo_msg->K[0];
     //    poses_[0] = poses_[1];  // initialize guess of delta pose is identity
 
-    int num_valid_cells = 0;
+    int npoints = 0;
     {  /// Add scan to sweep
       auto _ = tm_.Scoped("Sweep/AddScan");
-      num_valid_cells = sweep_.AddScan(scan, tbb_);
+      npoints = sweep_.AddScan(scan);
     }
+    ROS_INFO_STREAM("Num scan points: " << npoints);
 
-    ROS_INFO_STREAM("Num valid cells: " << num_valid_cells);
+    int ncells = 0;
+    {  /// Add scan to sweep
+      auto _ = tm_.Scoped("Grid/Reduce");
+      ncells = grid_.Reduce(scan, tbb_);
+    }
+    ROS_INFO_STREAM("Num valid cells: " << ncells);
+
+    int ncells2 = 0;
+    {  /// Add scan to sweep
+      auto _ = tm_.Scoped("Grid/Filter");
+      ncells2 = grid_.Filter();
+    }
+    ROS_INFO_STREAM("Num remaining cells: " << ncells2);
 
     if (vis_) {
       cv::Mat sweep_disp;
       cv::extractChannel(sweep_.xyzr, sweep_disp, 3);
       Imshow("sweep", ApplyCmap(sweep_disp, 1 / 30.0, cv::COLORMAP_PINK, 0));
-      Imshow("grid", ApplyCmap(sweep_.grid, 5, cv::COLORMAP_VIRIDIS, 255));
+      Imshow("score", ApplyCmap(grid_.score, 5, cv::COLORMAP_VIRIDIS, 255));
+      Imshow("mask", ApplyCmap(grid_.mask, 1.0, cv::COLORMAP_BONE, 255));
     }
 
     visualization_msgs::MarkerArray marray;
@@ -199,19 +219,10 @@ class LlolNode {
     if (pano_.num_sweeps() == 0) {
       ROS_INFO_STREAM("Pano is not initialized");
     } else {
-      int num_mask = 0;
-      {  /// Filter grid
-        auto _ = tm_.Scoped("Matcher/Filter");
-        num_mask = matcher_.Filter(sweep_);
-      }
-      ROS_INFO_STREAM("Num mask: " << num_mask);
-
-      // TODO: icp iters
-
       int num_matches = 0;
       {  /// Match Features
         auto _ = tm_.Scoped("Matcher/Match");
-        num_matches = matcher_.Match(sweep_, pano_, tbb_);
+        num_matches = matcher_.Match(sweep_, grid_, pano_, tbb_);
       }
 
       ROS_INFO_STREAM("Num matches: " << num_matches);
@@ -220,7 +231,7 @@ class LlolNode {
       if (vis_) {
         // display good match
         Imshow("match",
-               ApplyCmap(DrawMatches(sweep_, matcher_.matches),
+               ApplyCmap(DrawMatches(grid_, matcher_.matches),
                          1.0 / matcher_.pano_win_size.area(),
                          cv::COLORMAP_VIRIDIS));
       }

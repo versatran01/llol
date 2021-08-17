@@ -3,7 +3,7 @@
 #include <opencv2/core/mat.hpp>
 
 #include "sv/llol/lidar.h"
-#include "sv/llol/sweep.h"
+#include "sv/llol/scan.h"
 
 namespace sv {
 

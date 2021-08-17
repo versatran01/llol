@@ -16,6 +16,7 @@ sv/cov_viz.cpp
 sv/llol/CMakeLists.txt
 sv/llol/grid.cpp
 sv/llol/grid.h
+sv/llol/grid_test.cpp
 sv/llol/icp.h
 sv/llol/imu.cpp
 sv/llol/imu.h
@@ -24,7 +25,7 @@ sv/llol/lidar.h
 sv/llol/lidar_test.cpp
 sv/llol/match.cpp
 sv/llol/match.h
-sv/llol/match_test_bench.cpp
+sv/llol/match_test.cpp
 sv/llol/odom.cpp
 sv/llol/odom.h
 sv/llol/odom_bench.cpp
@@ -33,10 +34,10 @@ sv/llol/optim.cpp
 sv/llol/optim.h
 sv/llol/pano.cpp
 sv/llol/pano.h
-sv/llol/pano_test_bench.cpp
-sv/llol/sweep.cpp
-sv/llol/sweep.h
-sv/llol/sweep_test_bench.cpp
+sv/llol/pano_test.cpp
+sv/llol/scan.cpp
+sv/llol/scan.h
+sv/llol/scan_test.cpp
 sv/llol/viz.cpp
 sv/llol/viz.h
 sv/node.cpp
