@@ -13,13 +13,12 @@ using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
 void MeanCovar2Marker(Marker& marker,
-                      const Eigen::Vector3d& mean,
-                      Eigen::Vector3d eigvals,
-                      Eigen::Matrix3d eigvecs,
-                      double scale) {
+                      const Eigen::Vector3f& mean,
+                      Eigen::Vector3f eigvals,
+                      Eigen::Matrix3f eigvecs) {
   MakeRightHanded(eigvals, eigvecs);
-  const Eigen::Quaterniond quat(eigvecs);
-  eigvals = eigvals.cwiseSqrt() * 2 * scale;
+  const Eigen::Quaternionf quat(eigvecs);
+  eigvals = eigvals.cwiseSqrt() * 2;
 
   marker.pose.position.x = mean.x();
   marker.pose.position.y = mean.y();
@@ -35,8 +34,7 @@ void MeanCovar2Marker(Marker& marker,
 
 void Match2Markers(const std::vector<PointMatch>& matches,
                    const std_msgs::Header& header,
-                   std::vector<Marker>& markers,
-                   double scale) {
+                   std::vector<Marker>& markers) {
   markers.reserve(matches.size() * 2);
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
@@ -46,7 +44,7 @@ void Match2Markers(const std::vector<PointMatch>& matches,
   pano_mk.ns = "match_pano";
   pano_mk.type = Marker::SPHERE;
   pano_mk.action = Marker::ADD;
-  pano_mk.color.a = 0.8;
+  pano_mk.color.a = 0.5;
   pano_mk.color.r = 0.0;
   pano_mk.color.g = 1.0;
   pano_mk.color.b = 0.0;
@@ -56,7 +54,7 @@ void Match2Markers(const std::vector<PointMatch>& matches,
   sweep_mk.ns = "match_sweep";
   sweep_mk.type = Marker::SPHERE;
   sweep_mk.action = Marker::ADD;
-  sweep_mk.color.a = 0.8;
+  sweep_mk.color.a = 0.5;
   sweep_mk.color.r = 1.0;
   sweep_mk.color.g = 0.0;
   sweep_mk.color.b = 0.0;
@@ -68,26 +66,20 @@ void Match2Markers(const std::vector<PointMatch>& matches,
     covar = match.mc_p.Covar();
     covar.diagonal().array() += 1e-6;
     es.compute(covar);
-    MeanCovar2Marker(pano_mk,
-                     match.mc_p.mean.cast<double>(),
-                     es.eigenvalues().cast<double>(),
-                     es.eigenvectors().cast<double>(),
-                     scale);
+    MeanCovar2Marker(
+        pano_mk, match.mc_p.mean, es.eigenvalues(), es.eigenvectors());
 
     pano_mk.id = i;
     markers.push_back(pano_mk);
 
-    covar = match.mc_s.Covar();
-    covar.diagonal().array() += 1e-6;
-    es.compute(covar);
-    MeanCovar2Marker(sweep_mk,
-                     match.mc_s.mean.cast<double>(),
-                     es.eigenvalues().cast<double>(),
-                     es.eigenvectors().cast<double>(),
-                     scale);
+    //    covar = match.mc_s.Covar();
+    //    covar.diagonal().array() += 1e-6;
+    //    es.compute(covar);
+    //    MeanCovar2Marker(
+    //        sweep_mk, match.mc_s.mean, es.eigenvalues(), es.eigenvectors());
 
-    sweep_mk.id = i;
-    markers.push_back(sweep_mk);
+    //    sweep_mk.id = i;
+    //    markers.push_back(sweep_mk);
   }
 }
 

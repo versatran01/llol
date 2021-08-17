@@ -20,10 +20,10 @@ struct GridParams {
 struct SweepGrid {
   /// Data
   GridParams params{};
-  cv::Range col_rg{};  // working range in this grid
-  cv::Mat score;       // smoothness score, smaller the better
-  cv::Mat mask;        // 0 means not good, 1 means potential good match
-  std::vector<Sophus::SE3f> tfs;  // transforms from sweep to pano
+  cv::Range col_rg{};                // working range in this grid
+  cv::Mat score;                     // smoothness score, smaller the better
+  cv::Mat mask;                      // 1 means potential good match
+  std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano
 
   SweepGrid() = default;
   explicit SweepGrid(const cv::Size& sweep_size, const GridParams& params = {});

@@ -25,13 +25,15 @@ class LocalParamSE3 final : public ceres::LocalParameterization {
   int LocalSize() const override { return Sophus::SE3d::DoF; }
 };
 
-struct GicpFactor {
+struct IcpFactorBase {
   static constexpr int kNumResiduals = 3;
   static constexpr int kNumParams = Sophus::SE3d::num_parameters;
 
   template <typename T>
   using Vector3 = Eigen::Matrix<T, kNumResiduals, 1>;
+};
 
+struct GicpFactor final : public IcpFactorBase {
   GicpFactor(const PointMatch& match);
 
   template <typename T>
@@ -45,6 +47,26 @@ struct GicpFactor {
   Eigen::Vector3d pt_s;
   Eigen::Vector3d pt_p;
   Eigen::Matrix3d U;
+};
+
+struct GicpFactor2 final : public IcpFactorBase {
+  GicpFactor2(const PointMatch& match) : pmatch{&match} {}
+
+  template <typename T>
+  bool operator()(const T* const _T_p_s, T* _r) const noexcept {
+    const auto& match = *pmatch;
+    Eigen::Map<const Sophus::SE3<T>> T_p_s(_T_p_s);
+    Eigen::Map<Vector3<T>> r(_r);
+
+    const Eigen::Matrix3d U = match.U.cast<double>();
+    const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+    const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
+
+    r = U * (pt_p - T_p_s * pt_s);
+    return true;
+  }
+
+  const PointMatch* pmatch{nullptr};
 };
 
 }  // namespace sv

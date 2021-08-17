@@ -35,8 +35,7 @@ void MeanCovar2Marker(visualization_msgs::Marker& marker,
 
 void Match2Markers(const std::vector<PointMatch>& matches,
                    const std_msgs::Header& header,
-                   std::vector<visualization_msgs::Marker>& markers,
-                   double scale = 1.0);
+                   std::vector<visualization_msgs::Marker>& markers);
 
 void Pano2Cloud(const DepthPano& pano,
                 const std_msgs::Header header,

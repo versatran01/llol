@@ -1,4 +1,12 @@
-#ifndef TRAJ_H
-#define TRAJ_H
+#pragma once
 
-#endif // TRAJ_H
+#include <sophus/se3.hpp>
+
+namespace sv {
+
+struct SinglePose {
+  double t;  // time
+  Sophus::SE3d T_p_s{};
+};
+
+}  // namespace sv

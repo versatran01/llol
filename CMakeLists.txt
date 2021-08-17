@@ -21,8 +21,9 @@ enable_sanitizers(sv_options)
 find_package(
   catkin QUIET
   COMPONENTS roscpp
-             tf2_ros
              pcl_ros
+             tf2_ros
+             tf2_eigen
              cv_bridge
              image_transport
              pcl_conversions

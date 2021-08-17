@@ -49,7 +49,7 @@ int LidarSweep::AddScan(const LidarScan& scan) {
 }
 
 LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
-  tfs.resize(size.width);
+  tf_p_s.resize(size.width);
 }
 
 std::string LidarSweep::Repr() const {

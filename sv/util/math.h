@@ -116,6 +116,15 @@ Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);
 /// @details sometimes eigvecs has det -1 (reflection), this makes it a rotation
 /// @ref
 /// https://docs.ros.org/en/noetic/api/rviz/html/c++/covariance__visual_8cpp_source.html
-void MakeRightHanded(Eigen::Vector3d& eigvals, Eigen::Matrix3d& eigvecs);
+template <typename T>
+void MakeRightHanded(Eigen::Matrix<T, 3, 1>& eigvals,
+                     Eigen::Matrix<T, 3, 3>& eigvecs) {
+  static_assert(std::is_floating_point_v<T>, "T must be floating point");
+  auto hand = eigvecs.col(0).cross(eigvecs.col(1)).dot(eigvecs.col(2));
+  if (hand < 0) {
+    eigvecs.col(0).swap(eigvecs.col(1));
+    eigvals.row(0).swap(eigvals.row(1));
+  }
+}
 
 }  // namespace sv

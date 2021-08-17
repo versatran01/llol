@@ -77,7 +77,7 @@ int DepthPano::AddSweepRow(const LidarSweep& sweep, int sr) {
 
     // TODO (chao): transform xyz to pano frame
     Eigen::Map<const Eigen::Vector3f> pt_s(&xyzr[0]);
-    const Eigen::Vector3f pt_p = Eigen::Matrix3f::Identity() * pt_s;
+    const Eigen::Vector3f pt_p = sweep.tf_p_s.at(sc) * pt_s;
     const auto rg_p = pt_p.norm();
 
     // Project to pano

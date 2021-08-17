@@ -10,13 +10,18 @@
 
 namespace sv {
 
-static constexpr float kValidCellRatio = 0.75F;
+static constexpr float kValidCellRatio = 0.8;
 
 /// @brief Compute scan curvature starting from px with size (width, 1)
 float CalcCellCurve(const LidarScan& scan, const cv::Point& px, int width) {
   // compute sum of range in cell
   int num = 0;
   float sum = 0.0F;
+
+  const int half = width / 2;
+  const auto mid = scan.RangeAt({px.x + half, px.y});
+  if (std::isnan(mid)) return kNaNF;
+
   for (int c = 0; c < width; ++c) {
     const auto rg = scan.RangeAt({px.x + c, px.y});
     if (std::isnan(rg)) continue;
@@ -26,11 +31,6 @@ float CalcCellCurve(const LidarScan& scan, const cv::Point& px, int width) {
 
   // Discard if there are too many nans in this cell
   if (num < kValidCellRatio * width) return kNaNF;
-
-  // range of mid point
-  const auto mid = (scan.RangeAt({px.x + width / 2 - 1, px.y}) +
-                    scan.RangeAt({px.x + width / 2, px.y})) /
-                   2.0F;
   return std::abs(sum / mid / num - 1);
 }
 
@@ -49,7 +49,7 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
   CHECK_GT(params.max_score, 0);
   CHECK_EQ(params.cell_cols * score.cols, sweep_size.width);
   CHECK_EQ(params.cell_rows * score.rows, sweep_size.height);
-  tfs.resize(score.cols);
+  tf_p_s.resize(score.cols);
 }
 
 std::string SweepGrid::Repr() const {

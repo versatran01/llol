@@ -9,6 +9,12 @@
 
 namespace sv {
 
+void PointMatch::SqrtInfo(float lambda) {
+  Eigen::Matrix3f cov = mc_p.Covar();
+  cov.diagonal().array() += lambda;
+  U = MatrixSqrtUtU(cov.inverse().eval());
+}
+
 /// @brief Check if a point is a good candidate for matching
 bool IsCellGood(const cv::Mat& grid,
                 const cv::Point& px,
@@ -154,12 +160,12 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
   }
 
   // Transform to pano frame
-  const Eigen::Vector3f pt_p = grid.tfs[px_g.x] * match.mc_s.mean;
+  const Eigen::Vector3f pt_p = grid.tf_p_s.at(px_g.x) * match.mc_s.mean;
   const float rg_p = pt_p.norm();
 
   // Project to pano
   const auto px_p = pano.model_.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
-  // Bad projection, clear dst
+  // Bad projection, reset and return
   if (px_p.x < 0) {
     match.mc_p.Reset();
     return 0;
@@ -176,12 +182,14 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
     match.mc_p.Reset();
     const auto win = pano.BoundWinCenterAt(px_p, pano_win_size);
     PanoWinMeanCovar(pano, win, rg_p, params.range_ratio, match.mc_p);
-  }
 
-  // if we don't have enough points then reset pano
-  if (match.mc_p.n < min_pts) {
-    match.mc_p.Reset();
-    return 0;
+    // if we don't have enough points also reset and return
+    if (match.mc_p.n < min_pts) {
+      match.mc_p.Reset();
+      return 0;
+    }
+    // Otherwise compute U'U = inv(C + lambda * I)
+    match.SqrtInfo(params.cov_lambda);
   }
 
   return 1;

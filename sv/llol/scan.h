@@ -41,7 +41,7 @@ struct LidarScan {
 struct LidarSweep final : public LidarScan {
   /// Data
   int id{-1};                     // sweep id
-  std::vector<Sophus::SE3f> tfs;  // transforms of each columns to some frame
+  std::vector<Sophus::SE3f> tf_p_s;  // transforms of each columns to some frame
 
   LidarSweep() = default;
   explicit LidarSweep(const cv::Size& size);

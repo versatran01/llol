@@ -16,13 +16,14 @@ struct PointMatch {
   MeanCovar3f mc_s{};          // 52 sweep
   cv::Point px_p{kBad, kBad};  // 8
   MeanCovar3f mc_p{};          // 52 pano
-  Sophus::SE3f tf_p_s{};       // 14
-  Eigen::Matrix3f U;           // sqrt of inv cov
+  Eigen::Matrix3f U{};
 
   /// @brief Whether this match is good
   bool ok() const noexcept {
     return px_s.x >= 0 && px_p.x >= 0 && mc_s.ok() && mc_p.ok();
   }
+
+  void SqrtInfo(float lambda = 0.0F);
 };
 
 /// @class Feature Matcher
@@ -31,8 +32,6 @@ struct MatcherParams {
   float min_dist{2.0};     // min dist for recompute mc in pano
   float range_ratio{0.1};  // range ratio when computing mc in pano
   float cov_lambda{1e-6};  // lambda added to diagonal of cov when inverting
-
-  float tan_phi{std::tan(static_cast<float>(M_PI / 2.5))};  // not used
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const MatcherParams& rhs) {

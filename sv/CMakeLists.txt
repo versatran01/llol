@@ -118,6 +118,11 @@ if(catkin_FOUND AND BUILD_NODE)
     INTERFACE)
 
   cc_library(
+    NAME node_conv
+    SRCS "node/conv.cpp"
+    DEPS sv_base sv_ros1)
+
+  cc_library(
     NAME node_viz
     SRCS "node/viz.cpp"
     DEPS sv_llol_match sv_llol_pano sv_ros1)
@@ -125,7 +130,8 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_binary(
     NAME node_odom
     SRCS "node/odom.cpp"
-    DEPS sv_llol_match sv_node_viz sv_util_manager)
+    DEPS sv_llol_match sv_llol_factor sv_node_viz sv_node_conv sv_util_manager
+         Ceres::ceres)
 endif()
 
 # node =========================================================================

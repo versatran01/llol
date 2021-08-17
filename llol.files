@@ -19,7 +19,6 @@ sv/llol/factor.h
 sv/llol/grid.cpp
 sv/llol/grid.h
 sv/llol/grid_test.cpp
-sv/llol/icp.h
 sv/llol/imu.cpp
 sv/llol/imu.h
 sv/llol/lidar.cpp
@@ -43,6 +42,8 @@ sv/llol/traj.h
 sv/llol/viz.cpp
 sv/llol/viz.h
 sv/node.cpp
+sv/node/conv.cpp
+sv/node/conv.h
 sv/node/cov_viz.cpp
 sv/node/odom.cpp
 sv/node/viz.cpp
