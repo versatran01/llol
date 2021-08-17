@@ -10,6 +10,9 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <thread>
+
+// sv
 #include "sv/llol/factor.h"
 #include "sv/llol/grid.h"
 #include "sv/llol/match.h"
@@ -220,8 +223,8 @@ class OdomNode {
     cs::Solver::Summary summary;
     std::unique_ptr<ceres::LocalParameterization> local_params =
         std::make_unique<LocalParamSE3>();
-    // std::unique_ptr<ceres::LossFunction> loss =
-    //   std::make_unique<cs::HuberLoss>(3);
+    std::unique_ptr<ceres::LossFunction> loss =
+        std::make_unique<cs::HuberLoss>(3);
     cs::Problem::Options problem_opt;
     problem_opt.loss_function_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
     problem_opt.local_parameterization_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
@@ -234,18 +237,18 @@ class OdomNode {
       auto _ = tm_.Scoped("Icp.Build");
       for (const auto& match : matcher_.matches) {
         if (!match.ok()) continue;
-        auto cost = new cs::AutoDiffCostFunction<GicpFactor,
+        auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
                                                  IcpFactorBase::kNumResiduals,
                                                  IcpFactorBase::kNumParams>(
-            new GicpFactor(match));
+            new GicpFactor2(match));
         problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
       }
     }
 
     cs::Solver::Options solver_opt;
     solver_opt.linear_solver_type = ceres::DENSE_QR;
-    solver_opt.max_num_iterations = 5;
-    solver_opt.num_threads = tbb_ ? 4 : 1;
+    solver_opt.max_num_iterations = 10;
+    solver_opt.num_threads = 1;
     solver_opt.minimizer_progress_to_stdout = false;
     {
       auto _ = tm_.Scoped("Icp.Solve");
@@ -253,7 +256,7 @@ class OdomNode {
     }
     ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
     ROS_INFO_STREAM(summary.BriefReport());
-    return summary.IsSolutionUsable();
+    return summary.termination_type == ceres::TerminationType::CONVERGENCE;
   }
 
   void Postprocess() {
@@ -368,7 +371,7 @@ class OdomNode {
     }
 
     pub_marray_.publish(marray_);
-    ROS_DEBUG_STREAM_THROTTLE(2, tm_.ReportAll());
+    ROS_DEBUG_STREAM_THROTTLE(2, tm_.ReportAll(true));
   }
 };
 

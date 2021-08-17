@@ -34,13 +34,14 @@ struct LidarScan {
 
   /// @brief Info
   int total() const { return xyzr.total(); }
+  bool empty() const { return xyzr.empty(); }
   cv::Size size() const noexcept { return {xyzr.cols, xyzr.rows}; }
 };
 
 /// @struct Lidar Sweep is a Lidar Scan that covers 360 degree horizontal fov
 struct LidarSweep final : public LidarScan {
   /// Data
-  int id{-1};                     // sweep id
+  int id{-1};                        // sweep id
   std::vector<Sophus::SE3f> tf_p_s;  // transforms of each columns to some frame
 
   LidarSweep() = default;

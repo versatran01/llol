@@ -7,7 +7,9 @@
 
 namespace sv {
 
-cv::Rect WinCenterAt(const cv::Point& pt, const cv::Size& size);
+inline cv::Rect WinCenterAt(const cv::Point& pt, const cv::Size& size) {
+  return {{pt.x - size.width / 2, pt.y - size.height / 2}, size};
+}
 
 struct Pixel {
   static constexpr float kScale = 512.0F;
@@ -18,6 +20,12 @@ struct Pixel {
 
   float Metric() const noexcept { return raw / kScale; }
   void SetMetric(float rg) { raw = static_cast<uint16_t>(rg * kScale); }
+};
+
+enum struct BufferUpdate {
+  ADD_NEW,  // depth is added to buffer
+  OCCLUDE,  // depth is not added due to occlusion
+  UPDATED   // depth is updated
 };
 
 /// @class Depth Panorama
@@ -52,8 +60,10 @@ struct DepthPano {
   /// @brief Add a sweep to the pano
   int AddSweep(const LidarSweep& sweep, bool tbb = false);
   int AddSweepRow(const LidarSweep& sweep, int row);
+  bool UpdateBuffer(const cv::Point& px, float rg);
 
   /// @brief Render pano at a new location
+  /// @todo Currently disabled
   int Render(bool tbb);
   int RenderRow(int row);
 };

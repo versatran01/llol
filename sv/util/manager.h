@@ -56,10 +56,20 @@ class StatsManagerBase {
   }
 
   /// @brief Return a string of all stats
-  std::string ReportAll() const {
+  std::string ReportAll(bool sort = false) const {
     std::string str = "Manager: " + name_;
-    for (const auto& kv : stats_dict_) {
-      str += "\n" + ReportStats(kv.first, kv.second);
+    if (sort) {
+      std::vector<std::string> keys;
+      keys.reserve(stats_dict_.size());
+      for (const auto& kv : stats_dict_) keys.push_back(kv.first);
+      std::sort(keys.begin(), keys.end());
+      for (const auto& key : keys) {
+        str += "\n" + ReportStats(key, stats_dict_.at(key));
+      }
+    } else {
+      for (const auto& kv : stats_dict_) {
+        str += "\n" + ReportStats(kv.first, kv.second);
+      }
     }
     return str;
   }

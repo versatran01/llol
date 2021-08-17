@@ -60,6 +60,7 @@ struct SweepGrid {
 
   /// @brief Info
   int total() const { return score.total(); }
+  bool empty() const { return score.empty(); }
   int width() const noexcept { return col_rg.end; }
   bool full() const noexcept { return width() == score.cols; }
   cv::Size size() const noexcept { return {score.cols, score.rows}; }

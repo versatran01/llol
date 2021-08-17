@@ -9,20 +9,21 @@
 
 namespace sv {
 
-cv::Rect WinCenterAt(const cv::Point& pt, const cv::Size& size) {
-  return {cv::Point{pt.x - size.width / 2, pt.y - size.height / 2}, size};
-}
-
 bool SetBufAt(cv::Mat& buf, const cv::Point& px, float rg) {
   const uint16_t rg_raw = rg * Pixel::kScale;
-  auto& tgt = buf.at<ushort>(px);
-  if (tgt == 0) {
-    tgt = rg_raw;
+  auto& tgt = buf.at<Pixel>(px);
+  if (tgt.raw == 0) {
+    tgt.raw = rg_raw;
     return true;
-  } else {
-    tgt = std::min(rg_raw, tgt);
-    return false;
   }
+
+  const auto tgt_meter = tgt.Metric();
+  if (std::abs(rg - tgt_meter) / tgt_meter < 0.1) {
+    tgt.SetMetric(rg);
+    return true;
+  }
+
+  return false;
 }
 
 DepthPano::DepthPano(const cv::Size& size, float hfov)
@@ -82,12 +83,28 @@ int DepthPano::AddSweepRow(const LidarSweep& sweep, int sr) {
 
     // Project to pano
     const auto px_p = model_.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
-    if (px_p.x < 0) continue;
+    if (px_p.x < 0 || px_p.y < 0) continue;
 
-    n += static_cast<int>(SetBufAt(dbuf_, px_p, rg_p));
+    n += static_cast<int>(UpdateBuffer(px_p, rg_p));
   }
 
   return n;
+}
+
+bool DepthPano::UpdateBuffer(const cv::Point& px, float rg) {
+  auto& tgt = dbuf_.at<Pixel>(px);
+  if (tgt.raw == 0) {
+    tgt.SetMetric(rg);
+    return true;  // add new
+  }
+
+  const auto tgt_meter = tgt.Metric();
+  if (std::abs(rg - tgt_meter) / tgt_meter < 0.1) {
+    tgt.SetMetric(rg);
+    return true;  // updated
+  }
+
+  return false;
 }
 
 int DepthPano::Render(bool tbb) {
