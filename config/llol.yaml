@@ -1,7 +1,3 @@
-pano:
-  rows: 256
-  cols: 1024
-  hfov: -1.0
 grid:
   cell_rows: 2
   cell_cols: 16
@@ -10,5 +6,10 @@ grid:
 match:
   half_rows: 2
   min_dist: 2.0
-  range_ratio: 0.1
   cov_lambda: 1e-6
+pano:
+  rows: 256
+  cols: 1024
+  hfov: 0.0
+  max_cnt: 10
+  range_ratio: 0.1

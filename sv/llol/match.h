@@ -30,7 +30,6 @@ struct PointMatch {
 struct MatcherParams {
   int half_rows{2};        // half rows of pano win
   float min_dist{2.0};     // min dist for recompute mc in pano
-  float range_ratio{0.1};  // range ratio when computing mc in pano
   float cov_lambda{1e-6};  // lambda added to diagonal of cov when inverting
 
   std::string Repr() const;

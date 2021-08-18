@@ -1,11 +1,21 @@
+#include "sv/llol/pano.h"
+
 #include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
 
-#include "sv/llol/pano.h"
 #include "sv/llol/scan.h"  // MakeTestScan
 
 namespace sv {
 namespace {
+
+TEST(DepthPanoTest, TestCtor) {
+  DepthPano dp{{1024, 256}};
+  EXPECT_EQ(dp.size().width, 1024);
+  EXPECT_EQ(dp.size().height, 256);
+  EXPECT_EQ(dp.dbuf.rows, 256);
+  EXPECT_EQ(dp.dbuf.cols, 1024);
+  std::cout << dp << std::endl;
+}
 
 TEST(DepthPanoTest, TestWinAt) {
   DepthPano dp({256, 64});
@@ -49,7 +59,7 @@ BENCHMARK(BM_PanoAddSweepTbb);
 
 void BM_PanoRenderSeq(benchmark::State& state) {
   DepthPano pano({1024, 256});
-  pano.dbuf_.setTo(1024);
+  pano.dbuf.setTo(1024);
 
   for (auto _ : state) {
     pano.Render(false);
@@ -60,7 +70,7 @@ BENCHMARK(BM_PanoRenderSeq);
 
 void BM_PanoRenderTbb(benchmark::State& state) {
   DepthPano pano({1024, 256});
-  pano.dbuf_.setTo(1024);
+  pano.dbuf.setTo(1024);
 
   for (auto _ : state) {
     pano.Render(true);

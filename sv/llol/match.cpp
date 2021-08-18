@@ -35,11 +35,6 @@ bool IsCellGood(const cv::Mat& grid,
   return true;
 }
 
-// TODO (chao): improve this by considering distance to center
-float CalcRangeDiffRel(float rg1, float rg2) {
-  return std::abs(rg1 - rg2) / std::max(rg1, rg2);
-}
-
 /// @brief Compute mean covar of cell in sweep
 void SweepCellMeanCovar(const LidarSweep& sweep,
                         const cv::Rect& cell,
@@ -57,24 +52,26 @@ void SweepCellMeanCovar(const LidarSweep& sweep,
 void PanoWinMeanCovar(const DepthPano& pano,
                       const cv::Rect& win,
                       float rg_p,
-                      float rg_ratio,
                       MeanCovar3f& mc) {
   for (int wr = 0; wr < win.height; ++wr) {
     for (int wc = 0; wc < win.width; ++wc) {
       const cv::Point px_w{wc + win.x, wr + win.y};
-      const float rg_w = pano.RangeAt(px_w);
-      if (rg_w == 0 || CalcRangeDiffRel(rg_w, rg_p) > rg_ratio) continue;
-      const auto p = pano.model_.Backward(px_w.y, px_w.x, rg_w);
+      const auto& dp = pano.PixelAt(px_w);
+      const auto rg_w = dp.GetMeter();
+      // TODO (chao): check if cnt is old enough
+      if (rg_w == 0 || (std::abs(rg_w - rg_p) / rg_p) > pano.range_ratio) {
+        continue;
+      }
+      const auto p = pano.model.Backward(px_w.y, px_w.x, rg_w);
       mc.Add({p.x, p.y, p.z});
     }
   }
 }
 
 std::string MatcherParams::Repr() const {
-  return fmt::format("half_rows={}, min_dist={}, range_ratio={}, cov_lambda={}",
+  return fmt::format("half_rows={}, min_dist={}, cov_lambda={}",
                      half_rows,
                      min_dist,
-                     range_ratio,
                      cov_lambda);
 }
 
@@ -164,7 +161,7 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
   const float rg_p = pt_p.norm();
 
   // Project to pano
-  const auto px_p = pano.model_.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
+  const auto px_p = pano.model.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
   // Bad projection, reset and return
   if (px_p.x < 0) {
     match.mc_p.Reset();
@@ -181,7 +178,7 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
     match.px_p = px_p;
     match.mc_p.Reset();
     const auto win = pano.BoundWinCenterAt(px_p, pano_win_size);
-    PanoWinMeanCovar(pano, win, rg_p, params.range_ratio, match.mc_p);
+    PanoWinMeanCovar(pano, win, rg_p, match.mc_p);
 
     // if we don't have enough points also reset and return
     if (match.mc_p.n < min_pts) {

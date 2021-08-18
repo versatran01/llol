@@ -126,7 +126,7 @@ void Pano2Cloud(const DepthPano& pano,
                           if (rg == 0) {
                             pc.x = pc.y = pc.z = kNaNF;
                           } else {
-                            const auto pp = pano.model_.Backward(r, c, rg);
+                            const auto pp = pano.model.Backward(r, c, rg);
                             pc.x = pp.x;
                             pc.y = pp.y;
                             pc.z = pp.z;

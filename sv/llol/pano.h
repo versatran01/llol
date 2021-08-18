@@ -11,48 +11,46 @@ inline cv::Rect WinCenterAt(const cv::Point& pt, const cv::Size& size) {
   return {{pt.x - size.width / 2, pt.y - size.height / 2}, size};
 }
 
-struct Pixel {
+struct DepthPixel {
   static constexpr float kScale = 512.0F;
   static constexpr uint16_t kMaxRaw = std::numeric_limits<uint16_t>::max();
   static constexpr float kMaxRange = static_cast<float>(kMaxRaw) / kScale;
 
   uint16_t raw{0};
+  uint16_t cnt{0};
 
-  float Metric() const noexcept { return raw / kScale; }
-  void SetMetric(float rg) { raw = static_cast<uint16_t>(rg * kScale); }
-};
-
-enum struct BufferUpdate {
-  ADD_NEW,  // depth is added to buffer
-  OCCLUDE,  // depth is not added due to occlusion
-  UPDATED   // depth is updated
-};
+  float GetMeter() const noexcept { return raw / kScale; }
+  void SetMeter(float rg) { raw = static_cast<uint16_t>(rg * kScale); }
+} __attribute__((packed));
+static_assert(sizeof(DepthPixel) == 4, "Size of DepthPixel is not 4");
 
 /// @class Depth Panorama
 struct DepthPano {
   /// Data
-  int num_sweeps_{0};
-  LidarModel model_;
-  cv::Mat dbuf_;   // depth buffer
-  cv::Mat dbuf2_;  // depth buffer 2
+  // TODO (chao): also add a min range
+  int max_cnt{10};
+  float range_ratio{0.1};
+  LidarModel model;
+  cv::Mat dbuf;   // depth buffer
+  cv::Mat dbuf2;  // depth buffer 2
 
   /// @brief Ctors
   DepthPano() = default;
-  explicit DepthPano(const cv::Size& size, float hfov = 0);
+  explicit DepthPano(const cv::Size& size, float hfov = 0.0F);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const DepthPano& rhs) {
     return os << rhs.Repr();
   }
 
-  bool empty() const { return dbuf_.empty(); }
-  size_t total() const { return dbuf_.total(); }
-  bool num_sweeps() const noexcept { return num_sweeps_; }
-  cv::Size size() const noexcept { return model_.size; }
+  bool empty() const { return dbuf.empty(); }
+  size_t total() const { return dbuf.total(); }
+  cv::Size size() const noexcept { return model.size; }
 
-  float RangeAt(const cv::Point& pt) const {
-    return dbuf_.at<Pixel>(pt).Metric();
+  const auto& PixelAt(const cv::Point& pt) const {
+    return dbuf.at<DepthPixel>(pt);
   }
+  float RangeAt(const cv::Point& pt) const { return PixelAt(pt).GetMeter(); }
 
   /// @brief Get a bounded window centered at pt with given size
   cv::Rect BoundWinCenterAt(const cv::Point& pt, const cv::Size& size) const;
@@ -60,7 +58,7 @@ struct DepthPano {
   /// @brief Add a sweep to the pano
   int AddSweep(const LidarSweep& sweep, bool tbb = false);
   int AddSweepRow(const LidarSweep& sweep, int row);
-  bool UpdateBuffer(const cv::Point& px, float rg);
+  bool FuseDepth(const cv::Point& px, float rg);
 
   /// @brief Render pano at a new location
   /// @todo Currently disabled

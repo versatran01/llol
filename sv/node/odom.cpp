@@ -28,6 +28,7 @@
 namespace sv {
 
 namespace cs = ceres;
+using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
 
 LidarScan Msg2Scan(const sensor_msgs::Image& image_msg,
@@ -57,7 +58,7 @@ class OdomNode {
   std::string lidar_frame_;
   std::string odom_frame_{"odom"};
   std::string pano_frame_{"pano"};
-  std::optional<geometry_msgs::TransformStamped> tf_imu_lidar_;
+  std::optional<TransformStamped> tf_imu_lidar_;
 
   bool vis_{};
   bool tbb_{};
@@ -75,7 +76,7 @@ class OdomNode {
   TimerManager tm_{"llol"};
   StatsManager sm_{"llol"};
 
-  visualization_msgs::MarkerArray marray_;
+  MarkerArray marray_;
 
  public:
   explicit OdomNode(const ros::NodeHandle& pnh)
@@ -147,7 +148,6 @@ class OdomNode {
     MatcherParams mp;
     mp.half_rows = mnh.param<int>("half_rows", 2);
     mp.min_dist = mnh.param<double>("min_dist", 2.0);
-    mp.range_ratio = mnh.param<double>("range_ratio", 0.1);
     matcher_ = ProjMatcher(grid_.size(), mp);
     ROS_INFO_STREAM(matcher_);
 
@@ -156,7 +156,7 @@ class OdomNode {
     ROS_INFO_STREAM("First time: " << t_);
 
     /// Init tf (for now assume pano does not move)
-    geometry_msgs::TransformStamped tf_o_p;
+    TransformStamped tf_o_p;
     tf_o_p.header.frame_id = odom_frame_;
     tf_o_p.header.stamp = cinfo_msg.header.stamp;
     tf_o_p.child_frame_id = pano_frame_;
@@ -285,7 +285,11 @@ class OdomNode {
     //                                   pano_.total());
 
     if (vis_) {
-      Imshow("pano", ApplyCmap(pano_.dbuf_, 1 / Pixel::kScale / 30.0));
+      cv::Mat disps[2];
+      cv::split(pano_.dbuf, disps);
+      Imshow("buf", ApplyCmap(disps[0], 1.0 / DepthPixel::kScale / 30.0));
+      Imshow("cnt",
+             ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
       // Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
     }
 
@@ -320,15 +324,15 @@ class OdomNode {
     const auto scan = Msg2Scan(*image_msg, *cinfo_msg);
     Preprocess(scan);
 
-    /// Check if pano has data, if true then perform match
-    if (pano_.num_sweeps() > 0) {
+    /// Do match when we have more than one sweep
+    if (sweep_.id > 0) {
       // Make a copy
       Sophus::SE3d T_p_s = T_p_s_;
       const auto good = Register(image_msg->header);
 
       if (good) {
         /// Transform from sweep to pano
-        geometry_msgs::TransformStamped tf_p_s;
+        TransformStamped tf_p_s;
         SE3d2Transform(T_p_s_, tf_p_s.transform);
         tf_p_s.header.frame_id = pano_frame_;
         tf_p_s.header.stamp = cinfo_msg->header.stamp;
@@ -340,7 +344,7 @@ class OdomNode {
       }
 
       /// Transform from pano to odom
-      geometry_msgs::TransformStamped tf_o_p;
+      TransformStamped tf_o_p;
       tf_o_p.header.frame_id = odom_frame_;
       tf_o_p.header.stamp = cinfo_msg->header.stamp;
       tf_o_p.child_frame_id = pano_frame_;

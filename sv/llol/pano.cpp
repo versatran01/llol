@@ -9,17 +9,17 @@
 
 namespace sv {
 
+// TODO: need to improve this
 bool SetBufAt(cv::Mat& buf, const cv::Point& px, float rg) {
-  const uint16_t rg_raw = rg * Pixel::kScale;
-  auto& tgt = buf.at<Pixel>(px);
-  if (tgt.raw == 0) {
-    tgt.raw = rg_raw;
+  auto& p = buf.at<DepthPixel>(px);
+  if (p.raw == 0) {
+    p.SetMeter(rg);
     return true;
   }
 
-  const auto tgt_meter = tgt.Metric();
-  if (std::abs(rg - tgt_meter) / tgt_meter < 0.1) {
-    tgt.SetMetric(rg);
+  const auto rg0 = p.GetMeter();
+  if (std::abs(rg - rg0) / rg0 < 0.1) {
+    p.SetMeter(rg);
     return true;
   }
 
@@ -27,14 +27,18 @@ bool SetBufAt(cv::Mat& buf, const cv::Point& px, float rg) {
 }
 
 DepthPano::DepthPano(const cv::Size& size, float hfov)
-    : model_{size, hfov}, dbuf_{size, CV_16UC1}, dbuf2_{size, CV_16UC1} {}
+    : model{size, hfov}, dbuf{size, CV_16UC2}, dbuf2{size, CV_16UC2} {}
 
 std::string DepthPano::Repr() const {
-  return fmt::format("DepthPano({}, model={}, pixel=(scale={}, max_range={})",
-                     sv::Repr(dbuf_),
-                     model_.Repr(),
-                     Pixel::kScale,
-                     Pixel::kMaxRange);
+  return fmt::format(
+      "DepthPano(buf={}, model={}, max_cnt={}, range_ratio={}, "
+      "pixel=(scale={}, max_range={})",
+      sv::Repr(dbuf),
+      model.Repr(),
+      max_cnt,
+      range_ratio,
+      DepthPixel::kScale,
+      DepthPixel::kMaxRange);
 }
 
 cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
@@ -46,10 +50,12 @@ cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
 int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
   CHECK(sweep.full());
 
+  const int rows = sweep.size().height;
+
   int n = 0;
   if (tbb) {
     n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, sweep.xyzr.rows),
+        tbb::blocked_range<int>(0, rows),
         0,
         [&](const auto& block, int total) {
           for (int sr = block.begin(); sr < block.end(); ++sr) {
@@ -59,19 +65,19 @@ int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
         },
         std::plus<>{});
   } else {
-    for (int sr = 0; sr < sweep.xyzr.rows; ++sr) {
+    for (int sr = 0; sr < rows; ++sr) {
       n += AddSweepRow(sweep, sr);
     }
   }
 
-  ++num_sweeps_;
   return n;
 }
 
 int DepthPano::AddSweepRow(const LidarSweep& sweep, int sr) {
   int n = 0;
 
-  for (int sc = 0; sc < sweep.xyzr.cols; ++sc) {
+  const int cols = sweep.xyzr.cols;
+  for (int sc = 0; sc < cols; ++sc) {
     const auto& xyzr = sweep.XyzrAt({sc, sr});
     const float rg_s = xyzr[3];  // precomputed range
     if (!(rg_s > 0)) continue;   // filter out nan
@@ -82,39 +88,50 @@ int DepthPano::AddSweepRow(const LidarSweep& sweep, int sr) {
     const auto rg_p = pt_p.norm();
 
     // Project to pano
-    const auto px_p = model_.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
+    const auto px_p = model.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
     if (px_p.x < 0 || px_p.y < 0) continue;
 
-    n += static_cast<int>(UpdateBuffer(px_p, rg_p));
+    n += static_cast<int>(FuseDepth(px_p, rg_p));
   }
 
   return n;
 }
 
-bool DepthPano::UpdateBuffer(const cv::Point& px, float rg) {
-  auto& tgt = dbuf_.at<Pixel>(px);
-  if (tgt.raw == 0) {
-    tgt.SetMetric(rg);
-    return true;  // add new
+bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
+  auto& p = dbuf.at<DepthPixel>(px);
+
+  // If current pixel is empty, then add to it but set it to half of max
+  if (p.raw == 0) {
+    p.SetMeter(rg);
+    p.cnt = max_cnt / 2;
+    return true;
   }
 
-  const auto tgt_meter = tgt.Metric();
-  if (std::abs(rg - tgt_meter) / tgt_meter < 0.1) {
-    tgt.SetMetric(rg);
-    return true;  // updated
-  }
+  // Otherwise there is already a depth
+  const auto rg0 = p.GetMeter();
 
-  return false;
+  // Check if they are close enough
+  if ((std::abs(rg - rg0) / rg0) < range_ratio) {
+    // close, do a weighted update
+    const auto rg1 = (rg0 * p.cnt + rg) / (p.cnt + 1);
+    p.SetMeter(rg1);
+    if (p.cnt < max_cnt) ++p.cnt;
+    return true;
+  } else {
+    // not close, just decrement cnt by 1
+    if (p.cnt > 0) --p.cnt;
+    return false;
+  }
 }
 
 int DepthPano::Render(bool tbb) {
   // clear pano2
-  dbuf2_.setTo(0);
+  dbuf2.setTo(0);
 
   int n = 0;
   if (tbb) {
     n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, dbuf_.rows),
+        tbb::blocked_range<int>(0, dbuf.rows),
         0,
         [&](const tbb::blocked_range<int>& blk, int total) {
           for (int r = blk.begin(); r < blk.end(); ++r) {
@@ -124,7 +141,7 @@ int DepthPano::Render(bool tbb) {
         },
         std::plus<>{});
   } else {
-    for (int r = 0; r < dbuf_.rows; ++r) {
+    for (int r = 0; r < dbuf.rows; ++r) {
       n += RenderRow(r);
     }
   }
@@ -133,12 +150,12 @@ int DepthPano::Render(bool tbb) {
 
 int DepthPano::RenderRow(int r1) {
   int n = 0;
-  for (int c1 = 0; c1 < dbuf_.cols; ++c1) {
+  for (int c1 = 0; c1 < dbuf.cols; ++c1) {
     const float rg1 = RangeAt({c1, r1});
     if (rg1 == 0) continue;
 
     // px1 -> xyz1
-    const auto xyz1 = model_.Backward(r1, c1, rg1);
+    const auto xyz1 = model.Backward(r1, c1, rg1);
     Eigen::Map<const Eigen::Vector3f> xyz1_map(&xyz1.x);
 
     // xyz1 -> xyz2
@@ -147,14 +164,14 @@ int DepthPano::RenderRow(int r1) {
     const auto rg2 = xyz2.norm();
 
     // xyz2 -> px2
-    const auto px2 = model_.Forward(xyz2.x(), xyz2.y(), xyz2.z(), rg2);
+    const auto px2 = model.Forward(xyz2.x(), xyz2.y(), xyz2.z(), rg2);
     if (px2.x < 0) continue;
 
     // check max range
-    if (rg2 >= Pixel::kMaxRange) continue;
+    if (rg2 >= DepthPixel::kMaxRange) continue;
 
     // Check occlusion
-    n += SetBufAt(dbuf2_, px2, rg2);
+    n += SetBufAt(dbuf2, px2, rg2);
   }
   return n;
 }
