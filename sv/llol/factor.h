@@ -69,4 +69,18 @@ struct GicpFactor2 final : public IcpFactorBase {
   const PointMatch* pmatch{nullptr};
 };
 
+//struct GicpFactor3 final : public IcpFactorBase {
+//  GicpFactor3(const ProjMatcher& matcher);
+
+//  template <typename T>
+//  bool operator()(const T* const _T_p_s, T* _r) const noexcept {
+//    Eigen::Map<const Sophus::SE3<T>> T_p_s(_T_p_s);
+//    Eigen::Map<Vector3<T>> r(_r);
+
+//    return true;
+//  }
+
+//  const ProjMatcher* matcher;
+//};
+
 }  // namespace sv

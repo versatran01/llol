@@ -9,8 +9,8 @@ namespace {
 TEST(MatcherTest, TestCtor) {
   ProjMatcher pm({64, 32});
 
-  EXPECT_EQ(pm.grid_size.width, 64);
-  EXPECT_EQ(pm.grid_size.height, 32);
+  EXPECT_EQ(pm.size.width, 64);
+  EXPECT_EQ(pm.size.height, 32);
   EXPECT_EQ(pm.pano_win_size.height, 5);
   EXPECT_EQ(pm.pano_win_size.width, 11);
   EXPECT_EQ(pm.matches.size(), 64 * 32);
@@ -30,6 +30,7 @@ TEST(MatcherTest, TestMatch) {
   ProjMatcher matcher(grid.size());
   const int n = matcher.Match(sweep, grid, pano);
   EXPECT_EQ(n, 1984);  // probably miss top and bottom
+  EXPECT_EQ(n, matcher.NumMatches());
 }
 
 void BM_MatcherMatch(benchmark::State& state) {

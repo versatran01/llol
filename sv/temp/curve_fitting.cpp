@@ -111,10 +111,8 @@ struct SignleResidual {
 
   template <typename T>
   bool operator()(const T* const m, const T* const c, T* residual) const {
-    residual[0] = T(0);
-
     for (int i = 0; i < size_; ++i) {
-      residual[0] += data_[2 * i + 1] - exp(m[0] * data_[2 * i] + c[0]);
+      residual[i] = data_[2 * i + 1] - exp(m[0] * data_[2 * i] + c[0]);
     }
 
     return true;
@@ -133,11 +131,12 @@ int main(int argc, char** argv) {
     double c = 0.0;
     const auto t0 = absl::GetCurrentTimeNanos();
     Problem problem;
-    problem.AddResidualBlock(new AutoDiffCostFunction<SignleResidual, 1, 1, 1>(
-                                 new SignleResidual(kNumObservations, data)),
-                             nullptr,
-                             &m,
-                             &c);
+    problem.AddResidualBlock(
+        new AutoDiffCostFunction<SignleResidual, ceres::DYNAMIC, 1, 1>(
+            new SignleResidual(kNumObservations, data), kNumObservations),
+        nullptr,
+        &m,
+        &c);
     const auto t1 = absl::GetCurrentTimeNanos();
     std::cout << "Time Build: " << (t1 - t0) / 1e6 << "ms\n";
 

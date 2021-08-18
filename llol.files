@@ -21,6 +21,7 @@ sv/llol/grid.h
 sv/llol/grid_test.cpp
 sv/llol/imu.cpp
 sv/llol/imu.h
+sv/llol/imu_test.cpp
 sv/llol/lidar.cpp
 sv/llol/lidar.h
 sv/llol/lidar_test.cpp
@@ -48,6 +49,7 @@ sv/node/cov_viz.cpp
 sv/node/odom.cpp
 sv/node/viz.cpp
 sv/node/viz.h
+sv/temp/ceres_bench.cpp
 sv/temp/curve_fitting.cpp
 sv/util/CMakeLists.txt
 sv/util/angle.h

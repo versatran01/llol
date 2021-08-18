@@ -74,7 +74,7 @@ void PanoWinMeanCovar(const DepthPano& pano,
 
 /// ProjMatcher ================================================================
 ProjMatcher::ProjMatcher(const cv::Size& grid_size, const MatcherParams& params)
-    : grid_size{grid_size}, cov_lambda{params.cov_lambda} {
+    : size{grid_size}, cov_lambda{params.cov_lambda} {
   // Pano win size, for now width is twice the height
   pano_win_size.height = params.half_rows * 2 + 1;
   pano_win_size.width = pano_win_size.height * 2 + 1;
@@ -89,7 +89,7 @@ std::string ProjMatcher::Repr() const {
       "ProjMatcher(max_matches={}, grid_size={}, cov_lamda={}, min_pts={}, "
       "pano_win_size={}, max_dist_size={})",
       matches.size(),
-      sv::Repr(grid_size),
+      sv::Repr(size),
       cov_lambda,
       min_pts,
       sv::Repr(pano_win_size),
@@ -101,18 +101,21 @@ int ProjMatcher::Match(const LidarSweep& sweep,
                        const DepthPano& pano,
                        int gsize) {
   CHECK_EQ(matches.size(), grid.size().area());
-  CHECK_EQ(grid_size.width, grid.size().width);
-  CHECK_EQ(grid_size.height, grid.size().height);
+  CHECK_EQ(size.width, grid.size().width);
+  CHECK_EQ(size.height, grid.size().height);
 
   const auto rows = grid.size().height;
   gsize = gsize <= 0 ? rows : gsize;
   CHECK_GE(gsize, 1);
 
+  // cache width
+  width = grid.width();
+
   return tbb::parallel_reduce(
       tbb::blocked_range<int>(0, rows, gsize),
       0,
-      [&](const auto& block, int n) {
-        for (int gr = block.begin(); gr < block.end(); ++gr) {
+      [&](const auto& blk, int n) {
+        for (int gr = blk.begin(); gr < blk.end(); ++gr) {
           n += MatchRow(sweep, grid, pano, gr);
         }
         return n;
@@ -186,9 +189,19 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
   return 1;
 }
 
+int ProjMatcher::NumMatches() const {
+  int k = 0;
+  for (int r = 0; r < size.height; ++r) {
+    for (int c = 0; c < width; ++c) {
+      k += matches[Grid2Ind({c, r})].ok();
+    }
+  }
+  return k;
+}
+
 void ProjMatcher::Reset() {
   matches.clear();
-  matches.resize(grid_size.area());
+  matches.resize(size.area());
 }
 
 cv::Mat DrawMatches(const SweepGrid& grid,

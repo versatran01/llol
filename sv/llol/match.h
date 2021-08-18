@@ -34,13 +34,15 @@ struct MatcherParams {
 
 struct ProjMatcher {
   /// Params
-  cv::Size grid_size;      // copy of grid_size from SweepGrid
   float cov_lambda;        // lambda added to diagonal of covar
   cv::Size pano_win_size;  // win size in pano used to compute mean covar
   cv::Size max_dist_size;  // max dist size to resue pano mc
   int min_pts;             // min pts in pano win for a valid match
 
   /// Data
+  // TODO (chao): Maybe just have pointer to grid?
+  int width;      // cache of width from SweepGrid
+  cv::Size size;  // cache of grid_size from SweepGrid
   std::vector<PointMatch> matches;
 
   /// @brief Ctors
@@ -66,6 +68,10 @@ struct ProjMatcher {
                 const SweepGrid& grid,
                 const DepthPano& pano,
                 const cv::Point& px_g);
+
+  /// @brief num valid matches up till width
+  int NumMatches() const;
+  int Grid2Ind(const cv::Point& px) const { return px.y * size.width + px.x; }
 
   void Reset();
 };

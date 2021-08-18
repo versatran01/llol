@@ -117,6 +117,15 @@ cc_library(
   SRCS "llol/factor.cpp"
   DEPS sv_llol_match Sophus::Sophus)
 
+cc_library(
+  NAME llol_imu
+  SRCS "llol/imu.cpp"
+  DEPS sv_base Sophus::Sophus Eigen3::Eigen)
+cc_test(
+  NAME llol_imu_test
+  SRCS "llol/imu_test.cpp"
+  DEPS sv_llol_imu benchmark::benchmark)
+
 # node =========================================================================
 if(catkin_FOUND AND BUILD_NODE)
   cc_library(
@@ -147,3 +156,7 @@ cc_binary(
   NAME curve_fitting
   SRCS "temp/curve_fitting.cpp"
   DEPS sv_util_timer Ceres::ceres)
+cc_bench(
+  NAME ceres_bench
+  SRCS "temp/ceres_bench.cpp"
+  DEPS Ceres::ceres sv_tbb)

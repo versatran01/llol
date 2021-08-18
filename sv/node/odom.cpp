@@ -189,12 +189,9 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 
   int ncells = 0;
   int ncells2 = 0;
-  {  /// Reduce scan to grid
-    auto _ = tm_.Scoped("Grid.Reduce");
+  {  /// Reduce scan to grid and Filter
+    auto _ = tm_.Scoped("Grid.Process");
     ncells = grid_.Reduce(scan, tbb_);
-  }
-  {  /// Filter grid
-    auto _ = tm_.Scoped("Grid.Filter");
     ncells2 = grid_.Filter();
   }
   ROS_INFO_STREAM("Num cells: " << ncells);
@@ -234,10 +231,8 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   }
 
   cs::Solver::Summary summary;
-  std::unique_ptr<ceres::LocalParameterization> local_params =
+  std::unique_ptr<cs::LocalParameterization> local_params =
       std::make_unique<LocalParamSE3>();
-  std::unique_ptr<ceres::LossFunction> loss =
-      std::make_unique<cs::HuberLoss>(3);
   cs::Problem::Options problem_opt;
   problem_opt.loss_function_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
   problem_opt.local_parameterization_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
