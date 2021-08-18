@@ -26,8 +26,12 @@ bool SetBufAt(cv::Mat& buf, const cv::Point& px, float rg) {
   return false;
 }
 
-DepthPano::DepthPano(const cv::Size& size, float hfov)
-    : model{size, hfov}, dbuf{size, CV_16UC2}, dbuf2{size, CV_16UC2} {}
+DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
+    : max_cnt{params.max_cnt},
+      range_ratio{params.range_ratio},
+      model{size, params.hfov},
+      dbuf{size, CV_16UC2},
+      dbuf2{size, CV_16UC2} {}
 
 std::string DepthPano::Repr() const {
   return fmt::format(

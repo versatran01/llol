@@ -45,7 +45,7 @@ struct DepthPano {
 
   /// @brief Ctors
   DepthPano() = default;
-  explicit DepthPano(const cv::Size& size, float hfov = 0.0F);
+  explicit DepthPano(const cv::Size& size, const PanoParams& params = {});
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const DepthPano& rhs) {
