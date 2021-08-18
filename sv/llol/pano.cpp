@@ -31,12 +31,12 @@ DepthPano::DepthPano(const cv::Size& size, float hfov)
 
 std::string DepthPano::Repr() const {
   return fmt::format(
-      "DepthPano(buf={}, model={}, max_cnt={}, range_ratio={}, "
+      "DepthPano(max_cnt={}, range_ratio={}, model={}, dbuf={}, "
       "pixel=(scale={}, max_range={})",
-      sv::Repr(dbuf),
-      model.Repr(),
       max_cnt,
       range_ratio,
+      model.Repr(),
+      sv::Repr(dbuf),
       DepthPixel::kScale,
       DepthPixel::kMaxRange);
 }
@@ -47,37 +47,30 @@ cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
   return WinCenterAt(pt, win_size) & bound;
 }
 
-int DepthPano::AddSweep(const LidarSweep& sweep, bool tbb) {
+int DepthPano::AddSweep(const LidarSweep& sweep, int tbb_rows) {
   CHECK(sweep.full());
 
-  const int rows = sweep.size().height;
+  const int sweep_rows = sweep.size().height;
+  tbb_rows = tbb_rows <= 0 ? sweep_rows : tbb_rows;
+  CHECK_GE(tbb_rows, 1);
 
-  int n = 0;
-  if (tbb) {
-    n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, rows),
-        0,
-        [&](const auto& block, int total) {
-          for (int sr = block.begin(); sr < block.end(); ++sr) {
-            total += AddSweepRow(sweep, sr);
-          }
-          return total;
-        },
-        std::plus<>{});
-  } else {
-    for (int sr = 0; sr < rows; ++sr) {
-      n += AddSweepRow(sweep, sr);
-    }
-  }
-
-  return n;
+  return tbb::parallel_reduce(
+      tbb::blocked_range<int>(0, sweep_rows, tbb_rows),
+      0,
+      [&](const auto& block, int n) {
+        for (int sr = block.begin(); sr < block.end(); ++sr) {
+          n += AddSweepRow(sweep, sr);
+        }
+        return n;
+      },
+      std::plus<>{});
 }
 
 int DepthPano::AddSweepRow(const LidarSweep& sweep, int sr) {
   int n = 0;
 
-  const int cols = sweep.xyzr.cols;
-  for (int sc = 0; sc < cols; ++sc) {
+  const int sweep_cols = sweep.xyzr.cols;
+  for (int sc = 0; sc < sweep_cols; ++sc) {
     const auto& xyzr = sweep.XyzrAt({sc, sr});
     const float rg_s = xyzr[3];  // precomputed range
     if (!(rg_s > 0)) continue;   // filter out nan
@@ -124,31 +117,26 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   }
 }
 
-int DepthPano::Render(bool tbb) {
+int DepthPano::Render(const Sophus::SE3f& tf_2_1, int tbb_rows) {
   // clear pano2
   dbuf2.setTo(0);
 
-  int n = 0;
-  if (tbb) {
-    n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, dbuf.rows),
-        0,
-        [&](const tbb::blocked_range<int>& blk, int total) {
-          for (int r = blk.begin(); r < blk.end(); ++r) {
-            total += RenderRow(r);
-          }
-          return total;
-        },
-        std::plus<>{});
-  } else {
-    for (int r = 0; r < dbuf.rows; ++r) {
-      n += RenderRow(r);
-    }
-  }
-  return n;
+  tbb_rows = tbb_rows <= 0 ? dbuf.rows : tbb_rows;
+  CHECK_GE(tbb_rows, 1);
+
+  return tbb::parallel_reduce(
+      tbb::blocked_range<int>(0, dbuf.rows, tbb_rows),
+      0,
+      [&](const tbb::blocked_range<int>& blk, int n) {
+        for (int r = blk.begin(); r < blk.end(); ++r) {
+          n += RenderRow(tf_2_1, r);
+        }
+        return n;
+      },
+      std::plus<>{});
 }
 
-int DepthPano::RenderRow(int r1) {
+int DepthPano::RenderRow(const Sophus::SE3f& tf_2_1, int r1) {
   int n = 0;
   for (int c1 = 0; c1 < dbuf.cols; ++c1) {
     const float rg1 = RangeAt({c1, r1});
@@ -159,8 +147,7 @@ int DepthPano::RenderRow(int r1) {
     Eigen::Map<const Eigen::Vector3f> xyz1_map(&xyz1.x);
 
     // xyz1 -> xyz2
-    const Eigen::Vector3f xyz2 =
-        Eigen::Matrix3f::Identity() * xyz1_map + Eigen::Vector3f::Zero();
+    const Eigen::Vector3f xyz2 = tf_2_1 * xyz1_map;
     const auto rg2 = xyz2.norm();
 
     // xyz2 -> px2
@@ -171,9 +158,26 @@ int DepthPano::RenderRow(int r1) {
     if (rg2 >= DepthPixel::kMaxRange) continue;
 
     // Check occlusion
-    n += SetBufAt(dbuf2, px2, rg2);
+    n += UpdateBuffer(px2, rg2);
   }
   return n;
+}
+
+bool DepthPano::UpdateBuffer(const cv::Point& px, float rg) {
+  auto& p = dbuf2.at<DepthPixel>(px);
+  if (p.raw == 0) {
+    p.SetMeter(rg);
+    return true;
+  }
+
+  // Depth buffer update, handles occlusion
+  const auto rg0 = p.GetMeter();
+  if (rg < rg0) {
+    p.SetMeter(rg);
+    return true;
+  }
+
+  return false;
 }
 
 }  // namespace sv

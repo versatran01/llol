@@ -35,49 +35,29 @@ TEST(DepthPanoTest, TestBoundedWinAt) {
   EXPECT_EQ(win.height, 4);
 }
 
-void BM_PanoAddSweepSeq(benchmark::State& state) {
+void BM_PanoAddSweep(benchmark::State& state) {
   DepthPano pano({1024, 256});
   const auto sweep = MakeTestSweep({1024, 64});
+  const int gsize = state.range(0);
 
   for (auto _ : state) {
-    pano.AddSweep(sweep, false);
+    pano.AddSweep(sweep, gsize);
     benchmark::DoNotOptimize(pano);
   }
 }
-BENCHMARK(BM_PanoAddSweepSeq);
+BENCHMARK(BM_PanoAddSweep)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
-void BM_PanoAddSweepTbb(benchmark::State& state) {
-  DepthPano pano({1024, 256});
-  const auto sweep = MakeTestSweep({1024, 64});
-
-  for (auto _ : state) {
-    pano.AddSweep(sweep, true);
-    benchmark::DoNotOptimize(pano);
-  }
-}
-BENCHMARK(BM_PanoAddSweepTbb);
-
-void BM_PanoRenderSeq(benchmark::State& state) {
+void BM_PanoRender(benchmark::State& state) {
   DepthPano pano({1024, 256});
   pano.dbuf.setTo(1024);
+  const int tbb_rows = state.range(0);
 
   for (auto _ : state) {
-    pano.Render(false);
+    pano.Render({}, tbb_rows);
     benchmark::DoNotOptimize(pano);
   }
 }
-BENCHMARK(BM_PanoRenderSeq);
-
-void BM_PanoRenderTbb(benchmark::State& state) {
-  DepthPano pano({1024, 256});
-  pano.dbuf.setTo(1024);
-
-  for (auto _ : state) {
-    pano.Render(true);
-    benchmark::DoNotOptimize(pano);
-  }
-}
-BENCHMARK(BM_PanoRenderTbb);
+BENCHMARK(BM_PanoRender)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
 }  // namespace
 }  // namespace sv

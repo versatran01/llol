@@ -103,6 +103,14 @@ cc_library(
   NAME llol_match
   SRCS "llol/match.cpp"
   DEPS sv_llol_scan sv_llol_grid sv_llol_pano)
+cc_test(
+  NAME llol_match_test
+  SRCS "llol/match_test.cpp"
+  DEPS sv_llol_match benchmark::benchmark)
+cc_bench(
+  NAME llol_match_bench
+  SRCS "llol/match_test.cpp"
+  DEPS sv_llol_match GTest::GTest)
 
 cc_library(
   NAME llol_factor

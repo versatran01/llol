@@ -19,8 +19,7 @@ TEST(GridTest, TestCtor) {
 }
 
 TEST(GridTest, TestReduce) {
-  GridParams gp;
-  SweepGrid grid({1024, 64}, gp);
+  SweepGrid grid({1024, 64});
 
   auto scan = MakeTestScan({512, 64});
   scan.col_rg = {0, 512};
@@ -42,32 +41,22 @@ TEST(GridTest, TestReduce) {
   std::cout << grid << std::endl;
 }
 
-void BM_ReduceSeq(benchmark::State& state) {
-  const LidarScan scan = MakeTestScan({1024, 64});
+void BM_Reduce(benchmark::State& state) {
+  const auto scan = MakeTestScan({1024, 64});
   SweepGrid grid(scan.size());
+  const int gsize = state.range(0);
 
   for (auto _ : state) {
-    auto n = grid.Reduce(scan, false);
+    auto n = grid.Reduce(scan, gsize);
     benchmark::DoNotOptimize(n);
   }
 }
-BENCHMARK(BM_ReduceSeq);
-
-void BM_ReducePar(benchmark::State& state) {
-  const LidarScan scan = MakeTestScan({1024, 64});
-  SweepGrid grid(scan.size());
-
-  for (auto _ : state) {
-    auto n = grid.Reduce(scan, true);
-    benchmark::DoNotOptimize(n);
-  }
-}
-BENCHMARK(BM_ReducePar);
+BENCHMARK(BM_Reduce)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
 void BM_Filter(benchmark::State& state) {
-  const LidarScan scan = MakeTestScan({1024, 64});
+  const auto scan = MakeTestScan({1024, 64});
   SweepGrid grid(scan.size());
-  grid.Reduce(scan, true);
+  grid.Reduce(scan);
 
   for (auto _ : state) {
     const auto n = grid.Filter();

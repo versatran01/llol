@@ -1,6 +1,7 @@
 #include "sv/llol/lidar.h"
 
 #include <fmt/core.h>
+#include <glog/logging.h>
 
 #include "sv/util/ocv.h"
 
@@ -12,13 +13,19 @@ LidarModel::LidarModel(const cv::Size& size, float hfov) : size{size} {
     hfov = kTauF / size.aspectRatio();
   }
 
+  CHECK_GT(size.width, 0);
+  CHECK_GT(size.height, 0);
+  CHECK_LE(hfov, Deg2Rad(120.0));
+
   elev_max = hfov / 2.0F;
   elev_delta = hfov / (size.height - 1);
   azim_delta = kTauF / size.width;
+
   elevs.resize(size.height);
   for (int i = 0; i < size.height; ++i) {
     elevs[i] = SinCosF{elev_max - i * elev_delta};
   }
+
   azims.resize(size.width);
   for (int i = 0; i < size.width; ++i) {
     azims[i] = SinCosF{kTauF - i * azim_delta};

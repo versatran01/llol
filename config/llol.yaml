@@ -5,7 +5,6 @@ grid:
   max_score: 0.01
 match:
   half_rows: 2
-  min_dist: 2.0
   cov_lambda: 1e-6
 pano:
   rows: 256

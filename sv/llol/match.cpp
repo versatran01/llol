@@ -9,6 +9,10 @@
 
 namespace sv {
 
+bool PointInSize(const cv::Point& p, const cv::Size& size) {
+  return std::abs(p.x) <= size.width && std::abs(p.y) << size.height;
+}
+
 void PointMatch::SqrtInfo(float lambda) {
   Eigen::Matrix3f cov = mc_p.Covar();
   cov.diagonal().array() += lambda;
@@ -68,61 +72,52 @@ void PanoWinMeanCovar(const DepthPano& pano,
   }
 }
 
-std::string MatcherParams::Repr() const {
-  return fmt::format("half_rows={}, min_dist={}, cov_lambda={}",
-                     half_rows,
-                     min_dist,
-                     cov_lambda);
-}
-
 /// ProjMatcher ================================================================
 ProjMatcher::ProjMatcher(const cv::Size& grid_size, const MatcherParams& params)
-    : grid_size{grid_size}, params{params} {
+    : grid_size{grid_size}, cov_lambda{params.cov_lambda} {
+  // Pano win size, for now width is twice the height
   pano_win_size.height = params.half_rows * 2 + 1;
   pano_win_size.width = pano_win_size.height * 2 + 1;
-  min_pts = params.half_rows * pano_win_size.width;
+  min_pts = (params.half_rows + 1) * pano_win_size.width;
+  max_dist_size = pano_win_size / 4;
 
   matches.resize(grid_size.area());
 }
 
 std::string ProjMatcher::Repr() const {
   return fmt::format(
-      "ProjMatcher(max_matches={}, win_size={}, min_pts={}, params=({}))",
-      matches.capacity(),
-      sv::Repr(pano_win_size),
+      "ProjMatcher(max_matches={}, grid_size={}, cov_lamda={}, min_pts={}, "
+      "pano_win_size={}, max_dist_size={})",
+      matches.size(),
+      sv::Repr(grid_size),
+      cov_lambda,
       min_pts,
-      params.Repr());
+      sv::Repr(pano_win_size),
+      sv::Repr(max_dist_size));
 }
 
 int ProjMatcher::Match(const LidarSweep& sweep,
                        const SweepGrid& grid,
                        const DepthPano& pano,
-                       bool tbb) {
+                       int gsize) {
   CHECK_EQ(matches.size(), grid.size().area());
   CHECK_EQ(grid_size.width, grid.size().width);
   CHECK_EQ(grid_size.height, grid.size().height);
 
   const auto rows = grid.size().height;
+  gsize = gsize <= 0 ? rows : gsize;
+  CHECK_GE(gsize, 1);
 
-  int n = 0;
-  if (tbb) {
-    n = tbb::parallel_reduce(
-        tbb::blocked_range<int>(0, rows),
-        0,
-        [&](const auto& block, int total) {
-          for (int gr = block.begin(); gr < block.end(); ++gr) {
-            total += MatchRow(sweep, grid, pano, gr);
-          }
-          return total;
-        },
-        std::plus<>{});
-  } else {
-    for (int gr = 0; gr < rows; ++gr) {
-      n += MatchRow(sweep, grid, pano, gr);
-    }
-  }
-
-  return n;
+  return tbb::parallel_reduce(
+      tbb::blocked_range<int>(0, rows, gsize),
+      0,
+      [&](const auto& block, int n) {
+        for (int gr = block.begin(); gr < block.end(); ++gr) {
+          n += MatchRow(sweep, grid, pano, gr);
+        }
+        return n;
+      },
+      std::plus<>{});
 }
 
 int ProjMatcher::MatchRow(const LidarSweep& sweep,
@@ -130,8 +125,8 @@ int ProjMatcher::MatchRow(const LidarSweep& sweep,
                           const DepthPano& pano,
                           int gr) {
   int n = 0;
-  // Note that here we use width instead of col_range, which means we will redo
-  // earlier matches
+  // Note that here we use width instead of col_range, which means we will
+  // revisit earlier matches in the current sweep
   for (int gc = 0; gc < grid.width(); ++gc) {
     if (grid.MaskAt({gc, gr}) == 0) continue;
     n += MatchCell(sweep, grid, pano, {gc, gr});
@@ -148,7 +143,7 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
 
   // Record sweep px
   match.px_s = grid.Grid2Sweep(px_g);
-  match.px_s.x += grid.cell_size().width / 2;
+  match.px_s.x += grid.cell_size.width / 2;  // TODO (chao): hide cell_size?
 
   // Compute normal dist around sweep cell (if it is not already computed)
   if (!match.mc_s.ok()) {
@@ -170,10 +165,9 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
 
   // Check distance between new pix and old pix
   const auto px_diff = px_p - match.px_p;
-  const auto px_dist2 = px_diff.x * px_diff.x + px_diff.y * px_diff.y;
 
-  // If new and old are too far and mc not ok, recompute
-  if (px_dist2 > params.min_dist * params.min_dist || !match.mc_p.ok()) {
+  // If new and old are too far or mc not ok, recompute
+  if (!PointInSize(px_diff, max_dist_size) || !match.mc_p.ok()) {
     // Compute normal dist around pano point
     match.px_p = px_p;
     match.mc_p.Reset();
@@ -186,7 +180,7 @@ int ProjMatcher::MatchCell(const LidarSweep& sweep,
       return 0;
     }
     // Otherwise compute U'U = inv(C + lambda * I)
-    match.SqrtInfo(params.cov_lambda);
+    match.SqrtInfo(cov_lambda);
   }
 
   return 1;

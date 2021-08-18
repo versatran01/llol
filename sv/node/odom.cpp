@@ -61,7 +61,7 @@ class OdomNode {
   std::optional<TransformStamped> tf_imu_lidar_;
 
   bool vis_{};
-  bool tbb_{};
+  int tbb_{};
   bool init_{false};
 
   LidarSweep sweep_;
@@ -89,8 +89,8 @@ class OdomNode {
     vis_ = pnh_.param<bool>("vis", true);
     ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
 
-    tbb_ = pnh_.param<bool>("tbb", false);
-    ROS_INFO_STREAM("Use tbb: " << (tbb_ ? "True" : "False"));
+    tbb_ = pnh_.param<int>("tbb", 0);
+    ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
     auto pano_nh = ros::NodeHandle{pnh_, "pano"};
     const auto pano_rows = pano_nh.param<int>("rows", 256);
@@ -138,8 +138,8 @@ class OdomNode {
     GridParams gp;
     gp.cell_rows = gnh.param<int>("cell_rows", 2);
     gp.cell_cols = gnh.param<int>("cell_cols", 16);
-    gp.nms = gnh.param<bool>("nms", false);
     gp.max_score = gnh.param<double>("max_score", 0.05);
+    gp.nms = gnh.param<bool>("nms", false);
     grid_ = SweepGrid(sweep_.size(), gp);
     ROS_INFO_STREAM(grid_);
 
@@ -147,7 +147,7 @@ class OdomNode {
     auto mnh = ros::NodeHandle{pnh_, "match"};
     MatcherParams mp;
     mp.half_rows = mnh.param<int>("half_rows", 2);
-    mp.min_dist = mnh.param<double>("min_dist", 2.0);
+    mp.cov_lambda = mnh.param<double>("cov_lambda", 1e-6);
     matcher_ = ProjMatcher(grid_.size(), mp);
     ROS_INFO_STREAM(matcher_);
 
@@ -293,7 +293,7 @@ class OdomNode {
       // Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
     }
 
-    // Reset matcher
+    // Reset everything
     matcher_.Reset();
   }
 
@@ -361,9 +361,6 @@ class OdomNode {
     /// Got a full sweep
     if (cinfo_msg->binning_x + 1 == cinfo_msg->binning_y) {
       Postprocess();
-
-      // Reset everything
-      matcher_.Reset();
 
       static Cloud pano_cloud;
       std_msgs::Header pano_header;

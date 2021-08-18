@@ -18,7 +18,7 @@ struct LidarScan {
   LidarScan() = default;
 
   /// @brief Ctor for allocating storage
-  LidarScan(const cv::Size& size) : xyzr{size, kDtype} {}
+  explicit LidarScan(const cv::Size& size) : xyzr{size, kDtype} {}
 
   /// @brief Ctor for incoming lidar scan
   LidarScan(double t0,

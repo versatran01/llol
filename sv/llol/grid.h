@@ -7,22 +7,21 @@ namespace sv {
 struct GridParams {
   int cell_rows{2};
   int cell_cols{16};
-  float max_score{0.1};  // cell score larger will be discarded
-  bool nms{true};        // non-minimum suppression in grid after score thresh
-
-  std::string Repr() const;
-  friend std::ostream& operator<<(std::ostream& os, const GridParams& rhs) {
-    return os << rhs.Repr();
-  }
+  float max_score{0.01};  // score > max_score will be discarded
+  bool nms{true};         // non-minimum suppression in Filter()
 };
 
 /// @struct Sweep Grid summarizes sweep into reduced-sized grid
 struct SweepGrid {
+  /// Params
+  cv::Size cell_size{16, 2};
+  float max_score{0.01};
+  bool nms{true};
+
   /// Data
-  GridParams params{};
   cv::Range col_rg{};                // working range in this grid
-  cv::Mat score;                     // smoothness score, smaller the better
-  cv::Mat mask;                      // 1 means potential good match
+  cv::Mat score;                     // smoothness score, smaller is smoother
+  cv::Mat mask;                      // binary mask of match candidates
   std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano
 
   SweepGrid() = default;
@@ -34,8 +33,9 @@ struct SweepGrid {
   }
 
   /// @brief Reduce scan into score grid
+  /// @param gsize is number of rows per task, <=0 means single thread
   /// @return Number of valid cells (not NaN)
-  int Reduce(const LidarScan& scan, bool tbb = false);
+  int Reduce(const LidarScan& scan, int gsize = 0);
   int ReduceRow(const LidarScan& scan, int r);
 
   /// @brief Filter score grid given max_score and nms
@@ -64,9 +64,6 @@ struct SweepGrid {
   int width() const noexcept { return col_rg.end; }
   bool full() const noexcept { return width() == score.cols; }
   cv::Size size() const noexcept { return {score.cols, score.rows}; }
-  cv::Size cell_size() const noexcept {
-    return {params.cell_cols, params.cell_rows};
-  }
 };
 
 }  // namespace sv
