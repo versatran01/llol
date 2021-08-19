@@ -204,20 +204,19 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 }
 
 bool OdomNode::Register(const std_msgs::Header& header) {
-  {  /// Query grid poses
-     //    auto _ = tm_.Scoped("Traj.GridPose");
-    for (int i = 0; i < grid_.tf_p_s.size(); ++i) {
-      grid_.tf_p_s[i] = T_p_s_.cast<float>();
-    }
+  /// Query grid poses
+  //    auto _ = tm_.Scoped("Traj.GridPose");
+  for (int i = 0; i < grid_.tf_p_s.size(); ++i) {
+    grid_.tf_p_s[i] = T_p_s_.cast<float>();
   }
 
-  int num_matches = 0;
+  int n_matches = 0;
   {  /// Match Features
     auto _ = tm_.Scoped("Matcher.Match");
-    num_matches = matcher_.Match(grid_, pano_, tbb_);
+    n_matches = matcher_.Match(grid_, pano_, tbb_);
   }
 
-  ROS_INFO_STREAM("Num matches: " << num_matches);
+  ROS_INFO_STREAM("Num matches: " << n_matches);
 
   if (vis_) {
     // display good match
@@ -240,14 +239,20 @@ bool OdomNode::Register(const std_msgs::Header& header) {
 
   {  /// Build problem
     auto _ = tm_.Scoped("Icp.Build");
-    for (const auto& match : grid_.matches) {
-      if (!match.Ok()) continue;
-      auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
-                                               IcpFactorBase::kNumResiduals,
-                                               IcpFactorBase::kNumParams>(
-          new GicpFactor2(match));
-      problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
-    }
+    //    for (const auto& match : grid_.matches) {
+    //      if (!match.Ok()) continue;
+    //      auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
+    //                                               IcpFactorBase::kNumResiduals,
+    //                                               IcpFactorBase::kNumParams>(
+    //          new GicpFactor2(match));
+    //      problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
+    //    }
+    auto* cost = new cs::AutoDiffCostFunction<GicpFactor3,
+                                              cs::DYNAMIC,
+                                              IcpFactorBase::kNumParams>(
+        new GicpFactor3(grid_, n_matches),
+        n_matches * IcpFactorBase::kNumResiduals);
+    problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
   }
 
   cs::Solver::Options solver_opt;
@@ -265,11 +270,10 @@ bool OdomNode::Register(const std_msgs::Header& header) {
 }
 
 void OdomNode::Postprocess() {
-  {  /// Query pose again
-     //    auto _ = tm_.Scoped("Traj.SweepPose");
-    for (int i = 0; i < sweep_.tf_p_s.size(); ++i) {
-      sweep_.tf_p_s[i] = T_p_s_.cast<float>();
-    }
+  /// Query pose again
+  //    auto _ = tm_.Scoped("Traj.SweepPose");
+  for (int i = 0; i < sweep_.tf_p_s.size(); ++i) {
+    sweep_.tf_p_s[i] = T_p_s_.cast<float>();
   }
 
   int num_added = 0;
@@ -383,4 +387,5 @@ int main(int argc, char** argv) {
   ros::init(argc, argv, "llol_node");
   sv::OdomNode node(ros::NodeHandle("~"));
   ros::spin();
+  return 0;
 }

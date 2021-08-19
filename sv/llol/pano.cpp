@@ -51,15 +51,14 @@ cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
   return WinCenterAt(pt, win_size) & bound;
 }
 
-int DepthPano::Add(const LidarSweep& sweep, int tbb_rows) {
+int DepthPano::Add(const LidarSweep& sweep, int gsize) {
   CHECK(sweep.full());
 
   const int sweep_rows = sweep.size().height;
-  tbb_rows = tbb_rows <= 0 ? sweep_rows : tbb_rows;
-  CHECK_GE(tbb_rows, 1);
+  gsize = gsize <= 0 ? sweep_rows : gsize;
 
   return tbb::parallel_reduce(
-      tbb::blocked_range<int>(0, sweep_rows, tbb_rows),
+      tbb::blocked_range<int>(0, sweep_rows, gsize),
       0,
       [&](const auto& block, int n) {
         for (int sr = block.begin(); sr < block.end(); ++sr) {
@@ -98,7 +97,7 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   auto& p = dbuf.at<DepthPixel>(px);
 
   // If current pixel is empty, then add to it but set it to half of max
-  if (p.raw == 0) {
+  if (p.raw == 0 || p.cnt == 0) {
     p.SetMeter(rg);
     p.cnt = max_cnt / 2;
     return true;

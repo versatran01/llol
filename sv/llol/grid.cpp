@@ -39,7 +39,8 @@ float CalcCellCurve(const LidarScan& scan, const cv::Point& px, int width) {
   float sum = 0.0F;
 
   const int half = width / 2;
-  const auto mid = scan.RangeAt({px.x + half, px.y});
+  const auto mid = std::min(scan.RangeAt({px.x + half - 1, px.y}),
+                            scan.RangeAt({px.x + half, px.y}));
   if (std::isnan(mid)) return kNaNF;
 
   for (int c = 0; c < width; ++c) {
@@ -193,11 +194,8 @@ int SweepGrid::ReduceRow(const LidarScan& scan, int r) {
     // Skip if cell is not good
     if (!IsCellGood(px_g)) continue;
 
-    const auto cell = SweepCell({c, r});
-    CHECK_LE(cell.x + cell.width, scan.xyzr.cols);
-    CHECK_LE(cell.y + cell.height, scan.xyzr.rows);
-
     auto& match = MatchAt(px_g);
+    const auto cell = SweepCell({c, r});
     ScanCellMeanCovar(scan, cell, match.mc_s);
 
     // Set px_s to sweep px, so use px_g

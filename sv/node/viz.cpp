@@ -43,21 +43,10 @@ void Grid2Markers(const SweepGrid& grid,
   pano_mk.header = header;
   pano_mk.ns = "match_pano";
   pano_mk.type = Marker::SPHERE;
-  pano_mk.action = Marker::ADD;
   pano_mk.color.a = 0.5;
   pano_mk.color.r = 0.0;
   pano_mk.color.g = 1.0;
   pano_mk.color.b = 0.0;
-
-  //  Marker sweep_mk;
-  //  sweep_mk.header = header;
-  //  sweep_mk.ns = "match_sweep";
-  //  sweep_mk.type = Marker::SPHERE;
-  //  sweep_mk.action = Marker::ADD;
-  //  sweep_mk.color.a = 0.5;
-  //  sweep_mk.color.r = 1.0;
-  //  sweep_mk.color.g = 0.0;
-  //  sweep_mk.color.b = 0.0;
 
   Eigen::Matrix3f covar;
 
@@ -70,6 +59,7 @@ void Grid2Markers(const SweepGrid& grid,
       pano_mk.id = i;
 
       if (match.Ok()) {
+        pano_mk.action = Marker::ADD;
         covar = match.mc_p.Covar();
         covar.diagonal().array() += 1e-6;
         es.compute(covar);

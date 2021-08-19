@@ -70,18 +70,34 @@ struct GicpFactor2 final : public IcpFactorBase {
 };
 
 // TODO (chao): implement a combined factor
-// struct GicpFactor3 final : public IcpFactorBase {
-//  GicpFactor3(const ProjMatcher& matcher);
+struct GicpFactor3 final : public IcpFactorBase {
+  GicpFactor3(const SweepGrid& grid, int size) : pgrid{&grid}, size{size} {}
 
-//  template <typename T>
-//  bool operator()(const T* const _T_p_s, T* _r) const noexcept {
-//    Eigen::Map<const Sophus::SE3<T>> T_p_s(_T_p_s);
-//    Eigen::Map<Vector3<T>> r(_r);
+  template <typename T>
+  bool operator()(const T* const _T_p_s, T* _r) const noexcept {
+    Eigen::Map<const Sophus::SE3<T>> T_p_s(_T_p_s);
+    const auto& grid = *pgrid;
 
-//    return true;
-//  }
+    int k = 0;
+    for (int r = 0; r < grid.size().height; ++r) {
+      for (int c = 0; c < grid.width(); ++c) {
+        const auto& match = grid.MatchAt({c, r});
+        if (!match.Ok()) continue;
 
-//  const ProjMatcher* matcher;
-//};
+        const Eigen::Matrix3d U = match.U.cast<double>();
+        const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+        const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
+        Eigen::Map<Vector3<T>> r(_r + kNumResiduals * k);
+        r = U * (pt_p - T_p_s * pt_s);
+        ++k;
+      }
+    }
+
+    return true;
+  }
+
+  const SweepGrid* pgrid;
+  int size{};
+};
 
 }  // namespace sv

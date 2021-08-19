@@ -9,7 +9,7 @@ namespace {
 TEST(MatcherTest, TestCtor) {
   ProjMatcher pm;
   EXPECT_EQ(pm.pano_win_size.height, 5);
-  EXPECT_EQ(pm.pano_win_size.width, 11);
+  EXPECT_EQ(pm.pano_win_size.width, 9);
 }
 
 TEST(MatcherTest, TestMatch) {
