@@ -37,7 +37,7 @@ int LidarSweep::Add(const LidarScan& scan) {
   return scan.xyzr.total();
 }
 
-void LidarSweep::Check(const LidarScan& scan) {
+void LidarSweep::Check(const LidarScan& scan) const {
   // Check scan type compatible
   CHECK_EQ(scan.xyzr.type(), xyzr.type());
   // Check rows match between scan and mat

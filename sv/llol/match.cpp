@@ -67,10 +67,7 @@ std::string ProjMatcher::Repr() const {
       sv::Repr(max_dist_size));
 }
 
-int ProjMatcher::Match(SweepGrid& grid,
-                       const LidarSweep& sweep,
-                       const DepthPano& pano,
-                       int gsize) {
+int ProjMatcher::Match(SweepGrid& grid, const DepthPano& pano, int gsize) {
   const auto rows = grid.size().height;
   gsize = gsize <= 0 ? rows : gsize;
   CHECK_GE(gsize, 1);
@@ -80,43 +77,41 @@ int ProjMatcher::Match(SweepGrid& grid,
       0,
       [&](const auto& blk, int n) {
         for (int gr = blk.begin(); gr < blk.end(); ++gr) {
-          n += MatchRow(grid, sweep, pano, gr);
+          n += MatchRow(grid, pano, gr);
         }
         return n;
       },
       std::plus<>{});
 }
 
-int ProjMatcher::MatchRow(SweepGrid& grid,
-                          const LidarSweep& sweep,
-                          const DepthPano& pano,
-                          int gr) {
+int ProjMatcher::MatchRow(SweepGrid& grid, const DepthPano& pano, int gr) {
   int n = 0;
   // Note that here we use width instead of col_range, which means we will
   // revisit earlier matches in the current sweep
   for (int gc = 0; gc < grid.width(); ++gc) {
-    if (grid.MaskAt({gc, gr}) == 0) continue;
-    n += MatchCell(grid, sweep, pano, {gc, gr});
+    n += MatchCell(grid, pano, {gc, gr});
   }
   return n;
 }
 
 int ProjMatcher::MatchCell(SweepGrid& grid,
-                           const LidarSweep& sweep,
                            const DepthPano& pano,
                            const cv::Point& px_g) {
+  if (grid.MaskAt(px_g) == 0) return 0;
+
   auto& match = grid.MatchAt(px_g);
+  CHECK(match.SweepOk());
 
   // Record sweep px
-  match.px_s = grid.Grid2Sweep(px_g);
-  match.px_s.x += grid.cell_size.width / 2;  // TODO (chao): hide cell_size?
+  //  match.px_s = grid.Grid2Sweep(px_g);
+  //  match.px_s.x += grid.cell_size.width / 2;  // TODO (chao): hide cell_size?
 
   // Compute normal dist around sweep cell (if it is not already computed)
   // TODO: maybe move this to grid
-  if (!match.mc_s.ok()) {
-    const auto cell = grid.SweepCell(px_g);
-    SweepCellMeanCovar(sweep, cell, match.mc_s);
-  }
+  //  if (!match.mc_s.ok()) {
+  //    const auto cell = grid.SweepCell(px_g);
+  //    SweepCellMeanCovar(sweep, cell, match.mc_s);
+  //  }
 
   // Transform to pano frame
   const Eigen::Vector3f pt_p = grid.tf_p_s.at(px_g.x) * match.mc_s.mean;
@@ -151,15 +146,5 @@ int ProjMatcher::MatchCell(SweepGrid& grid,
   match.SqrtInfo(cov_lambda);
   return 1;
 }
-
-// int ProjMatcher::NumMatches() const {
-//  int k = 0;
-//  for (int r = 0; r < size.height; ++r) {
-//    for (int c = 0; c < width; ++c) {
-//      k += matches[Grid2Ind({c, r})].ok();
-//    }
-//  }
-//  return k;
-//}
 
 }  // namespace sv

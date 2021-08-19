@@ -55,7 +55,7 @@ struct LidarSweep final : public LidarScan {
   /// @brief Add a scan to this sweep
   /// @return Number of points added
   int Add(const LidarScan& scan);
-  void Check(const LidarScan& scan);
+  void Check(const LidarScan& scan) const;
 
   /// @brief Info
   int width() const noexcept { return col_rg.end; }

@@ -9,22 +9,27 @@ namespace sv {
 struct NormalMatch {
   static constexpr int kBad = -100;
 
-  cv::Point px_s{kBad, kBad};  // 8
-  MeanCovar3f mc_s{};          // 52 sweep
-  cv::Point px_p{kBad, kBad};  // 8
-  MeanCovar3f mc_p{};          // 52 pano
-  Eigen::Matrix3f U{};         // 36
+  cv::Point px_s{kBad, kBad};  // 8 sweep pixel coord
+  MeanCovar3f mc_s{};          // 52 sweep mean covar
+  cv::Point px_p{kBad, kBad};  // 8 pano pixel coord
+  MeanCovar3f mc_p{};          // 52 pano mean covar
+  Eigen::Matrix3f U{};         // 36 sqrt of info
 
   /// @brief Whether this match is good
-  bool ok() const noexcept {
-    return px_s.x >= 0 && px_p.x >= 0 && mc_s.ok() && mc_p.ok();
-  }
+  bool Ok() const noexcept { return SweepOk() && PanoOk(); }
+  bool SweepOk() const { return px_s.x >= 0 && mc_s.ok(); }
+  bool PanoOk() const { return px_p.x >= 0 && mc_p.ok(); }
 
-  void SqrtInfo(float lambda = 0.0F);
+  void ResetSweep() {
+    px_s = {kBad, kBad};
+    mc_s.Reset();
+  }
   void ResetPano() {
     px_p = {kBad, kBad};
     mc_p.Reset();
   }
+
+  void SqrtInfo(float lambda = 0.0F);
 };
 
 struct GridParams {
@@ -59,13 +64,13 @@ struct SweepGrid {
   /// @brief Clear all matches, must be called on a new sweep
   void ResetMatches();
 
-  /// @brief Reduce and Filter
-  std::pair<int, int> Reduce(const LidarScan& scan, int gsize = 0);
-  void Check(const LidarScan& scan);
+  /// @brief Score, Filter and Reduce
+  std::pair<int, int> Add(const LidarScan& scan, int gsize = 0);
+  void Check(const LidarScan& scan) const;
 
-  /// @brief Reduce scan into score grid
+  /// @brief Score each cell of the incoming scan
   /// @param gsize is number of rows per task, <=0 means single thread
-  /// @return Number of valid cells (not NaN)
+  /// @return Number of valid cells
   int Score(const LidarScan& scan, int gsize = 0);
   int ScoreRow(const LidarScan& scan, int r);
 
@@ -74,6 +79,10 @@ struct SweepGrid {
   int Filter();
   /// @brief Check whether this cell is good or not for Filter()
   bool IsCellGood(const cv::Point& px) const;
+
+  /// @brief
+  void Reduce(const LidarScan& scan, int gisze = 0);
+  void ReduceRow(const LidarScan& scan, int r);
 
   /// @brief Rect in sweep corresponding to a cell
   cv::Rect SweepCell(const cv::Point& px) const;

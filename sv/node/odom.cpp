@@ -189,8 +189,8 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 
   std::pair<int, int> ncells;
   {  /// Reduce scan to grid and Filter
-    auto _ = tm_.Scoped("Grid.Reduce");
-    ncells = grid_.Reduce(scan, tbb_);
+    auto _ = tm_.Scoped("Grid.Add");
+    ncells = grid_.Add(scan, tbb_);
   }
   ROS_INFO_STREAM("Num cells: " << ncells.first);
   ROS_INFO_STREAM("Num cells after filter: " << ncells.second);
@@ -215,7 +215,7 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   int num_matches = 0;
   {  /// Match Features
     auto _ = tm_.Scoped("Matcher.Match");
-    num_matches = matcher_.Match(grid_, sweep_, pano_, tbb_);
+    num_matches = matcher_.Match(grid_, pano_, tbb_);
   }
 
   ROS_INFO_STREAM("Num matches: " << num_matches);
@@ -242,7 +242,7 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   {  /// Build problem
     auto _ = tm_.Scoped("Icp.Build");
     for (const auto& match : grid_.matches) {
-      if (!match.ok()) continue;
+      if (!match.Ok()) continue;
       auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
                                                IcpFactorBase::kNumResiduals,
                                                IcpFactorBase::kNumParams>(

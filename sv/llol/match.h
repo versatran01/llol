@@ -29,18 +29,9 @@ struct ProjMatcher {
 
   /// @brief Match features in sweep to pano using mask
   /// @return Number of final matches
-  int Match(SweepGrid& grid,
-            const LidarSweep& sweep,
-            const DepthPano& pano,
-            int gsize = 0);
-  int MatchRow(SweepGrid& grid,
-               const LidarSweep& sweep,
-               const DepthPano& pano,
-               int gr);
-  int MatchCell(SweepGrid& grid,
-                const LidarSweep& sweep,
-                const DepthPano& pano,
-                const cv::Point& gpx);
+  int Match(SweepGrid& grid, const DepthPano& pano, int gsize = 0);
+  int MatchRow(SweepGrid& grid, const DepthPano& pano, int gr);
+  int MatchCell(SweepGrid& grid, const DepthPano& pano, const cv::Point& gpx);
 };
 
 }  // namespace sv

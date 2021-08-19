@@ -61,10 +61,12 @@ void Match2Markers(const std::vector<NormalMatch>& matches,
 
   Eigen::Matrix3f covar;
 
-  // TODO (chao): only draw matches up to width
+  // TODO (chao): only draw matches up to width?
+  // TODO (chao): use tbb
+  // TODO (chao): also need to remove bad match
   for (int i = 0; i < matches.size(); ++i) {
     const auto& match = matches[i];
-    if (!match.ok()) continue;
+    if (!match.Ok()) continue;
 
     covar = match.mc_p.Covar();
     covar.diagonal().array() += 1e-6;

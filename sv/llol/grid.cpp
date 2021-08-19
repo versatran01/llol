@@ -3,12 +3,26 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 #include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 
 #include "sv/util/math.h"
 #include "sv/util/ocv.h"
 
 namespace sv {
+
+void ScanCellMeanCovar(const LidarScan& scan,
+                       const cv::Rect& cell,
+                       MeanCovar3f& mc) {
+  // TODO (chao): for now only take first row of cell due to staggered scan
+  //  for (int r = 0; r < cell.height; ++r) {
+  for (int c = 0; c < cell.width; ++c) {
+    const auto& xyzr = scan.XyzrAt({cell.x + c, cell.y});
+    if (std::isnan(xyzr[0])) continue;
+    mc.Add({xyzr[0], xyzr[1], xyzr[2]});
+  }
+  //  }
+}
 
 void NormalMatch::SqrtInfo(float lambda) {
   Eigen::Matrix3f cov = mc_p.Covar();
@@ -44,7 +58,7 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
     : cell_size{params.cell_cols, params.cell_rows},
       max_score{params.max_score},
       nms{params.nms},
-      score{sweep_size / cell_size, CV_32FC1},
+      score{sweep_size / cell_size, CV_32FC1, kNaNF},
       mask{sweep_size / cell_size, CV_8UC1} {
   CHECK_GT(max_score, 0);
   CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
@@ -70,16 +84,20 @@ void SweepGrid::ResetMatches() {
   matches.resize(total());
 }
 
-std::pair<int, int> SweepGrid::Reduce(const LidarScan& scan, int gsize) {
+std::pair<int, int> SweepGrid::Add(const LidarScan& scan, int gsize) {
   Check(scan);
 
-  if (scan.col_rg.start == 0) ResetMatches();
+  // Reset matches at start of sweep
+  if (scan.col_rg.start == 0) {
+    ResetMatches();
+  }
   const int n1 = Score(scan, gsize);
   const int n2 = Filter();
+  Reduce(scan, gsize);
   return {n1, n2};
 }
 
-void SweepGrid::Check(const LidarScan& scan) {
+void SweepGrid::Check(const LidarScan& scan) const {
   // scans row must match grid rows
   CHECK_EQ(scan.xyzr.rows, score.rows * cell_size.height);
   // scan start must match current end
@@ -106,14 +124,17 @@ int SweepGrid::Score(const LidarScan& scan, int gsize) {
 
 int SweepGrid::ScoreRow(const LidarScan& scan, int r) {
   int n = 0;
-  for (int c = col_rg.start; c < col_rg.end; ++c) {
-    const cv::Point px_g{c, r};
-    const auto px_s = Grid2Sweep(px_g);
+  // Note that scan is not sweep, so we need to start from 0
+  for (int c = 0; c < col_rg.size(); ++c) {
+    const auto px_s = Grid2Sweep({c, r});
     // Note that we only take the first row regardless of row size
     // this is because ouster lidar image is staggered.
     // Maybe we will handle it later
+    CHECK_LT(px_s.x, scan.xyzr.cols);
+    CHECK_LT(px_s.y, scan.xyzr.rows);
+
     const auto curve = CalcCellCurve(scan, px_s, cell_size.width);
-    ScoreAt(px_g) = curve;
+    ScoreAt({c + col_rg.start, r}) = curve;
     n += static_cast<int>(!std::isnan(curve));
   }
   return n;
@@ -122,9 +143,9 @@ int SweepGrid::ScoreRow(const LidarScan& scan, int r) {
 int SweepGrid::Filter() {
   int n = 0;
   const int pad = static_cast<int>(nms);
-  for (int gr = 0; gr < mask.rows; ++gr) {
+  for (int r = 0; r < mask.rows; ++r) {
     for (int gc = col_rg.start + pad; gc < col_rg.end - pad; ++gc) {
-      const cv::Point px{gc, gr};
+      const cv::Point px{gc, r};
       const int good = static_cast<int>(IsCellGood(px));
       MaskAt(px) = good;
       n += good;
@@ -153,6 +174,38 @@ bool SweepGrid::IsCellGood(const cv::Point& px) const {
   }
 
   return true;
+}
+
+void SweepGrid::Reduce(const LidarScan& scan, int gsize) {
+  gsize = gsize <= 0 ? mask.rows : gsize;
+
+  tbb::parallel_for(tbb::blocked_range<int>(0, mask.rows, gsize),
+                    [&](const auto& blk) {
+                      for (int r = blk.begin(); r < blk.end(); ++r) {
+                        ReduceRow(scan, r);
+                      }
+                    });
+}
+
+void SweepGrid::ReduceRow(const LidarScan& scan, int r) {
+  // Note that scan is not sweep, so we need to start from 0
+  for (int c = 0; c < col_rg.size(); ++c) {
+    // px_g is for grid, so is offset by col_rg
+    const cv::Point px_g{c + col_rg.start, r};
+    // Skip if mask is 0
+    if (MaskAt(px_g) == 0) continue;
+
+    const auto cell = SweepCell({c, r});
+    CHECK_LE(cell.x + cell.width, scan.xyzr.cols);
+    CHECK_LE(cell.y + cell.height, scan.xyzr.rows);
+
+    auto& match = MatchAt(px_g);
+    ScanCellMeanCovar(scan, cell, match.mc_s);
+
+    // Set px_s to sweep px, so use px_g
+    match.px_s = Grid2Sweep(px_g);
+    match.px_s.x += cell_size.width / 2;
+  }
 }
 
 cv::Point SweepGrid::Sweep2Grid(const cv::Point& px_sweep) const {
