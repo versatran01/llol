@@ -10,6 +10,12 @@
 
 namespace sv {
 
+void NormalMatch::SqrtInfo(float lambda) {
+  Eigen::Matrix3f cov = mc_p.Covar();
+  cov.diagonal().array() += lambda;
+  U = MatrixSqrtUtU(cov.inverse().eval());
+}
+
 static constexpr float kValidCellRatio = 0.8;
 
 /// @brief Compute scan curvature starting from px with size (width, 1)
@@ -44,6 +50,7 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
   CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
   CHECK_EQ(cell_size.height * score.rows, sweep_size.height);
   tf_p_s.resize(score.cols);
+  matches.resize(total());
 }
 
 std::string SweepGrid::Repr() const {
@@ -58,30 +65,46 @@ std::string SweepGrid::Repr() const {
       sv::Repr(mask));
 }
 
-int SweepGrid::Reduce(const LidarScan& scan, int gsize) {
-  // Check
-  CHECK_EQ(scan.col_rg.start, full() ? 0 : col_rg.end * cell_size.width);
-  CHECK_EQ(score.rows * cell_size.height, scan.xyzr.rows);
+void SweepGrid::ResetMatches() {
+  matches.clear();
+  matches.resize(total());
+}
 
+std::pair<int, int> SweepGrid::Reduce(const LidarScan& scan, int gsize) {
+  Check(scan);
+
+  if (scan.col_rg.start == 0) ResetMatches();
+  const int n1 = Score(scan, gsize);
+  const int n2 = Filter();
+  return {n1, n2};
+}
+
+void SweepGrid::Check(const LidarScan& scan) {
+  // scans row must match grid rows
+  CHECK_EQ(scan.xyzr.rows, score.rows * cell_size.height);
+  // scan start must match current end
+  CHECK_EQ(scan.col_rg.start, full() ? 0 : width() * cell_size.width);
+  // scan end must not excced grid cols
+  CHECK_LE(scan.col_rg.end, score.cols * cell_size.width);
+}
+
+int SweepGrid::Score(const LidarScan& scan, int gsize) {
   col_rg = scan.col_rg / cell_size.width;
-  CHECK_LE(col_rg.end, score.cols);
-
   gsize = gsize <= 0 ? score.rows : gsize;
-  CHECK_GE(gsize, 1);
 
   return tbb::parallel_reduce(
       tbb::blocked_range<int>(0, score.rows, gsize),
       0,
       [&](const auto& block, int n) {
         for (int r = block.begin(); r < block.end(); ++r) {
-          n += ReduceRow(scan, r);
+          n += ScoreRow(scan, r);
         }
         return n;
       },
       std::plus<>{});
 }
 
-int SweepGrid::ReduceRow(const LidarScan& scan, int r) {
+int SweepGrid::ScoreRow(const LidarScan& scan, int r) {
   int n = 0;
   for (int c = col_rg.start; c < col_rg.end; ++c) {
     const cv::Point px_g{c, r};
@@ -113,7 +136,7 @@ int SweepGrid::Filter() {
 cv::Rect SweepGrid::SweepCell(const cv::Point& px) const {
   const int sr = px.y * cell_size.height;
   const int sc = px.x * cell_size.width;
-  return {sc, sr, cell_size.width, 1};
+  return {{sc, sr}, cell_size};
 }
 
 bool SweepGrid::IsCellGood(const cv::Point& px) const {
@@ -142,6 +165,17 @@ cv::Point SweepGrid::Grid2Sweep(const cv::Point& px_grid) const {
 
 int SweepGrid::Grid2Ind(const cv::Point& px_grid) const {
   return px_grid.y * score.cols + px_grid.x;
+}
+
+cv::Mat DrawMatches(const SweepGrid& grid) {
+  cv::Mat disp(grid.size(), CV_32FC1, kNaNF);
+
+  for (const auto& match : grid.matches) {
+    const auto px_g = grid.Sweep2Grid(match.px_s);
+    if (px_g.x >= grid.width()) continue;
+    disp.at<float>(px_g) = match.mc_p.n;
+  }
+  return disp;
 }
 
 }  // namespace sv

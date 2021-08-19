@@ -51,7 +51,7 @@ cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
   return WinCenterAt(pt, win_size) & bound;
 }
 
-int DepthPano::AddSweep(const LidarSweep& sweep, int tbb_rows) {
+int DepthPano::Add(const LidarSweep& sweep, int tbb_rows) {
   CHECK(sweep.full());
 
   const int sweep_rows = sweep.size().height;
@@ -63,14 +63,14 @@ int DepthPano::AddSweep(const LidarSweep& sweep, int tbb_rows) {
       0,
       [&](const auto& block, int n) {
         for (int sr = block.begin(); sr < block.end(); ++sr) {
-          n += AddSweepRow(sweep, sr);
+          n += AddRow(sweep, sr);
         }
         return n;
       },
       std::plus<>{});
 }
 
-int DepthPano::AddSweepRow(const LidarSweep& sweep, int sr) {
+int DepthPano::AddRow(const LidarSweep& sweep, int sr) {
   int n = 0;
 
   const int sweep_cols = sweep.xyzr.cols;

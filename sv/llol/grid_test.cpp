@@ -18,24 +18,32 @@ TEST(GridTest, TestCtor) {
   std::cout << grid << std::endl;
 }
 
+TEST(GridTest, TestConversion) {
+  const SweepGrid grid({1024, 64});
+  EXPECT_EQ(grid.Sweep2Grid({0, 0}), cv::Point(0, 0));
+  EXPECT_EQ(grid.Sweep2Grid({1, 1}), cv::Point(0, 0));
+  EXPECT_EQ(grid.Grid2Sweep({0, 0}), cv::Point(0, 0));
+  EXPECT_EQ(grid.Grid2Sweep({1, 1}), cv::Point(16, 2));
+}
+
 TEST(GridTest, TestReduce) {
   SweepGrid grid({1024, 64});
 
   auto scan = MakeTestScan({512, 64});
   scan.col_rg = {0, 512};
-  const auto n1 = grid.Reduce(scan);
+  const auto n1 = grid.Score(scan);
   EXPECT_EQ(n1, 1024);
   EXPECT_EQ(grid.width(), 32);
   std::cout << grid << std::endl;
 
   scan.col_rg = {512, 1024};
-  const auto n2 = grid.Reduce(scan);
+  const auto n2 = grid.Score(scan);
   EXPECT_EQ(n2, 1024);
   EXPECT_EQ(grid.width(), 64);
   std::cout << grid << std::endl;
 
   scan.col_rg = {0, 512};
-  const auto n3 = grid.Reduce(scan);
+  const auto n3 = grid.Score(scan);
   EXPECT_EQ(n3, 1024);
   EXPECT_EQ(grid.width(), 32);
   std::cout << grid << std::endl;
@@ -47,7 +55,7 @@ void BM_Reduce(benchmark::State& state) {
   const int gsize = state.range(0);
 
   for (auto _ : state) {
-    auto n = grid.Reduce(scan, gsize);
+    auto n = grid.Score(scan, gsize);
     benchmark::DoNotOptimize(n);
   }
 }
@@ -56,7 +64,7 @@ BENCHMARK(BM_Reduce)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 void BM_Filter(benchmark::State& state) {
   const auto scan = MakeTestScan({1024, 64});
   SweepGrid grid(scan.size());
-  grid.Reduce(scan);
+  grid.Score(scan);
 
   for (auto _ : state) {
     const auto n = grid.Filter();

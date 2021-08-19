@@ -1,8 +1,5 @@
 #pragma once
 
-#include <opencv2/core/mat.hpp>
-#include <sophus/se3.hpp>
-
 #include "sv/llol/lidar.h"
 #include "sv/llol/scan.h"
 
@@ -61,8 +58,8 @@ struct DepthPano {
   cv::Rect BoundWinCenterAt(const cv::Point& pt, const cv::Size& size) const;
 
   /// @brief Add a sweep to the pano
-  int AddSweep(const LidarSweep& sweep, int tbb_rows = 0);
-  int AddSweepRow(const LidarSweep& sweep, int row);
+  int Add(const LidarSweep& sweep, int tbb_rows = 0);
+  int AddRow(const LidarSweep& sweep, int row);
   bool FuseDepth(const cv::Point& px, float rg);
 
   /// @brief Render pano at a new location

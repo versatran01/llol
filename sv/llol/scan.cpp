@@ -20,20 +20,9 @@ LidarScan::LidarScan(double t0,
 }
 
 /// LidarSweep =================================================================
-int LidarSweep::AddScan(const LidarScan& scan) {
-  // Check scan type compatible
-  CHECK_EQ(scan.xyzr.type(), xyzr.type());
-  // Check rows match between scan and mat
-  CHECK_EQ(scan.xyzr.rows, xyzr.rows);
-  // Check scan width is not bigger than sweep
-  CHECK_LE(scan.xyzr.cols, xyzr.cols);
-  CHECK_LE(scan.col_rg.end, xyzr.cols);
-  // Check that the new scan start right after
-  CHECK_EQ(scan.col_rg.start, full() ? 0 : col_rg.end);
-  // Check dt is consistent, assume it stays the same
+int LidarSweep::Add(const LidarScan& scan) {
   if (dt == 0) dt = scan.dt;
-  CHECK_EQ(dt, scan.dt);
-  CHECK_GT(dt, 0);
+  Check(scan);
 
   // Increment id when we got a new sweep (indicated by the starting col of the
   // incoming scan being 0)
@@ -46,6 +35,24 @@ int LidarSweep::AddScan(const LidarScan& scan) {
   col_rg = scan.col_rg;
   scan.xyzr.copyTo(xyzr.colRange(col_rg));  // x,y,w,h
   return scan.xyzr.total();
+}
+
+void LidarSweep::Check(const LidarScan& scan) {
+  // Check scan type compatible
+  CHECK_EQ(scan.xyzr.type(), xyzr.type());
+  // Check rows match between scan and mat
+  CHECK_EQ(scan.xyzr.rows, xyzr.rows);
+  // Check scan width is not bigger than sweep
+  CHECK_LE(scan.xyzr.cols, xyzr.cols);
+  CHECK_LE(scan.col_rg.end, xyzr.cols);
+  // Check that the new scan start right after
+  CHECK_EQ(scan.col_rg.start, full() ? 0 : width());
+
+  // Check dt is consistent, assume it stays the same
+  CHECK_EQ(dt, scan.dt);
+  CHECK_GT(dt, 0);
+  // Check time does not go back
+  CHECK_GE(scan.t0, t0);
 }
 
 LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
@@ -93,7 +100,7 @@ LidarScan MakeTestScan(const cv::Size& size) {
 LidarSweep MakeTestSweep(const cv::Size& size) {
   LidarSweep sweep(size);
   LidarScan scan = MakeTestScan(size);
-  sweep.AddScan(scan);
+  sweep.Add(scan);
   return sweep;
 }
 

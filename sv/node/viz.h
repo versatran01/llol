@@ -7,7 +7,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "sv/llol/match.h"
+#include "sv/llol/grid.h"
 #include "sv/llol/pano.h"
 
 namespace sv {
@@ -33,7 +33,7 @@ void MeanCovar2Marker(visualization_msgs::Marker& marker,
                       Eigen::Matrix3d eigvecs,
                       double scale = 1.0);
 
-void Match2Markers(const std::vector<PointMatch>& matches,
+void Match2Markers(const std::vector<NormalMatch>& matches,
                    const std_msgs::Header& header,
                    std::vector<visualization_msgs::Marker>& markers);
 

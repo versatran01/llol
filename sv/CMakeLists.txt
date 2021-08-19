@@ -142,7 +142,7 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_library(
     NAME node_viz
     SRCS "node/viz.cpp"
-    DEPS sv_llol_match sv_llol_pano sv_ros1)
+    DEPS sv_llol_grid sv_llol_pano sv_ros1)
 
   cc_binary(
     NAME node_odom

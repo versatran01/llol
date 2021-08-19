@@ -1,30 +1,10 @@
 #pragma once
 
-#include <opencv2/core/mat.hpp>
-
 #include "sv/llol/grid.h"
 #include "sv/llol/pano.h"
-#include "sv/util/math.h"  // MeanCovar
+#include "sv/llol/scan.h"
 
 namespace sv {
-
-/// @struct Match
-struct PointMatch {
-  static constexpr int kBad = -100;
-
-  cv::Point px_s{kBad, kBad};  // 8
-  MeanCovar3f mc_s{};          // 52 sweep
-  cv::Point px_p{kBad, kBad};  // 8
-  MeanCovar3f mc_p{};          // 52 pano
-  Eigen::Matrix3f U{};         // 36
-
-  /// @brief Whether this match is good
-  bool ok() const noexcept {
-    return px_s.x >= 0 && px_p.x >= 0 && mc_s.ok() && mc_p.ok();
-  }
-
-  void SqrtInfo(float lambda = 0.0F);
-};
 
 /// @class Feature Matcher
 struct MatcherParams {
@@ -39,15 +19,8 @@ struct ProjMatcher {
   cv::Size max_dist_size;  // max dist size to resue pano mc
   int min_pts;             // min pts in pano win for a valid match
 
-  /// Data
-  // TODO (chao): Maybe just have pointer to grid?
-  int width;      // cache of width from SweepGrid
-  cv::Size size;  // cache of grid_size from SweepGrid
-  std::vector<PointMatch> matches;
-
   /// @brief Ctors
-  ProjMatcher() = default;
-  ProjMatcher(const cv::Size& grid_size, const MatcherParams& params = {});
+  ProjMatcher(const MatcherParams& params = {});
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const ProjMatcher& rhs) {
@@ -56,28 +29,18 @@ struct ProjMatcher {
 
   /// @brief Match features in sweep to pano using mask
   /// @return Number of final matches
-  int Match(const LidarSweep& sweep,
-            const SweepGrid& grid,
+  int Match(SweepGrid& grid,
+            const LidarSweep& sweep,
             const DepthPano& pano,
             int gsize = 0);
-  int MatchRow(const LidarSweep& sweep,
-               const SweepGrid& grid,
+  int MatchRow(SweepGrid& grid,
+               const LidarSweep& sweep,
                const DepthPano& pano,
                int gr);
-  int MatchCell(const LidarSweep& sweep,
-                const SweepGrid& grid,
+  int MatchCell(SweepGrid& grid,
+                const LidarSweep& sweep,
                 const DepthPano& pano,
-                const cv::Point& px_g);
-
-  /// @brief num valid matches up till width
-  int NumMatches() const;
-  int Grid2Ind(const cv::Point& px) const { return px.y * size.width + px.x; }
-
-  void Reset();
+                const cv::Point& gpx);
 };
-
-/// @brief Draw match, valid pixel is percentage of pano points in window
-cv::Mat DrawMatches(const SweepGrid& grid,
-                    const std::vector<PointMatch>& matches);
 
 }  // namespace sv

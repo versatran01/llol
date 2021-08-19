@@ -161,7 +161,7 @@ void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
   MatcherParams mp;
   mp.half_rows = mnh.param<int>("half_rows", 2);
   mp.cov_lambda = mnh.param<double>("cov_lambda", 1e-6);
-  matcher_ = ProjMatcher(grid_.size(), mp);
+  matcher_ = ProjMatcher(mp);
   ROS_INFO_STREAM(matcher_);
 
   /// Init pose
@@ -182,20 +182,18 @@ void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
 void OdomNode::Preprocess(const LidarScan& scan) {
   int npoints = 0;
   {  /// Add scan to sweep
-    auto _ = tm_.Scoped("Sweep.AddScan");
-    npoints = sweep_.AddScan(scan);
+    auto _ = tm_.Scoped("Sweep.Add");
+    npoints = sweep_.Add(scan);
   }
   ROS_INFO_STREAM("Num scan points: " << npoints);
 
-  int ncells = 0;
-  int ncells2 = 0;
+  std::pair<int, int> ncells;
   {  /// Reduce scan to grid and Filter
-    auto _ = tm_.Scoped("Grid.Process");
+    auto _ = tm_.Scoped("Grid.Reduce");
     ncells = grid_.Reduce(scan, tbb_);
-    ncells2 = grid_.Filter();
   }
-  ROS_INFO_STREAM("Num cells: " << ncells);
-  ROS_INFO_STREAM("Num cells after filter: " << ncells2);
+  ROS_INFO_STREAM("Num cells: " << ncells.first);
+  ROS_INFO_STREAM("Num cells after filter: " << ncells.second);
 
   if (vis_) {
     cv::Mat sweep_disp;
@@ -208,7 +206,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 
 bool OdomNode::Register(const std_msgs::Header& header) {
   {  /// Query grid poses
-    auto _ = tm_.Scoped("Traj.GridPose");
+     //    auto _ = tm_.Scoped("Traj.GridPose");
     for (int i = 0; i < grid_.tf_p_s.size(); ++i) {
       grid_.tf_p_s[i] = T_p_s_.cast<float>();
     }
@@ -217,7 +215,7 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   int num_matches = 0;
   {  /// Match Features
     auto _ = tm_.Scoped("Matcher.Match");
-    num_matches = matcher_.Match(sweep_, grid_, pano_, tbb_);
+    num_matches = matcher_.Match(grid_, sweep_, pano_, tbb_);
   }
 
   ROS_INFO_STREAM("Num matches: " << num_matches);
@@ -225,7 +223,7 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   if (vis_) {
     // display good match
     Imshow("match",
-           ApplyCmap(DrawMatches(grid_, matcher_.matches),
+           ApplyCmap(DrawMatches(grid_),
                      1.0 / matcher_.pano_win_size.area(),
                      cv::COLORMAP_VIRIDIS));
   }
@@ -243,7 +241,7 @@ bool OdomNode::Register(const std_msgs::Header& header) {
 
   {  /// Build problem
     auto _ = tm_.Scoped("Icp.Build");
-    for (const auto& match : matcher_.matches) {
+    for (const auto& match : grid_.matches) {
       if (!match.ok()) continue;
       auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
                                                IcpFactorBase::kNumResiduals,
@@ -269,7 +267,7 @@ bool OdomNode::Register(const std_msgs::Header& header) {
 
 void OdomNode::Postprocess() {
   {  /// Query pose again
-    auto _ = tm_.Scoped("Traj.SweepPose");
+     //    auto _ = tm_.Scoped("Traj.SweepPose");
     for (int i = 0; i < sweep_.tf_p_s.size(); ++i) {
       sweep_.tf_p_s[i] = T_p_s_.cast<float>();
     }
@@ -277,8 +275,8 @@ void OdomNode::Postprocess() {
 
   int num_added = 0;
   {  /// Add sweep to pano
-    auto _ = tm_.Scoped("Pano.AddSweep");
-    num_added = pano_.AddSweep(sweep_, tbb_);
+    auto _ = tm_.Scoped("Pano.Add");
+    num_added = pano_.Add(sweep_, tbb_);
   }
   ROS_INFO_STREAM("Num added: " << num_added
                                 << ", sweep total: " << sweep_.xyzr.total());
@@ -300,9 +298,6 @@ void OdomNode::Postprocess() {
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
     // Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
   }
-
-  // Reset everything
-  matcher_.Reset();
 }
 
 void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
@@ -363,7 +358,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     std_msgs::Header marker_header;
     marker_header.frame_id = pano_frame_;
     marker_header.stamp = cinfo_msg->header.stamp;
-    Match2Markers(matcher_.matches, marker_header, marray_.markers);
+    Match2Markers(grid_.matches, marker_header, marray_.markers);
   }
 
   /// Got a full sweep

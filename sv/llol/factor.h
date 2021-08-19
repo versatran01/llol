@@ -34,7 +34,7 @@ struct IcpFactorBase {
 };
 
 struct GicpFactor final : public IcpFactorBase {
-  GicpFactor(const PointMatch& match);
+  GicpFactor(const NormalMatch& match);
 
   template <typename T>
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
@@ -50,7 +50,7 @@ struct GicpFactor final : public IcpFactorBase {
 };
 
 struct GicpFactor2 final : public IcpFactorBase {
-  GicpFactor2(const PointMatch& match) : pmatch{&match} {}
+  GicpFactor2(const NormalMatch& match) : pmatch{&match} {}
 
   template <typename T>
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
@@ -66,7 +66,7 @@ struct GicpFactor2 final : public IcpFactorBase {
     return true;
   }
 
-  const PointMatch* pmatch{nullptr};
+  const NormalMatch* pmatch{nullptr};
 };
 
 //struct GicpFactor3 final : public IcpFactorBase {

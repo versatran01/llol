@@ -32,7 +32,7 @@ void MeanCovar2Marker(Marker& marker,
   marker.scale.z = eigvals.z();
 }
 
-void Match2Markers(const std::vector<PointMatch>& matches,
+void Match2Markers(const std::vector<NormalMatch>& matches,
                    const std_msgs::Header& header,
                    std::vector<Marker>& markers) {
   markers.reserve(matches.size() * 2);
@@ -61,8 +61,11 @@ void Match2Markers(const std::vector<PointMatch>& matches,
 
   Eigen::Matrix3f covar;
 
+  // TODO (chao): only draw matches up to width
   for (int i = 0; i < matches.size(); ++i) {
     const auto& match = matches[i];
+    if (!match.ok()) continue;
+
     covar = match.mc_p.Covar();
     covar.diagonal().array() += 1e-6;
     es.compute(covar);
