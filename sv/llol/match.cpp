@@ -13,20 +13,6 @@ bool PointInSize(const cv::Point& p, const cv::Size& size) {
   return std::abs(p.x) <= size.width && std::abs(p.y) << size.height;
 }
 
-/// @brief Compute mean covar of cell in sweep
-void SweepCellMeanCovar(const LidarSweep& sweep,
-                        const cv::Rect& cell,
-                        MeanCovar3f& mc) {
-  // TODO (chao): for now only take first row of cell no matte what
-  //  for (int r = 0; r < cell.height; ++r) {
-  for (int c = 0; c < cell.width; ++c) {
-    const auto& xyzr = sweep.XyzrAt({cell.x + c, cell.y});
-    if (std::isnan(xyzr[0])) continue;
-    mc.Add({xyzr[0], xyzr[1], xyzr[2]});
-  }
-  //  }
-}
-
 /// @brief Compute mean covar of win in pano
 void PanoWinMeanCovar(const DepthPano& pano,
                       const cv::Rect& win,
@@ -97,21 +83,8 @@ int ProjMatcher::MatchRow(SweepGrid& grid, const DepthPano& pano, int gr) {
 int ProjMatcher::MatchCell(SweepGrid& grid,
                            const DepthPano& pano,
                            const cv::Point& px_g) {
-  if (grid.MaskAt(px_g) == 0) return 0;
-
   auto& match = grid.MatchAt(px_g);
-  CHECK(match.SweepOk());
-
-  // Record sweep px
-  //  match.px_s = grid.Grid2Sweep(px_g);
-  //  match.px_s.x += grid.cell_size.width / 2;  // TODO (chao): hide cell_size?
-
-  // Compute normal dist around sweep cell (if it is not already computed)
-  // TODO: maybe move this to grid
-  //  if (!match.mc_s.ok()) {
-  //    const auto cell = grid.SweepCell(px_g);
-  //    SweepCellMeanCovar(sweep, cell, match.mc_s);
-  //  }
+  if (!match.SweepOk()) return 0;
 
   // Transform to pano frame
   const Eigen::Vector3f pt_p = grid.tf_p_s.at(px_g.x) * match.mc_s.mean;
@@ -128,6 +101,7 @@ int ProjMatcher::MatchCell(SweepGrid& grid,
   // Check distance between new pix and old pix
   if (PointInSize(px_p - match.px_p, max_dist_size) && match.mc_p.ok()) {
     // If new and old are close and pano match is ok
+    // we reuse pano and don't recompute
     return 1;
   }
 

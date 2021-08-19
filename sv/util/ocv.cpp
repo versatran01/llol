@@ -51,12 +51,12 @@ std::string Repr(const cv::Mat& mat) {
                      mat.depth());
 }
 
-std::string Repr(const cv::Range& range) {
-  return fmt::format("[{},{})", range.start, range.end);
-}
-
 std::string Repr(const cv::Size& size) {
   return fmt::format("(h={}, w={})", size.height, size.width);
+}
+
+std::string Repr(const cv::Range& range) {
+  return fmt::format("[{},{})", range.start, range.end);
 }
 
 }  // namespace sv

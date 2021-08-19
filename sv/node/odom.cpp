@@ -193,14 +193,13 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     ncells = grid_.Add(scan, tbb_);
   }
   ROS_INFO_STREAM("Num cells: " << ncells.first);
-  ROS_INFO_STREAM("Num cells after filter: " << ncells.second);
+  ROS_INFO_STREAM("Num cells after reduce: " << ncells.second);
 
   if (vis_) {
     cv::Mat sweep_disp;
     cv::extractChannel(sweep_.xyzr, sweep_disp, 3);
     Imshow("sweep", ApplyCmap(sweep_disp, 1 / 32.0, cv::COLORMAP_PINK, 0));
     Imshow("score", ApplyCmap(grid_.score, 5, cv::COLORMAP_VIRIDIS, 255));
-    Imshow("mask", (1 - grid_.mask) * 255);
   }
 }
 

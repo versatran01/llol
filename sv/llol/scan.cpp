@@ -60,13 +60,12 @@ LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
 }
 
 std::string LidarSweep::Repr() const {
-  using sv::Repr;
   return fmt::format("LidarSweep(id={}, t0={}, dt={}, xyzr={}, col_range={})",
                      id,
                      t0,
                      dt,
-                     Repr(xyzr),
-                     Repr(col_rg));
+                     sv::Repr(xyzr),
+                     sv::Repr(col_rg));
 }
 
 /// Test Related ===============================================================

@@ -69,7 +69,8 @@ struct GicpFactor2 final : public IcpFactorBase {
   const NormalMatch* pmatch{nullptr};
 };
 
-//struct GicpFactor3 final : public IcpFactorBase {
+// TODO (chao): implement a combined factor
+// struct GicpFactor3 final : public IcpFactorBase {
 //  GicpFactor3(const ProjMatcher& matcher);
 
 //  template <typename T>

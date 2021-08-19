@@ -64,23 +64,10 @@ void BM_Score(benchmark::State& state) {
 }
 BENCHMARK(BM_Score)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
-void BM_Filter(benchmark::State& state) {
-  const auto scan = MakeTestScan({1024, 64});
-  SweepGrid grid(scan.size());
-  grid.Score(scan);
-
-  for (auto _ : state) {
-    const auto n = grid.Filter();
-    benchmark::DoNotOptimize(n);
-  }
-}
-BENCHMARK(BM_Filter);
-
 void BM_Reduce(benchmark::State& state) {
   const auto scan = MakeTestScan({1024, 64});
   SweepGrid grid(scan.size());
   grid.Score(scan);
-  grid.Filter();
   const int gsize = state.range(0);
 
   for (auto _ : state) {

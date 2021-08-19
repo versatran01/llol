@@ -45,7 +45,7 @@ void BM_PanoAddSweep(benchmark::State& state) {
     benchmark::DoNotOptimize(pano);
   }
 }
-BENCHMARK(BM_PanoAddSweep)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+BENCHMARK(BM_PanoAddSweep)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Arg(16);
 
 void BM_PanoRender(benchmark::State& state) {
   DepthPano pano({1024, 256});
@@ -57,7 +57,7 @@ void BM_PanoRender(benchmark::State& state) {
     benchmark::DoNotOptimize(pano);
   }
 }
-BENCHMARK(BM_PanoRender)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+BENCHMARK(BM_PanoRender)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Arg(16);
 
 }  // namespace
 }  // namespace sv

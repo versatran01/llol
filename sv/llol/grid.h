@@ -49,7 +49,6 @@ struct SweepGrid {
   /// Data
   cv::Range col_rg{};                // working range in this grid
   cv::Mat score;                     // smoothness score, smaller is smoother
-  cv::Mat mask;                      // binary mask of match candidates
   std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano
   std::vector<NormalMatch> matches;
 
@@ -74,15 +73,11 @@ struct SweepGrid {
   int Score(const LidarScan& scan, int gsize = 0);
   int ScoreRow(const LidarScan& scan, int r);
 
-  /// @brief Filter score grid given max_score and nms
-  /// @return Number of remaining cells
-  int Filter();
+  /// @brief
+  int Reduce(const LidarScan& scan, int gisze = 0);
+  int ReduceRow(const LidarScan& scan, int r);
   /// @brief Check whether this cell is good or not for Filter()
   bool IsCellGood(const cv::Point& px) const;
-
-  /// @brief
-  void Reduce(const LidarScan& scan, int gisze = 0);
-  void ReduceRow(const LidarScan& scan, int r);
 
   /// @brief Rect in sweep corresponding to a cell
   cv::Rect SweepCell(const cv::Point& px) const;
@@ -90,8 +85,6 @@ struct SweepGrid {
   /// @brief At
   float& ScoreAt(const cv::Point& px) { return score.at<float>(px); }
   float ScoreAt(const cv::Point& px) const { return score.at<float>(px); }
-  uint8_t& MaskAt(const cv::Point& px) { return mask.at<uint8_t>(px); }
-  uint8_t MaskAt(const cv::Point& px) const { return mask.at<uint8_t>(px); }
   NormalMatch& MatchAt(const cv::Point& px) { return matches[Grid2Ind(px)]; }
   const NormalMatch& MatchAt(const cv::Point& px) const {
     return matches[Grid2Ind(px)];

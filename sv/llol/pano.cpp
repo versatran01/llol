@@ -115,6 +115,7 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
     if (p.cnt < max_cnt) ++p.cnt;
     return true;
   } else {
+    // TODO (chao): do we also need to updat here?
     // not close, just decrement cnt by 1
     if (p.cnt > 0) --p.cnt;
     return false;
