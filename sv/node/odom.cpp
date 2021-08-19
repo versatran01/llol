@@ -357,7 +357,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     std_msgs::Header marker_header;
     marker_header.frame_id = pano_frame_;
     marker_header.stamp = cinfo_msg->header.stamp;
-    Match2Markers(grid_.matches, marker_header, marray_.markers);
+    Grid2Markers(grid_, marker_header, marray_.markers);
   }
 
   /// Got a full sweep

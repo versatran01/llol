@@ -12,8 +12,8 @@ struct LidarScan {
 
   double t0{};         // time stamp of the first column
   double dt{};         // delta time between two columns
+  cv::Mat xyzr{};      // scan data (x,y,z,r)
   cv::Range col_rg{};  // indicates scan range within a sweep
-  cv::Mat xyzr{};      // data
 
   LidarScan() = default;
 

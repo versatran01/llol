@@ -38,7 +38,8 @@ ProjMatcher::ProjMatcher(const MatcherParams& params)
     : cov_lambda{params.cov_lambda} {
   // Pano win size, for now width is twice the height
   pano_win_size.height = params.half_rows * 2 + 1;
-  pano_win_size.width = pano_win_size.height * 2 + 1;
+  //  pano_win_size.width = pano_win_size.height * 2 + 1;
+  pano_win_size.width = params.half_rows * 4 + 1;
   min_pts = (params.half_rows + 1) * pano_win_size.width;
   max_dist_size = pano_win_size / 4;
 }

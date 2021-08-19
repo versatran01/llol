@@ -9,7 +9,7 @@ using Vector3d = Eigen::Vector3d;
 static const double kEps = Sophus::Constants<double>::epsilon();
 
 Sophus::SO3d IntegrateRot(const Sophus::SO3d& R0,
-                          const Eigen::Vector3d& omg,
+                          const Vector3d& omg,
                           double dt) {
   return R0 * Sophus::SO3d::exp(omg * dt);
 }

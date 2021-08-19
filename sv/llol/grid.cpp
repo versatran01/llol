@@ -223,11 +223,16 @@ int SweepGrid::Grid2Ind(const cv::Point& px_grid) const {
 cv::Mat DrawMatches(const SweepGrid& grid) {
   cv::Mat disp(grid.size(), CV_32FC1, kNaNF);
 
-  for (const auto& match : grid.matches) {
-    const auto px_g = grid.Sweep2Grid(match.px_s);
-    if (px_g.x >= grid.width()) continue;
-    disp.at<float>(px_g) = match.mc_p.n;
+  for (int r = 0; r < grid.size().height; ++r) {
+    for (int c = 0; c < grid.width(); ++c) {
+      const cv::Point px_g{c, r};
+      const auto i = grid.Grid2Ind(px_g);
+      const auto& match = grid.matches.at(i);
+      if (!match.Ok()) continue;
+      disp.at<float>(px_g) = match.mc_p.n;
+    }
   }
+
   return disp;
 }
 

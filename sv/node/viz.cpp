@@ -32,10 +32,10 @@ void MeanCovar2Marker(Marker& marker,
   marker.scale.z = eigvals.z();
 }
 
-void Match2Markers(const std::vector<NormalMatch>& matches,
-                   const std_msgs::Header& header,
-                   std::vector<Marker>& markers) {
-  markers.reserve(matches.size() * 2);
+void Grid2Markers(const SweepGrid& grid,
+                  const std_msgs::Header& header,
+                  std::vector<Marker>& markers) {
+  markers.reserve(grid.total());
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
 
@@ -49,41 +49,38 @@ void Match2Markers(const std::vector<NormalMatch>& matches,
   pano_mk.color.g = 1.0;
   pano_mk.color.b = 0.0;
 
-  Marker sweep_mk;
-  sweep_mk.header = header;
-  sweep_mk.ns = "match_sweep";
-  sweep_mk.type = Marker::SPHERE;
-  sweep_mk.action = Marker::ADD;
-  sweep_mk.color.a = 0.5;
-  sweep_mk.color.r = 1.0;
-  sweep_mk.color.g = 0.0;
-  sweep_mk.color.b = 0.0;
+  //  Marker sweep_mk;
+  //  sweep_mk.header = header;
+  //  sweep_mk.ns = "match_sweep";
+  //  sweep_mk.type = Marker::SPHERE;
+  //  sweep_mk.action = Marker::ADD;
+  //  sweep_mk.color.a = 0.5;
+  //  sweep_mk.color.r = 1.0;
+  //  sweep_mk.color.g = 0.0;
+  //  sweep_mk.color.b = 0.0;
 
   Eigen::Matrix3f covar;
 
   // TODO (chao): only draw matches up to width?
   // TODO (chao): also need to remove bad match
-  for (int i = 0; i < matches.size(); ++i) {
-    const auto& match = matches[i];
-    if (!match.Ok()) continue;
+  for (int r = 0; r < grid.size().height; ++r) {
+    for (int c = 0; c < grid.width(); ++c) {
+      const auto i = grid.Grid2Ind({c, r});
+      const auto& match = grid.matches.at(i);
+      pano_mk.id = i;
 
-    covar = match.mc_p.Covar();
-    covar.diagonal().array() += 1e-6;
-    es.compute(covar);
-    MeanCovar2Marker(
-        pano_mk, match.mc_p.mean, es.eigenvalues(), es.eigenvectors());
+      if (match.Ok()) {
+        covar = match.mc_p.Covar();
+        covar.diagonal().array() += 1e-6;
+        es.compute(covar);
+        MeanCovar2Marker(
+            pano_mk, match.mc_p.mean, es.eigenvalues(), es.eigenvectors());
+      } else {
+        pano_mk.action = Marker::DELETE;
+      }
 
-    pano_mk.id = i;
-    markers.push_back(pano_mk);
-
-    //    covar = match.mc_s.Covar();
-    //    covar.diagonal().array() += 1e-6;
-    //    es.compute(covar);
-    //    MeanCovar2Marker(
-    //        sweep_mk, match.mc_s.mean, es.eigenvalues(), es.eigenvectors());
-
-    //    sweep_mk.id = i;
-    //    markers.push_back(sweep_mk);
+      markers.push_back(pano_mk);
+    }
   }
 }
 
