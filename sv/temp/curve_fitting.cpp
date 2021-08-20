@@ -190,5 +190,7 @@ int main(int argc, char** argv) {
     std::cout << "Final   m: " << m << " c: " << c << "\n";
   }
 
+  // TODO (chao): try tiny solver?
+
   return 0;
 }

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <ceres/local_parameterization.h>
+#include <tbb/enumerable_thread_specific.h>
+#include <tbb/parallel_for.h>
 
 #include <sophus/se3.hpp>
 
@@ -69,35 +71,60 @@ struct GicpFactor2 final : public IcpFactorBase {
   const NormalMatch* pmatch{nullptr};
 };
 
-// TODO (chao): implement a combined factor
 struct GicpFactor3 final : public IcpFactorBase {
-  GicpFactor3(const SweepGrid& grid, int size) : pgrid{&grid}, size{size} {}
+  GicpFactor3(const SweepGrid& grid, int size, int gsize = 0);
 
   template <typename T>
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
     Eigen::Map<const Sophus::SE3<T>> T_p_s(_T_p_s);
-    const auto& grid = *pgrid;
 
-    int k = 0;
-    for (int r = 0; r < grid.size().height; ++r) {
-      for (int c = 0; c < grid.width(); ++c) {
-        const auto& match = grid.MatchAt({c, r});
-        if (!match.Ok()) continue;
+    //    for (int r = 0; r < grid.size().height; ++r) {
+    //      for (int c = 0; c < grid.width(); ++c) {
 
-        const Eigen::Matrix3d U = match.U.cast<double>();
-        const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-        const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
-        Eigen::Map<Vector3<T>> r(_r + kNumResiduals * k);
-        r = U * (pt_p - T_p_s * pt_s);
-        ++k;
-      }
+    //    using PrivVec =
+    //    tbb::enumerable_thread_specific<std::vector<Vector3<T>>>; PrivVec
+    //    priv;
+
+    //    tbb::parallel_for(
+    //        tbb::blocked_range<int>(0, matches.size(), gsize),
+    //        [&](const auto& blk) {
+    //          for (int i = blk.begin(); i < blk.end(); ++i) {
+    //            const auto& match = matches[i];
+    //            const Eigen::Matrix3d U = match.U.cast<double>();
+    //            const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+    //            const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
+    //            //            Eigen::Map<Vector3<T>> r(_r + kNumResiduals *
+    //            i); auto& local = priv.local(); local.push_back((U * (pt_p -
+    //            T_p_s * pt_s)));
+    //          }
+    //        });
+
+    //    int k = 0;
+    //    for (const auto& each : priv) {
+    //      for (const auto& ri : each) {
+    //        Eigen::Map<Vector3<T>> r(_r + kNumResiduals * k);
+    //        r = ri;
+    //        ++k;
+    //      }
+    //    }
+
+    for (int i = 0; i < matches.size(); ++i) {
+      const auto& match = matches[i];
+
+      const Eigen::Matrix3d U = match.U.cast<double>();
+      const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+      const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
+      Eigen::Map<Vector3<T>> r(_r + kNumResiduals * i);
+      r = U * (pt_p - T_p_s * pt_s);
     }
 
     return true;
   }
 
   const SweepGrid* pgrid;
+  std::vector<NormalMatch> matches;
   int size{};
+  int gsize{};
 };
 
 }  // namespace sv

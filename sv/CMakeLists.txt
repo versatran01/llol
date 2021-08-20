@@ -115,7 +115,7 @@ cc_bench(
 cc_library(
   NAME llol_factor
   SRCS "llol/factor.cpp"
-  DEPS sv_llol_match Sophus::Sophus)
+  DEPS sv_llol_match sv_tbb Sophus::Sophus)
 
 cc_library(
   NAME llol_imu

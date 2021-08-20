@@ -250,15 +250,14 @@ bool OdomNode::Register(const std_msgs::Header& header) {
     auto* cost = new cs::AutoDiffCostFunction<GicpFactor3,
                                               cs::DYNAMIC,
                                               IcpFactorBase::kNumParams>(
-        new GicpFactor3(grid_, n_matches),
+        new GicpFactor3(grid_, n_matches, tbb_),
         n_matches * IcpFactorBase::kNumResiduals);
     problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
   }
 
   cs::Solver::Options solver_opt;
-  solver_opt.linear_solver_type = ceres::DENSE_QR;
+  solver_opt.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
   solver_opt.max_num_iterations = 10;
-  solver_opt.num_threads = 1;
   solver_opt.minimizer_progress_to_stdout = false;
   {
     auto _ = tm_.Scoped("Icp.Solve");
@@ -266,7 +265,7 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   }
   ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
   ROS_INFO_STREAM(summary.BriefReport());
-  return summary.termination_type == ceres::TerminationType::CONVERGENCE;
+  return summary.IsSolutionUsable();
 }
 
 void OdomNode::Postprocess() {
