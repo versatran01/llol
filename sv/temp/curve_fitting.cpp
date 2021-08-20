@@ -1,13 +1,11 @@
 #include <absl/time/clock.h>
+#include <ceres/ceres.h>
+#include <ceres/tiny_solver.h>
+#include <ceres/tiny_solver_autodiff_function.h>
 
-#include "ceres/ceres.h"
 #include "glog/logging.h"
 
-using ceres::AutoDiffCostFunction;
-using ceres::CostFunction;
-using ceres::Problem;
-using ceres::Solve;
-using ceres::Solver;
+using namespace ceres;
 
 // Data generated using the following octave code.
 //   randn('seed', 23497);
@@ -106,8 +104,8 @@ struct ExponentialResidual {
   const double y_;
 };
 
-struct SignleResidual {
-  SignleResidual(int size, const double* data) : size_{size}, data_{data} {}
+struct SingleResidual {
+  SingleResidual(int size, const double* data) : size_{size}, data_{data} {}
 
   template <typename T>
   bool operator()(const T* const m, const T* const c, T* residual) const {
@@ -122,6 +120,24 @@ struct SignleResidual {
   const double* data_;
 };
 
+struct TinyResidual {
+  TinyResidual(int size, const double* data) : size_{size}, data_{data} {}
+
+  template <typename T>
+  bool operator()(const T* const x, T* residual) const {
+    for (int i = 0; i < size_; ++i) {
+      residual[i] = data_[2 * i + 1] - exp(x[0] * data_[2 * i] + x[1]);
+    }
+
+    return true;
+  }
+
+  int size_;
+  const double* data_;
+
+  int NumResiduals() const { return size_; }
+};
+
 int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
 
@@ -132,8 +148,8 @@ int main(int argc, char** argv) {
     const auto t0 = absl::GetCurrentTimeNanos();
     Problem problem;
     problem.AddResidualBlock(
-        new AutoDiffCostFunction<SignleResidual, ceres::DYNAMIC, 1, 1>(
-            new SignleResidual(kNumObservations, data), kNumObservations),
+        new AutoDiffCostFunction<SingleResidual, ceres::DYNAMIC, 1, 1>(
+            new SingleResidual(kNumObservations, data), kNumObservations),
         nullptr,
         &m,
         &c);
@@ -143,7 +159,7 @@ int main(int argc, char** argv) {
     Solver::Options options;
     options.max_num_iterations = 25;
     options.linear_solver_type = ceres::DENSE_QR;
-    options.minimizer_progress_to_stdout = true;
+    options.minimizer_progress_to_stdout = false;
 
     Solver::Summary summary;
     const auto t2 = absl::GetCurrentTimeNanos();
@@ -161,6 +177,7 @@ int main(int argc, char** argv) {
     double m = 0.0;
     double c = 0.0;
     const auto t0 = absl::GetCurrentTimeNanos();
+
     Problem problem;
     for (int i = 0; i < kNumObservations; ++i) {
       problem.AddResidualBlock(
@@ -176,8 +193,7 @@ int main(int argc, char** argv) {
     Solver::Options options;
     options.max_num_iterations = 25;
     options.linear_solver_type = ceres::DENSE_QR;
-    options.minimizer_progress_to_stdout = true;
-    options.num_threads = 4;
+    options.minimizer_progress_to_stdout = false;
 
     Solver::Summary summary;
     const auto t2 = absl::GetCurrentTimeNanos();
@@ -191,6 +207,30 @@ int main(int argc, char** argv) {
   }
 
   // TODO (chao): try tiny solver?
+  {
+    std::cout << "\nTiny Solver\n";
+    Eigen::Vector2d x;
+    x.setZero();
+    const auto t0 = absl::GetCurrentTimeNanos();
+    using TinyCost =
+        TinySolverAutoDiffFunction<TinyResidual, Eigen::Dynamic, 2>;
+    TinyResidual res(kNumObservations, data);
+    TinyCost f(res);
+
+    const auto t1 = absl::GetCurrentTimeNanos();
+    std::cout << "Time Build: " << (t1 - t0) / 1e6 << "ms\n";
+
+    const auto t2 = absl::GetCurrentTimeNanos();
+    TinySolver<TinyCost> solver;
+    const auto summary = solver.Solve(f, &x);
+    const auto t3 = absl::GetCurrentTimeNanos();
+    std::cout << "Time Solve: " << (t3 - t2) / 1e6 << "ms\n";
+
+    std::cout << "iter: " << summary.iterations
+              << ", status: " << summary.status << "\n";
+    std::cout << "Initial m: " << 0.0 << " c: " << 0.0 << "\n";
+    std::cout << "Final   m: " << x[0] << " c: " << x[1] << "\n";
+  }
 
   return 0;
 }

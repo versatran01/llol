@@ -16,7 +16,7 @@ bool PointInSize(const cv::Point& p, const cv::Size& size) {
 /// @brief Compute mean covar of win in pano
 void PanoWinMeanCovar(const DepthPano& pano,
                       const cv::Rect& win,
-                      float rg_p,
+                      float rg,
                       MeanCovar3f& mc) {
   for (int wr = 0; wr < win.height; ++wr) {
     for (int wc = 0; wc < win.width; ++wc) {
@@ -24,7 +24,8 @@ void PanoWinMeanCovar(const DepthPano& pano,
       const auto& dp = pano.PixelAt(px_w);
       const auto rg_w = dp.GetMeter();
       // TODO (chao): check if cnt is old enough
-      if (rg_w == 0 || (std::abs(rg_w - rg_p) / rg_p) > pano.range_ratio) {
+      if (rg_w == 0 || (std::abs(rg_w - rg) / rg) > pano.range_ratio ||
+          dp.cnt * 2 < pano.max_cnt) {
         continue;
       }
       const auto p = pano.model.Backward(px_w.y, px_w.x, rg_w);

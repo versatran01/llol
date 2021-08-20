@@ -127,4 +127,35 @@ struct GicpFactor3 final : public IcpFactorBase {
   int gsize{};
 };
 
+struct TinyGicpFactor final : public IcpFactorBase {
+  TinyGicpFactor(const SweepGrid& grid, int size, const Sophus::SE3d& T0);
+
+  int NumResiduals() const { return size * kNumResiduals; }
+
+  template <typename T>
+  bool operator()(const T* const _x, T* _r) const {
+    Eigen::Map<const Eigen::Matrix<T, 6, 1>> x(_x);
+
+    Sophus::SE3<T> T_p_s;
+    T_p_s.so3() = T0.so3() * Sophus::SO3<T>::exp(x.template head<3>());
+    T_p_s.translation() = T0.translation() + x.template tail<3>();
+
+    for (int i = 0; i < matches.size(); ++i) {
+      const auto& match = matches[i];
+
+      const Eigen::Matrix3d U = match.U.cast<double>();
+      const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+      const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
+      Eigen::Map<Vector3<T>> r(_r + kNumResiduals * i);
+      r = U * (pt_p - T_p_s * pt_s);
+    }
+
+    return true;
+  }
+
+  int size{};
+  Sophus::SE3d T0;
+  std::vector<NormalMatch> matches;
+};
+
 }  // namespace sv

@@ -24,6 +24,8 @@
 
 // ceres
 #include <ceres/ceres.h>
+#include <ceres/tiny_solver.h>
+#include <ceres/tiny_solver_autodiff_function.h>
 
 namespace sv {
 
@@ -234,19 +236,20 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   problem_opt.local_parameterization_ownership = cs::DO_NOT_TAKE_OWNERSHIP;
   cs::Problem problem{problem_opt};
 
-  problem.AddParameterBlock(
-      T_p_s_.data(), Sophus::SE3d::num_parameters, local_params.get());
-
   {  /// Build problem
     auto _ = tm_.Scoped("Icp.Build");
-    //    for (const auto& match : grid_.matches) {
-    //      if (!match.Ok()) continue;
-    //      auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
-    //                                               IcpFactorBase::kNumResiduals,
-    //                                               IcpFactorBase::kNumParams>(
-    //          new GicpFactor2(match));
-    //      problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
-    //    }
+    problem.AddParameterBlock(
+        T_p_s_.data(), Sophus::SE3d::num_parameters, local_params.get());
+
+    for (const auto& match : grid_.matches) {
+      if (!match.Ok()) continue;
+      auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
+                                               IcpFactorBase::kNumResiduals,
+                                               IcpFactorBase::kNumParams>(
+          new GicpFactor2(match));
+      problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
+    }
+
     auto* cost = new cs::AutoDiffCostFunction<GicpFactor3,
                                               cs::DYNAMIC,
                                               IcpFactorBase::kNumParams>(
@@ -266,6 +269,22 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   ROS_INFO_STREAM("Pose: \n" << T_p_s_.matrix3x4());
   ROS_INFO_STREAM(summary.BriefReport());
   return summary.IsSolutionUsable();
+
+  //  TinyGicpFactor res(grid_, n_matches, T_p_s_);
+
+  //  using TinyCost =
+  //      ceres::TinySolverAutoDiffFunction<TinyGicpFactor, Eigen::Dynamic, 6>;
+
+  //  auto _ = tm_.Scoped("Icp.Tiny");
+  //  TinyCost f(res);
+  //  ceres::TinySolver<TinyCost> solver;
+  //  Eigen::Matrix<double, 6, 1> x;
+  //  const auto& summary = solver.Solve(f, &x);
+  //  ROS_INFO_STREAM("Max iteration: " << summary.iterations);
+
+  //  T_p_s_.so3() = T_p_s_.so3() * Sophus::SO3d::exp(x.head<3>());
+  //  T_p_s_.translation() += x.tail<3>();
+  //  return true;
 }
 
 void OdomNode::Postprocess() {

@@ -28,7 +28,7 @@ TEST_CASE("Lighting") {
     const Point3h l{0, 2, -2};
     const Vector3h n{0, 0, -1};
     CHECK(m.Lighting(l, s, p, n) ==
-          doctest::Approx(m.ambient + m.diffuse * kSqrt2 / 2));
+          doctest::Approx(m.ambient + m.diffuse * std::sqrt(2.0) / 2));
   }
 }
 

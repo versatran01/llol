@@ -45,4 +45,20 @@ GicpFactor3::GicpFactor3(const SweepGrid& grid, int size, int gsize)
   CHECK_EQ(matches.size(), size);
 }
 
+TinyGicpFactor::TinyGicpFactor(const SweepGrid& grid,
+                               int size,
+                               const Sophus::SE3d& T0)
+    : size(size), T0(T0) {
+  matches.reserve(size);
+  for (int r = 0; r < grid.size().height; ++r) {
+    for (int c = 0; c < grid.width(); ++c) {
+      const auto& match = grid.MatchAt({c, r});
+      if (!match.Ok()) continue;
+      matches.push_back(match);
+    }
+  }
+
+  CHECK_EQ(matches.size(), size);
+}
+
 }  // namespace sv

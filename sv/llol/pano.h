@@ -26,6 +26,7 @@ struct PanoParams {
   float hfov{0.0};
   int max_cnt{10};
   float range_ratio{0.1};
+  float min_range{0.5};
 };
 
 /// @class Depth Panorama
@@ -33,6 +34,7 @@ struct DepthPano {
   /// Params
   int max_cnt{10};
   float range_ratio{0.1};
+  float min_range{0.5};
   // TODO (chao): also add a min range?
 
   /// Data
@@ -64,7 +66,7 @@ struct DepthPano {
 
   /// @brief Render pano at a new location
   /// @todo Currently disabled
-  int Render(const Sophus::SE3f& tf_2_1, int tbb_rows = 0);
+  int Render(const Sophus::SE3f& tf_2_1, int gsize = 0);
   int RenderRow(const Sophus::SE3f& tf_2_1, int row);
   bool UpdateBuffer(const cv::Point& px, float rg);
 

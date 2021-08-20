@@ -10,5 +10,5 @@ pano:
   rows: 256
   cols: 1024
   hfov: 0.0
-  max_cnt: 10
+  max_cnt: 16
   range_ratio: 0.1

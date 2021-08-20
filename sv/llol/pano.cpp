@@ -9,26 +9,10 @@
 
 namespace sv {
 
-// TODO: need to improve this
-bool SetBufAt(cv::Mat& buf, const cv::Point& px, float rg) {
-  auto& p = buf.at<DepthPixel>(px);
-  if (p.raw == 0) {
-    p.SetMeter(rg);
-    return true;
-  }
-
-  const auto rg0 = p.GetMeter();
-  if (std::abs(rg - rg0) / rg0 < 0.1) {
-    p.SetMeter(rg);
-    return true;
-  }
-
-  return false;
-}
-
 DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
     : max_cnt{params.max_cnt},
       range_ratio{params.range_ratio},
+      min_range{params.min_range},
       model{size, params.hfov},
       dbuf{size, CV_16UC2},
       dbuf2{size, CV_16UC2} {}
@@ -78,7 +62,6 @@ int DepthPano::AddRow(const LidarSweep& sweep, int sr) {
     const float rg_s = xyzr[3];  // precomputed range
     if (!(rg_s > 0)) continue;   // filter out nan
 
-    // TODO (chao): transform xyz to pano frame
     Eigen::Map<const Eigen::Vector3f> pt_s(&xyzr[0]);
     const Eigen::Vector3f pt_p = sweep.tf_p_s.at(sc) * pt_s;
     const auto rg_p = pt_p.norm();
@@ -94,19 +77,32 @@ int DepthPano::AddRow(const LidarSweep& sweep, int sr) {
 }
 
 bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
-  auto& p = dbuf.at<DepthPixel>(px);
+  // TODO (chao): when adding consider distance, weigh far points less
+  // Ignore too far and too close stuff
+  if (rg < min_range || rg > DepthPixel::kMaxRange) return false;
 
-  // If current pixel is empty, then add to it but set it to half of max
-  if (p.raw == 0 || p.cnt == 0) {
+  auto& p = dbuf.at<DepthPixel>(px);
+  // If current pixel is empty, just use this range and give it half of max cnt
+  if (p.raw == 0) {
     p.SetMeter(rg);
     p.cnt = max_cnt / 2;
     return true;
   }
 
-  // Otherwise there is already a depth
+  // If cnt is 0, this means there exists enough evidence that differ from
+  // previous measurement, for example some new object just moved into view and
+  // stayed long enough. In this case, we use the new range, but only increment
+  // count by 1
+  if (p.cnt == 0) {
+    p.SetMeter(rg);
+    ++p.cnt;
+    return true;
+  }
+
+  // Otherwise we have a valid depth with cnt
   const auto rg0 = p.GetMeter();
 
-  // Check if they are close enough
+  // Check if new and old are close enough
   if ((std::abs(rg - rg0) / rg0) < range_ratio) {
     // close, do a weighted update
     const auto rg1 = (rg0 * p.cnt + rg) / (p.cnt + 1);
@@ -114,22 +110,21 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
     if (p.cnt < max_cnt) ++p.cnt;
     return true;
   } else {
-    // TODO (chao): do we also need to updat here?
-    // not close, just decrement cnt by 1
+    // not close, keep old but decrement its cnt
     if (p.cnt > 0) --p.cnt;
     return false;
   }
 }
 
-int DepthPano::Render(const Sophus::SE3f& tf_2_1, int tbb_rows) {
+int DepthPano::Render(const Sophus::SE3f& tf_2_1, int gsize) {
   // clear pano2
   dbuf2.setTo(0);
 
-  tbb_rows = tbb_rows <= 0 ? dbuf.rows : tbb_rows;
-  CHECK_GE(tbb_rows, 1);
+  gsize = gsize <= 0 ? dbuf.rows : gsize;
+  CHECK_GE(gsize, 1);
 
   return tbb::parallel_reduce(
-      tbb::blocked_range<int>(0, dbuf.rows, tbb_rows),
+      tbb::blocked_range<int>(0, dbuf.rows, gsize),
       0,
       [&](const tbb::blocked_range<int>& blk, int n) {
         for (int r = blk.begin(); r < blk.end(); ++r) {

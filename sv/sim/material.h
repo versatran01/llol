@@ -17,7 +17,6 @@ struct Material {
   scalar diffuse{0.6};             // reflected from a matte surface
   std::optional<Pattern> pattern;  // replace relectivity
 
-  // NOTE
   Color4 color;  // color for rviz, not used by render
 
   /// Ignores shadow, reflection and assumes light at the same point as eye
@@ -25,7 +24,7 @@ struct Material {
                   const Shape& shape,
                   const Point3h& point,
                   const Vector3h& normal,
-                  scalar intensity = 1.0) const noexcept;
+                  scalar intensity = 1.0) const;
 };
 
 }  // namespace sv::sim
