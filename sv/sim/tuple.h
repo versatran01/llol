@@ -10,7 +10,7 @@ using Tuple4 = Vector4;
 
 // Note: inheriting from Eigen is a bad idea, but I just don't want to implement
 // all those operators
-struct Point3h : public Tuple4 {
+struct Point3h final : public Tuple4 {
   Point3h() : Point3h(0, 0, 0) {}
   Point3h(scalar x, scalar y, scalar z) noexcept : Tuple4(x, y, z, 1.0) {}
   Point3h(const Vector3& p) : Point3h(p.x(), p.y(), p.z()) {}
@@ -30,7 +30,7 @@ struct Point3h : public Tuple4 {
   }
 };
 
-struct Vector3h : public Tuple4 {
+struct Vector3h final : public Tuple4 {
   Vector3h() : Tuple4(0, 0, 0, 0) {}
   Vector3h(scalar x, scalar y, scalar z) noexcept : Tuple4(x, y, z, 0.0) {}
   Vector3h(const Vector3& v) : Vector3h(v.x(), v.y(), v.z()) {}
@@ -67,4 +67,32 @@ inline Vector3h Reflect(const Vector3h& in, const Vector3h& normal) noexcept {
   return in - normal * 2 * Dot(in, normal);
 }
 
-}  // namespace sv::rt
+/// Color4 struct RGBA
+struct Color4 final : public Tuple4 {
+  Color4() : Tuple4(0.0, 0.0, 0.0, 1.0) {}
+  Color4(scalar r, scalar g, scalar b, scalar a = 1.0) : Tuple4{r, g, b, a} {}
+
+  auto r() const noexcept { return x(); }
+  auto g() const noexcept { return y(); }
+  auto b() const noexcept { return z(); }
+  auto a() const noexcept { return w(); }
+};
+
+namespace colors {
+static const Color4 Red{1.0, 0.0, 0.0};
+static const Color4 Green{0.0, 1.0, 0.0};
+static const Color4 Blue{0.0, 0.0, 1.0};
+static const Color4 Yellow{1.0, 1.0, 0.0};
+static const Color4 Magenta{1.0, 0.0, 1.0};
+static const Color4 Orange{1.0, 0.5, 0.0};
+static const Color4 Cyan{0.0, 1.0, 1.0};
+
+static const Color4 DarkRed{0.5, 0.0, 0.0};
+static const Color4 DarkGreen{0.0, 0.5, 0.0};
+static const Color4 DarkBlue{0.0, 0.0, 0.5};
+
+static const Color4 White{1.0, 1.0, 1.0};
+static const Color4 LightGray{0.8, 0.8, 0.8};
+}  // namespace colors
+
+}  // namespace sv::sim

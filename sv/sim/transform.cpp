@@ -14,9 +14,9 @@ Matrix3 Shearing3(
   return s;
 }
 
-Transform3h ViewTransform(const Point3h& from,
-                          const Point3h& to,
-                          const Vector3h& up) {
+Affine3 ViewTransform(const Point3h& from,
+                      const Point3h& to,
+                      const Vector3h& up) {
   const Vector3h forward = Normalized(to - from);
   const Vector3h upn = Normalized(up);
   const Vector3h left = Cross(forward, upn);
@@ -27,7 +27,7 @@ Transform3h ViewTransform(const Point3h& from,
   orientation.row(1) = true_up.head<3>();
   orientation.row(2) = -forward.head<3>();
 
-  Transform3h t;
+  Affine3 t;
   t = orientation * Translation3(-from.head<3>());
   return t;
 }

@@ -161,12 +161,11 @@ cc_bench(
   SRCS "temp/ceres_bench.cpp"
   DEPS Ceres::ceres sv_tbb)
 
-# sim
-
+# sim ==========================================================================
 cc_library(
   NAME sim_rt
   SRCS "sim/transform.cpp"
-  DEPS sv_base Eigen3::Eigen)
+  DEPS sv_base Eigen3::Eigen Sophus::Sophus)
 
 cc_library(
   NAME doctest_main
@@ -175,5 +174,5 @@ cc_library(
 
 cc_binary(
   NAME sim_test
-  SRCS "sim/tuple_test.cpp" "sim/transform_test.cpp"
+  SRCS "sim/tuple_test.cpp" "sim/transform_test.cpp" "sim/ray_test.cpp"
   DEPS sv_sim_rt sv_doctest_main)
