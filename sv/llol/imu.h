@@ -50,6 +50,7 @@ NavState IntegrateEuler(const NavState& s0,
 NavState IntegrateMidpoint(const NavState& s0,
                            const ImuData& imu0,
                            const ImuData& imu1,
-                           const Eigen::Vector3d& g_w);
+                           const Eigen::Vector3d& g_w,
+                           double s = 0.5);
 
 }  // namespace sv

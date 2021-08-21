@@ -1,5 +1,9 @@
 // ros
+#include <ceres/ceres.h>
+#include <ceres/tiny_solver.h>
+#include <ceres/tiny_solver_autodiff_function.h>
 #include <cv_bridge/cv_bridge.h>
+#include <fmt/ostream.h>
 #include <image_transport/camera_subscriber.h>
 #include <image_transport/image_transport.h>
 #include <pcl_ros/point_cloud.h>
@@ -10,11 +14,11 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
-#include <thread>
+#include <boost/circular_buffer.hpp>
 
-// sv
 #include "sv/llol/factor.h"
 #include "sv/llol/grid.h"
+#include "sv/llol/imu.h"
 #include "sv/llol/match.h"
 #include "sv/llol/pano.h"
 #include "sv/llol/scan.h"
@@ -22,19 +26,14 @@
 #include "sv/node/viz.h"
 #include "sv/util/manager.h"
 
-// ceres
-#include <ceres/ceres.h>
-#include <ceres/tiny_solver.h>
-#include <ceres/tiny_solver_autodiff_function.h>
-
 namespace sv {
 
 namespace cs = ceres;
 using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
 
-LidarScan Msg2Scan(const sensor_msgs::Image& image_msg,
-                   const sensor_msgs::CameraInfo& cinfo_msg) {
+LidarScan CameraMsg2Scan(const sensor_msgs::Image& image_msg,
+                         const sensor_msgs::CameraInfo& cinfo_msg) {
   cv_bridge::CvImageConstPtr cv_ptr;
   cv_ptr = cv_bridge::toCvCopy(image_msg, "32FC4");
 
@@ -64,7 +63,8 @@ class OdomNode {
 
   bool vis_{};
   int tbb_{};
-  bool init_{false};
+  bool imu_init_{false};
+  bool lidar_init_{false};
 
   LidarSweep sweep_;
   SweepGrid grid_;
@@ -74,6 +74,9 @@ class OdomNode {
   // Pose
   double t_;
   Sophus::SE3d T_p_s_;
+  Eigen::Vector3d g_;  // gravity in odom frame
+  boost::circular_buffer<ImuData> imu_buf_{32};
+  ImuBias imu_bias_;
 
   TimerManager tm_{"llol"};
   StatsManager sm_{"llol"};
@@ -86,7 +89,7 @@ class OdomNode {
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
 
-  void Initialize(const sensor_msgs::CameraInfo& cinfo_msg);
+  void InitLidar(const sensor_msgs::CameraInfo& cinfo_msg);
   void Preprocess(const LidarScan& scan);
   bool Register(const std_msgs::Header& header);
   void Postprocess();
@@ -117,7 +120,13 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 }
 
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
-  return;
+  // Just add to buffer
+  ImuData imu;
+  imu.t = imu_msg.header.stamp.toSec();
+  tf2::fromMsg(imu_msg.linear_acceleration, imu.acc);
+  tf2::fromMsg(imu_msg.angular_velocity, imu.gyr);
+  imu_buf_.push_back(imu);
+
   // tf stuff
   if (lidar_frame_.empty()) {
     ROS_WARN_STREAM_THROTTLE(1, "Lidar frame is not set, waiting");
@@ -141,9 +150,36 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
       return;
     }
   }
+
+  if (!imu_init_ && imu_buf_.full()) {
+    // Try to initialize imu
+    ROS_INFO_STREAM("Initializing imu");
+    ROS_INFO_STREAM("imu buffer: " << imu_buf_.size());
+
+    // Compute average acc and gyro using imu data uptil t
+    Eigen::Vector3d acc_sum{Eigen::Vector3d::Zero()};
+    Eigen::Vector3d gyr_sum{Eigen::Vector3d::Zero()};
+    int n = 0;
+    const auto tend = sweep_.t0 + sweep_.size().width * sweep_.dt;
+    for (const auto& imu : imu_buf_) {
+      acc_sum += imu.acc;
+      gyr_sum += imu.gyr;
+      ++n;
+    }
+
+    imu_bias_.gyr = gyr_sum / n;
+    g_ = acc_sum / n;
+    ROS_INFO_STREAM(
+        fmt::format("Imu initialized using {} data, g={}, |g|={}, gyr_bias={}",
+                    n,
+                    g_.transpose(),
+                    g_.norm(),
+                    imu_bias_.gyr.transpose()));
+    imu_init_ = true;
+  }
 }
 
-void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
+void OdomNode::InitLidar(const sensor_msgs::CameraInfo& cinfo_msg) {
   /// Init sweep
   sweep_ = LidarSweep{cv::Size(cinfo_msg.width, cinfo_msg.height)};
   ROS_INFO_STREAM(sweep_);
@@ -178,7 +214,7 @@ void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
   tf_o_p.transform.rotation.w = 1.0;
   tf_broadcaster_.sendTransform(tf_o_p);
 
-  init_ = true;
+  lidar_init_ = true;
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {
@@ -328,8 +364,13 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     ROS_INFO_STREAM("Lidar frame: " << lidar_frame_);
   }
 
-  if (!init_) {
-    Initialize(*cinfo_msg);
+  if (!imu_init_) {
+    ROS_WARN_STREAM("Waiting for imu to initialize");
+    return;
+  }
+
+  if (!lidar_init_) {
+    InitLidar(*cinfo_msg);
   }
 
   // Wait for the start of the sweep
@@ -345,7 +386,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     }
   }
 
-  const auto scan = Msg2Scan(*image_msg, *cinfo_msg);
+  const auto scan = CameraMsg2Scan(*image_msg, *cinfo_msg);
   Preprocess(scan);
 
   /// Do match when we have more than one sweep
@@ -380,6 +421,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     marker_header.frame_id = pano_frame_;
     marker_header.stamp = cinfo_msg->header.stamp;
     Grid2Markers(grid_, marker_header, marray_.markers);
+  } else {
   }
 
   /// Got a full sweep
