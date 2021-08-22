@@ -121,10 +121,14 @@ cc_library(
   NAME llol_imu
   SRCS "llol/imu.cpp"
   DEPS sv_base Sophus::Sophus Eigen3::Eigen)
-cc_test(
-  NAME llol_imu_test
+# cc_test(
+#   NAME llol_imu_test
+#   SRCS "llol/imu_test.cpp"
+#   DEPS sv_llol_imu benchmark::benchmark)
+cc_bench(
+  NAME llol_imu_bench
   SRCS "llol/imu_test.cpp"
-  DEPS sv_llol_imu benchmark::benchmark)
+  DEPS sv_llol_imu GTest::GTest)
 
 # node =========================================================================
 if(catkin_FOUND AND BUILD_NODE)
