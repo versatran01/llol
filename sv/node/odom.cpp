@@ -216,26 +216,11 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 }
 
 void OdomNode::IntegrateImu() {
-  const auto t_sweep_0 = sweep_.t0;
-  const auto t_sweep_1 = sweep_.t0 + sweep_.size().width * sweep_.dt;
+  const auto t_sweep_0 = sweep_.time;
+  const auto t_sweep_1 = sweep_.time + sweep_.size().width * sweep_.dt;
 
   // Find the segment of imu data that is within the sweep time span
-  cv::Range imu_range(-1, -1);
-  for (int i = 0; i < imu_buf_.size(); ++i) {
-    const auto& imu = imu_buf_[i];
-    // The first one after t0
-    if (imu_range.start < 0 && imu.time > t_sweep_0) {
-      imu_range.start = i;
-    }
-
-    // The first one before t1
-    if (imu_range.end < 0 && imu.time > t_sweep_1) {
-      imu_range.end = i;
-    }
-  }
-  // handle case when missing last imu
-  if (imu_range.end == -1) imu_range.end = imu_buf_.size();
-
+  const auto imu_range = GetImusFromBuffer(imu_buf_, t_sweep_0, t_sweep_1);
   ROS_INFO_STREAM(
       fmt::format("Imu range: [{}, {})", imu_range.start, imu_range.end));
   ROS_INFO_STREAM("Imu range size: " << imu_range.size());
@@ -255,7 +240,7 @@ void OdomNode::IntegrateImu() {
 
     // Initialize first state using the last of the previous nominal state
     preint_.push_back({});
-    preint_[0].t = sweep_.t0;
+    preint_[0].time = sweep_.time;
     preint_[0].rot = grid_.tf_p_s.back().so3().cast<double>();
 
     // For now only consider rotation, so pos and vel are integrated but
@@ -270,21 +255,21 @@ void OdomNode::IntegrateImu() {
       double dt = 0;
       if (i == 0) {
         const auto& imu_next = imu_buf_[j];
-        dt = imu_next.t - t_sweep_0;
+        dt = imu_next.time - t_sweep_0;
         omg = imu_next.gyr;
       } else if (i == imu_range.size()) {
         const auto& imu_prev = imu_buf_[j - 1];
-        dt = t_sweep_1 - imu_prev.t;
+        dt = t_sweep_1 - imu_prev.time;
         omg = imu_prev.gyr;
       } else {
         const auto& imu_prev = imu_buf_[j - 1];
         const auto& imu_next = imu_buf_[j];
-        dt = imu_next.t - imu_prev.t;
+        dt = imu_next.time - imu_prev.time;
         omg = (imu_prev.gyr + imu_next.gyr) / 2.0;
       }
 
       CHECK_GT(dt, 0);
-      preint_[i + 1].t = preint_[i].t + dt;
+      preint_[i + 1].time = preint_[i].time + dt;
       const auto dR = Sophus::SO3d::exp(dt * omg);
       preint_[i + 1].rot = preint_[i].rot * dR;
     }
@@ -302,19 +287,19 @@ void OdomNode::IntegrateImu() {
     int i = 0;
     for (int c = 0; c < grid_.size().width; ++c) {
       // Get time of the end of this cell
-      const auto t_cell_end = sweep_.t0 + dt_cell * (c + 1);
+      const auto t_cell_end = sweep_.time + dt_cell * (c + 1);
 
       // try to find which interval this time belongs to
-      if (t_cell_end > preint_[i + 1].t) ++i;
+      if (t_cell_end > preint_[i + 1].time) ++i;
       CHECK_LT(i, preint_.size());
 
       const auto& state0 = preint_[i];
       const auto& state1 = preint_[i + 1];
 
       // compute a scale factor for interpolation
-      CHECK_LE(state0.t, t_cell_end);
-      CHECK_LE(t_cell_end, state1.t);
-      const auto s = (t_cell_end - state0.t) / (state1.t - state0.t);
+      CHECK_LE(state0.time, t_cell_end);
+      CHECK_LE(t_cell_end, state1.time);
+      const auto s = (t_cell_end - state0.time) / (state1.time - state0.time);
       //        ROS_INFO_STREAM(fmt::format("c {} s {}, t {}, state0 {} ,
       //        state1 {}",
       //                                    c,
@@ -368,14 +353,14 @@ bool OdomNode::Register(const std_msgs::Header& header) {
     problem.AddParameterBlock(
         T_p_s_.data(), Sophus::SE3d::num_parameters, local_params.get());
 
-    for (const auto& match : grid_.matches) {
-      if (!match.Ok()) continue;
-      auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
-                                               IcpFactorBase::kNumResiduals,
-                                               IcpFactorBase::kNumParams>(
-          new GicpFactor2(match));
-      problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
-    }
+    //    for (const auto& match : grid_.matches) {
+    //      if (!match.Ok()) continue;
+    //      auto cost = new cs::AutoDiffCostFunction<GicpFactor2,
+    //                                               IcpFactorBase::kNumResiduals,
+    //                                               IcpFactorBase::kNumParams>(
+    //          new GicpFactor2(match));
+    //      problem.AddResidualBlock(cost, nullptr, T_p_s_.data());
+    //    }
 
     auto* cost = new cs::AutoDiffCostFunction<GicpFactor3,
                                               cs::DYNAMIC,
@@ -386,7 +371,7 @@ bool OdomNode::Register(const std_msgs::Header& header) {
   }
 
   cs::Solver::Options solver_opt;
-  solver_opt.linear_solver_type = ceres::DENSE_NORMAL_CHOLESKY;
+  solver_opt.linear_solver_type = ceres::DENSE_QR;
   solver_opt.max_num_iterations = 10;
   solver_opt.minimizer_progress_to_stdout = false;
   {

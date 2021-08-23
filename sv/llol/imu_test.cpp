@@ -17,21 +17,33 @@ TEST(ImuTest, TestExtractImus) {
   }
 
   {
-    const auto rg = ExtractImus(buffer, {0, 4});
-    EXPECT_EQ(rg.first, 1);
-    EXPECT_EQ(rg.second, 5);
+    const auto rg = GetImusFromBuffer(buffer, 15, 10);
+    EXPECT_EQ(rg.start, -1);
+    EXPECT_EQ(rg.end, -1);
   }
 
   {
-    const auto rg = ExtractImus(buffer, {0.5, 3.5});
-    EXPECT_EQ(rg.first, 1);
-    EXPECT_EQ(rg.second, 4);
+    const auto rg = GetImusFromBuffer(buffer, 10, 15);
+    EXPECT_EQ(rg.start, -1);
+    EXPECT_EQ(rg.end, -1);
   }
 
   {
-    const auto rg = ExtractImus(buffer, {0.5, 10});
-    EXPECT_EQ(rg.first, 1);
-    EXPECT_EQ(rg.second, 5);
+    const auto rg = GetImusFromBuffer(buffer, 0, 4);
+    EXPECT_EQ(rg.start, 1);
+    EXPECT_EQ(rg.end, 5);
+  }
+
+  {
+    const auto rg = GetImusFromBuffer(buffer, 0.5, 3.5);
+    EXPECT_EQ(rg.start, 1);
+    EXPECT_EQ(rg.end, 4);
+  }
+
+  {
+    const auto rg = GetImusFromBuffer(buffer, 0.5, 10);
+    EXPECT_EQ(rg.start, 1);
+    EXPECT_EQ(rg.end, 5);
   }
 }
 

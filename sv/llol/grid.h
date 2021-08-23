@@ -35,7 +35,7 @@ struct NormalMatch {
 struct GridParams {
   int cell_rows{2};
   int cell_cols{16};
-  float max_score{0.01};  // score > max_score will be discarded
+  float max_score{0.01F};  // score > max_score will be discarded
   bool nms{true};         // non-minimum suppression in Filter()
 };
 

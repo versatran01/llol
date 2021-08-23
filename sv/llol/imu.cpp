@@ -22,7 +22,7 @@ NavState IntegrateEuler(const NavState& s0,
   CHECK_GT(dt, 0);
   NavState s1 = s0;
   // t
-  s1.t = s0.t + dt;
+  s1.time = s0.time + dt;
 
   // gyr
   s1.rot = IntegrateRot(s0.rot, imu.gyr, dt);
@@ -45,7 +45,7 @@ NavState IntegrateMidpoint(const NavState& s0,
   CHECK_GT(dt, 0);
 
   // t
-  s1.t = s0.t + dt;
+  s1.time = s0.time + dt;
 
   // gyro
   const auto omg_b = (imu0.gyr + imu1.gyr) * 0.5;
@@ -61,26 +61,31 @@ NavState IntegrateMidpoint(const NavState& s0,
   return s1;
 }
 
-std::pair<int, int> ExtractImus(const ImuBuffer& buffer,
-                                const std::pair<double, double>& time_span) {
-  std::pair range{-1, -1};
+cv::Range GetImusFromBuffer(const ImuBuffer& buffer, double t0, double t1) {
+  cv::Range range{-1, -1};
+
+  if (t0 >= t1) {
+    LOG(WARNING) << fmt::format("Time span is empty ({},{})", t0, t1);
+    return range;
+  }
+
   for (int i = 0; i < buffer.size(); ++i) {
     const auto& imu = buffer[i];
     // The first one after t0
-    if (range.first < 0 && imu.time > time_span.first) {
-      range.first = i;
+    if (range.start < 0 && imu.time > t0) {
+      range.start = i;
     }
 
     // The first one before t1
-    if (range.second < 0 && imu.time > time_span.second) {
-      range.second = i;
+    if (range.end < 0 && imu.time > t1) {
+      range.end = i;
     }
   }
 
   // If for some reason we don't have any imu that is later than the second time
   // just use thet last one
-  if (range.second == -1) {
-    range.second = buffer.size();
+  if (range.start >= 0 && range.end == -1) {
+    range.end = buffer.size();
   }
 
   return range;

@@ -23,18 +23,18 @@ struct DepthPixel {
 static_assert(sizeof(DepthPixel) == 4, "Size of DepthPixel is not 4");
 
 struct PanoParams {
-  float hfov{0.0};
+  float hfov{0.0F};
   int max_cnt{10};
-  float range_ratio{0.1};
-  float min_range{0.5};
+  float range_ratio{0.1F};
+  float min_range{0.5F};
 };
 
 /// @class Depth Panorama
 struct DepthPano {
   /// Params
   int max_cnt{10};
-  float range_ratio{0.1};
-  float min_range{0.5};
+  float range_ratio{0.1F};
+  float min_range{0.5F};
   // TODO (chao): also add a min range?
 
   /// Data

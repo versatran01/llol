@@ -12,7 +12,7 @@ LidarScan::LidarScan(double t0,
                      double dt,
                      const cv::Mat& xyzr,
                      const cv::Range& col_range)
-    : t0{t0}, dt{dt}, xyzr{xyzr}, col_rg{col_range} {
+    : time{t0}, dt{dt}, xyzr{xyzr}, col_rg{col_range} {
   CHECK_GE(t0, 0);
   CHECK_GT(dt, 0);
   CHECK_EQ(xyzr.type(), kDtype);
@@ -28,7 +28,7 @@ int LidarSweep::Add(const LidarScan& scan) {
   // incoming scan being 0)
   if (scan.col_rg.start == 0) {
     ++id;
-    t0 = scan.t0;  // update time
+    time = scan.time;  // update time
   }
 
   // Save range and copy to storage
@@ -52,7 +52,7 @@ void LidarSweep::Check(const LidarScan& scan) const {
   CHECK_EQ(dt, scan.dt);
   CHECK_GT(dt, 0);
   // Check time does not go back
-  CHECK_GE(scan.t0, t0);
+  CHECK_GE(scan.time, time);
 }
 
 LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
@@ -62,7 +62,7 @@ LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
 std::string LidarSweep::Repr() const {
   return fmt::format("LidarSweep(id={}, t0={}, dt={}, xyzr={}, col_range={})",
                      id,
-                     t0,
+                     time,
                      dt,
                      sv::Repr(xyzr),
                      sv::Repr(col_rg));

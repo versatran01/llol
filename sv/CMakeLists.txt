@@ -120,7 +120,7 @@ cc_library(
 cc_library(
   NAME llol_imu
   SRCS "llol/imu.cpp"
-  DEPS sv_base sv_log Sophus::Sophus Eigen3::Eigen)
+  DEPS sv_base sv_log sv_util_ocv Sophus::Sophus Eigen3::Eigen)
 cc_test(
   NAME llol_imu_test
   SRCS "llol/imu_test.cpp"

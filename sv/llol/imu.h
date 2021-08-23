@@ -2,12 +2,13 @@
 
 #include <Eigen/Geometry>
 #include <boost/circular_buffer.hpp>
+#include <opencv2/core/types.hpp>
 #include <sophus/se3.hpp>
 
 namespace sv {
 
 struct NavState {
-  double t{};
+  double time{};
   Sophus::SO3d rot{};
   Eigen::Vector3d pos{Eigen::Vector3d::Zero()};
   Eigen::Vector3d vel{Eigen::Vector3d::Zero()};
@@ -56,7 +57,6 @@ NavState IntegrateMidpoint(const NavState& s0,
 using ImuBuffer = boost::circular_buffer<ImuData>;
 
 /// @brief Extract a range of imus that spans the given time
-std::pair<int, int> ExtractImus(const ImuBuffer& buffer,
-                                const std::pair<double, double>& time_span);
+cv::Range GetImusFromBuffer(const ImuBuffer& buffer, double t0, double t1);
 
 }  // namespace sv

@@ -42,13 +42,13 @@ struct GicpFactor final : public IcpFactorBase {
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
     Eigen::Map<const Sophus::SE3<T>> T_p_s(_T_p_s);
     Eigen::Map<Vector3<T>> r(_r);
-    r = U * (pt_p - T_p_s * pt_s);
+    r = U_ * (pt_p_ - T_p_s * pt_s_);
     return true;
   }
 
-  Eigen::Vector3d pt_s;
-  Eigen::Vector3d pt_p;
-  Eigen::Matrix3d U;
+  Eigen::Vector3d pt_s_;
+  Eigen::Vector3d pt_p_;
+  Eigen::Matrix3d U_;
 };
 
 struct GicpFactor2 final : public IcpFactorBase {
@@ -123,22 +123,22 @@ struct GicpFactor3 final : public IcpFactorBase {
 
   const SweepGrid* pgrid;
   std::vector<NormalMatch> matches;
-  int size{};
-  int gsize{};
+  int size_{};
+  int gsize_{};
 };
 
 struct TinyGicpFactor final : public IcpFactorBase {
   TinyGicpFactor(const SweepGrid& grid, int size, const Sophus::SE3d& T0);
 
-  int NumResiduals() const { return size * kNumResiduals; }
+  int NumResiduals() const { return size_ * kNumResiduals; }
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
     Eigen::Map<const Eigen::Matrix<T, 6, 1>> x(_x);
 
     Sophus::SE3<T> T_p_s;
-    T_p_s.so3() = T0.so3() * Sophus::SO3<T>::exp(x.template head<3>());
-    T_p_s.translation() = T0.translation() + x.template tail<3>();
+    T_p_s.so3() = T0_.so3() * Sophus::SO3<T>::exp(x.template head<3>());
+    T_p_s.translation() = T0_.translation() + x.template tail<3>();
 
     for (int i = 0; i < matches.size(); ++i) {
       const auto& match = matches[i];
@@ -153,8 +153,8 @@ struct TinyGicpFactor final : public IcpFactorBase {
     return true;
   }
 
-  int size{};
-  Sophus::SE3d T0;
+  int size_{};
+  Sophus::SE3d T0_;
   std::vector<NormalMatch> matches;
 };
 
