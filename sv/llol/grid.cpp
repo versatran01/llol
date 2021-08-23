@@ -63,7 +63,7 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
   CHECK_GT(max_score, 0);
   CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
   CHECK_EQ(cell_size.height * score.rows, sweep_size.height);
-  tf_p_s.resize(score.cols);
+  tf_p_s.resize(score.cols + 1);  // one more to cover both ends
   matches.resize(total());
 }
 

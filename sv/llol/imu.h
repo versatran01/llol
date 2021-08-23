@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Eigen/Geometry>
+#include <boost/circular_buffer.hpp>
 #include <sophus/se3.hpp>
 
 namespace sv {
@@ -19,7 +20,7 @@ struct ImuBias {
 
 /// @brief Time-stamped Imu data
 struct ImuData {
-  double t{};
+  double time{};
   Eigen::Vector3d acc{Eigen::Vector3d::Zero()};
   Eigen::Vector3d gyr{Eigen::Vector3d::Zero()};
 
@@ -50,7 +51,12 @@ NavState IntegrateEuler(const NavState& s0,
 NavState IntegrateMidpoint(const NavState& s0,
                            const ImuData& imu0,
                            const ImuData& imu1,
-                           const Eigen::Vector3d& g_w,
-                           double s = 0.5);
+                           const Eigen::Vector3d& g_w);
+
+using ImuBuffer = boost::circular_buffer<ImuData>;
+
+/// @brief Extract a range of imus that spans the given time
+std::pair<int, int> ExtractImus(const ImuBuffer& buffer,
+                                const std::pair<double, double>& time_span);
 
 }  // namespace sv

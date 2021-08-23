@@ -8,6 +8,33 @@
 namespace sv {
 namespace {
 
+TEST(ImuTest, TestExtractImus) {
+  ImuBuffer buffer(10);
+  for (int i = 0; i < 5; ++i) {
+    ImuData d;
+    d.time = i;
+    buffer.push_back(d);
+  }
+
+  {
+    const auto rg = ExtractImus(buffer, {0, 4});
+    EXPECT_EQ(rg.first, 1);
+    EXPECT_EQ(rg.second, 5);
+  }
+
+  {
+    const auto rg = ExtractImus(buffer, {0.5, 3.5});
+    EXPECT_EQ(rg.first, 1);
+    EXPECT_EQ(rg.second, 4);
+  }
+
+  {
+    const auto rg = ExtractImus(buffer, {0.5, 10});
+    EXPECT_EQ(rg.first, 1);
+    EXPECT_EQ(rg.second, 5);
+  }
+}
+
 void BM_IntegrateRot(benchmark::State& state) {
   const auto size = state.range(0);
   std::vector<Sophus::SO3d> Rs(size + 1);

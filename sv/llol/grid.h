@@ -49,7 +49,7 @@ struct SweepGrid {
   /// Data
   cv::Mat score;                     // smoothness score, smaller is smoother
   cv::Range col_rg{};                // working range in this grid
-  std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano
+  std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano (nominal)
   std::vector<NormalMatch> matches;
 
   SweepGrid() = default;

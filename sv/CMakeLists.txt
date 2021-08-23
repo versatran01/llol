@@ -115,16 +115,16 @@ cc_bench(
 cc_library(
   NAME llol_factor
   SRCS "llol/factor.cpp"
-  DEPS sv_llol_match sv_tbb Sophus::Sophus)
+  DEPS sv_llol_match sv_tbb Sophus::Sophus Ceres::ceres)
 
 cc_library(
   NAME llol_imu
   SRCS "llol/imu.cpp"
-  DEPS sv_base Sophus::Sophus Eigen3::Eigen)
-# cc_test(
-#   NAME llol_imu_test
-#   SRCS "llol/imu_test.cpp"
-#   DEPS sv_llol_imu benchmark::benchmark)
+  DEPS sv_base sv_log Sophus::Sophus Eigen3::Eigen)
+cc_test(
+  NAME llol_imu_test
+  SRCS "llol/imu_test.cpp"
+  DEPS sv_llol_imu benchmark::benchmark)
 cc_bench(
   NAME llol_imu_bench
   SRCS "llol/imu_test.cpp"
@@ -151,7 +151,12 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_binary(
     NAME node_odom
     SRCS "node/odom.cpp"
-    DEPS sv_llol_match sv_llol_factor sv_node_viz sv_node_conv sv_util_manager
+    DEPS sv_llol_imu
+         sv_llol_match
+         sv_llol_factor
+         sv_node_viz
+         sv_node_conv
+         sv_util_manager
          Ceres::ceres)
 endif()
 

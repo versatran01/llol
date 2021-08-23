@@ -11,13 +11,15 @@ static const double kEps = Sophus::Constants<double>::epsilon();
 Sophus::SO3d IntegrateRot(const Sophus::SO3d& R0,
                           const Vector3d& omg,
                           double dt) {
-  return R0 * Sophus::SO3d::exp(omg * dt);
+  CHECK_GT(dt, 0);
+  return R0 * Sophus::SO3d::exp(dt * omg);
 }
 
 NavState IntegrateEuler(const NavState& s0,
                         const ImuData& imu,
                         const Vector3d& g_w,
                         double dt) {
+  CHECK_GT(dt, 0);
   NavState s1 = s0;
   // t
   s1.t = s0.t + dt;
@@ -37,25 +39,51 @@ NavState IntegrateEuler(const NavState& s0,
 NavState IntegrateMidpoint(const NavState& s0,
                            const ImuData& imu0,
                            const ImuData& imu1,
-                           const Vector3d& g_w,
-                           double s) {
+                           const Vector3d& g_w) {
   NavState s1 = s0;
-  const auto dt = imu1.t - imu0.t;
+  const auto dt = imu1.time - imu0.time;
+  CHECK_GT(dt, 0);
+
   // t
   s1.t = s0.t + dt;
 
   // gyro
-  const auto omg_b = s * imu0.gyr + (1 - s) * imu1.gyr;
+  const auto omg_b = (imu0.gyr + imu1.gyr) * 0.5;
   s1.rot = IntegrateRot(s0.rot, omg_b, dt);
 
   // acc
   const Vector3d a0 = s0.rot * imu0.acc;
   const Vector3d a1 = s1.rot * imu1.acc;
-  const Vector3d a = s * a0 + (1 - s) * a1 + g_w;
+  const Vector3d a = (a0 + a1) * 0.5 + g_w;
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt * dt;
 
   return s1;
+}
+
+std::pair<int, int> ExtractImus(const ImuBuffer& buffer,
+                                const std::pair<double, double>& time_span) {
+  std::pair range{-1, -1};
+  for (int i = 0; i < buffer.size(); ++i) {
+    const auto& imu = buffer[i];
+    // The first one after t0
+    if (range.first < 0 && imu.time > time_span.first) {
+      range.first = i;
+    }
+
+    // The first one before t1
+    if (range.second < 0 && imu.time > time_span.second) {
+      range.second = i;
+    }
+  }
+
+  // If for some reason we don't have any imu that is later than the second time
+  // just use thet last one
+  if (range.second == -1) {
+    range.second = buffer.size();
+  }
+
+  return range;
 }
 
 }  // namespace sv
