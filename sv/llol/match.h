@@ -20,7 +20,7 @@ struct ProjMatcher {
   int min_pts;             // min pts in pano win for a valid match
 
   /// @brief Ctors
-  ProjMatcher(const MatcherParams& params = {});
+  explicit ProjMatcher(const MatcherParams& params = {});
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const ProjMatcher& rhs) {

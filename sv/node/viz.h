@@ -25,7 +25,7 @@ cv::Mat ApplyCmap(const cv::Mat& input,
 /// @brief Create a window with name and show mat
 void Imshow(const std::string& name,
             const cv::Mat& mat,
-            int flag = cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
+            int flag = cv::WINDOW_NORMAL | cv::WINDOW_FREERATIO);
 
 void MeanCovar2Marker(visualization_msgs::Marker& marker,
                       const Eigen::Vector3d& mean,

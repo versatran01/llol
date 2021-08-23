@@ -36,7 +36,7 @@ struct GridParams {
   int cell_rows{2};
   int cell_cols{16};
   float max_score{0.01F};  // score > max_score will be discarded
-  bool nms{true};         // non-minimum suppression in Filter()
+  bool nms{true};          // non-minimum suppression in Filter()
 };
 
 /// @struct Sweep Grid summarizes sweep into reduced-sized grid
@@ -51,6 +51,10 @@ struct SweepGrid {
   cv::Range col_rg{};                // working range in this grid
   std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano (nominal)
   std::vector<NormalMatch> matches;
+
+  /// Disp
+  cv::Mat mask_filter;
+  cv::Mat mask_match;
 
   SweepGrid() = default;
   explicit SweepGrid(const cv::Size& sweep_size, const GridParams& params = {});
@@ -101,6 +105,10 @@ struct SweepGrid {
   int width() const noexcept { return col_rg.end; }
   bool full() const noexcept { return width() == score.cols; }
   cv::Size size() const noexcept { return {score.cols, score.rows}; }
+
+  /// @brief Draw
+  const cv::Mat& FilterMask();
+  const cv::Mat& MatchMask();
 };
 
 /// @brief Draw match, valid pixel is percentage of pano points in window

@@ -25,8 +25,8 @@ static_assert(sizeof(DepthPixel) == 4, "Size of DepthPixel is not 4");
 struct PanoParams {
   float hfov{0.0F};
   int max_cnt{10};
-  float range_ratio{0.1F};
   float min_range{0.5F};
+  float range_ratio{0.1F};
 };
 
 /// @class Depth Panorama

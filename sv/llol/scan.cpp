@@ -3,6 +3,8 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 
+#include <opencv2/core/core.hpp>
+
 #include "sv/util/ocv.h"
 
 namespace sv {
@@ -34,6 +36,7 @@ int LidarSweep::Add(const LidarScan& scan) {
   // Save range and copy to storage
   col_rg = scan.col_rg;
   scan.xyzr.copyTo(xyzr.colRange(col_rg));  // x,y,w,h
+  // TODO (chao): return number of valid points?
   return scan.xyzr.total();
 }
 
@@ -51,11 +54,15 @@ void LidarSweep::Check(const LidarScan& scan) const {
   // Check dt is consistent, assume it stays the same
   CHECK_EQ(dt, scan.dt);
   CHECK_GT(dt, 0);
-  // Check time does not go back
-  CHECK_GE(scan.time, time);
 }
 
-LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
+const cv::Mat& LidarSweep::ExtractRange() {
+  cv::extractChannel(xyzr, disp, 3);
+  return disp;
+}
+
+LidarSweep::LidarSweep(const cv::Size& size)
+    : LidarScan{size}, disp{size, CV_32FC1} {
   tf_p_s.resize(size.width);
 }
 

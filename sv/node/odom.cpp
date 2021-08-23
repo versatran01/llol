@@ -18,12 +18,9 @@
 #include <sophus/interpolate.hpp>
 
 #include "sv/llol/factor.h"
-#include "sv/llol/grid.h"
 #include "sv/llol/imu.h"
-#include "sv/llol/match.h"
-#include "sv/llol/pano.h"
-#include "sv/llol/scan.h"
 #include "sv/node/conv.h"
+#include "sv/node/factory.h"
 #include "sv/node/viz.h"
 #include "sv/util/manager.h"
 
@@ -32,18 +29,6 @@ namespace sv {
 namespace cs = ceres;
 using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
-
-LidarScan CameraMsg2Scan(const sensor_msgs::Image& image_msg,
-                         const sensor_msgs::CameraInfo& cinfo_msg) {
-  cv_bridge::CvImageConstPtr cv_ptr;
-  cv_ptr = cv_bridge::toCvCopy(image_msg, "32FC4");
-
-  return {image_msg.header.stamp.toSec(),    // t
-          cinfo_msg.K[0],                    // dt
-          cv_ptr->image,                     // xyzr
-          cv::Range(cinfo_msg.roi.x_offset,  // col_rg
-                    cinfo_msg.roi.x_offset + cinfo_msg.roi.width)};
-}
 
 class OdomNode {
  private:
@@ -111,14 +96,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
-  auto pano_nh = ros::NodeHandle{pnh_, "pano"};
-  PanoParams pp;
-  const auto pano_rows = pano_nh.param<int>("rows", 256);
-  const auto pano_cols = pano_nh.param<int>("cols", 1024);
-  pp.hfov = Deg2Rad(pano_nh.param<double>("hfov", 0.0));
-  pp.max_cnt = pano_nh.param<int>("max_cnt", 10);
-  pp.range_ratio = pano_nh.param<double>("range_ratio", 0.1);
-  pano_ = DepthPano({pano_cols, pano_rows}, pp);
+  pano_ = MakePano({pnh_, "pano"});
   ROS_INFO_STREAM(pano_);
 }
 
@@ -156,26 +134,13 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 }
 
 void OdomNode::InitLidar(const sensor_msgs::CameraInfo& cinfo_msg) {
-  /// Init sweep
-  sweep_ = LidarSweep{cv::Size(cinfo_msg.width, cinfo_msg.height)};
+  sweep_ = MakeSweep(cinfo_msg);
   ROS_INFO_STREAM(sweep_);
 
-  /// Init grid
-  auto gnh = ros::NodeHandle{pnh_, "grid"};
-  GridParams gp;
-  gp.cell_rows = gnh.param<int>("cell_rows", 2);
-  gp.cell_cols = gnh.param<int>("cell_cols", 16);
-  gp.max_score = gnh.param<double>("max_score", 0.05);
-  gp.nms = gnh.param<bool>("nms", false);
-  grid_ = SweepGrid(sweep_.size(), gp);
+  grid_ = MakeGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
-  /// Init matcher
-  auto mnh = ros::NodeHandle{pnh_, "match"};
-  MatcherParams mp;
-  mp.half_rows = mnh.param<int>("half_rows", 2);
-  mp.cov_lambda = mnh.param<double>("cov_lambda", 1e-6);
-  matcher_ = ProjMatcher(mp);
+  matcher_ = MakeMatcher({pnh_, "match"});
   ROS_INFO_STREAM(matcher_);
 
   /// Init tf (for now assume pano does not move)
@@ -195,21 +160,31 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Sweep.Add");
     npoints = sweep_.Add(scan);
   }
-  ROS_INFO_STREAM("Num scan points: " << npoints);
 
   std::pair<int, int> ncells;
   {  /// Reduce scan to grid and Filter
     auto _ = tm_.Scoped("Grid.Add");
     ncells = grid_.Add(scan, tbb_);
   }
-  ROS_INFO_STREAM("Num cells: " << ncells.first);
-  ROS_INFO_STREAM("Num cells after reduce: " << ncells.second);
+
+  ROS_INFO_STREAM(fmt::format(
+      "Scan points: {}, valid cells: {} / {} / {:02.2f}%, filtered cells: "
+      "{} / {} / {:02.2f}%",
+      npoints,
+      ncells.first,
+      grid_.total(),
+      100.0 * ncells.first / grid_.total(),
+      ncells.second,
+      grid_.total(),
+      100.0 * ncells.second / grid_.total()));
 
   if (vis_) {
-    cv::Mat sweep_disp;
-    cv::extractChannel(sweep_.xyzr, sweep_disp, 3);
-    Imshow("sweep", ApplyCmap(sweep_disp, 1 / 32.0, cv::COLORMAP_PINK, 0));
-    Imshow("score", ApplyCmap(grid_.score, 5, cv::COLORMAP_VIRIDIS, 255));
+    Imshow("sweep",
+           ApplyCmap(sweep_.ExtractRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
+    Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
+    Imshow("filter",
+           ApplyCmap(
+               grid_.FilterMask(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
   }
 
   IntegrateImu();
@@ -448,20 +423,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     InitLidar(*cinfo_msg);
   }
 
-  // Wait for the start of the sweep
-  //  static bool wait_for_scan0{true};
-  //  if (wait_for_scan0) {
-  //    if (cinfo_msg->binning_x == 0) {
-  //      ROS_INFO_STREAM("+++ Start of sweep");
-  //      wait_for_scan0 = false;
-  //    } else {
-  //      ROS_WARN_STREAM("Waiting for the first scan, current "
-  //                      << cinfo_msg->binning_x);
-  //      return;
-  //    }
-  //  }
-
-  const auto scan = CameraMsg2Scan(*image_msg, *cinfo_msg);
+  const auto scan = MakeScan(*image_msg, *cinfo_msg);
   Preprocess(scan);
 
   if (!imu_init_) {

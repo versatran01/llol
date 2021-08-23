@@ -38,11 +38,12 @@ struct LidarScan {
   cv::Size size() const noexcept { return {xyzr.cols, xyzr.rows}; }
 };
 
-/// @struct Lidar Sweep is a Lidar Scan that covers 360 degree horizontal fov
+/// @struct Lidar Sweep is a Lidar Scan that covers 360 degree hfov
 struct LidarSweep final : public LidarScan {
   /// Data
   int id{-1};                        // sweep id
   std::vector<Sophus::SE3f> tf_p_s;  // transforms of each columns to some frame
+  cv::Mat disp;                      // range image disp, viz only
 
   LidarSweep() = default;
   explicit LidarSweep(const cv::Size& size);
@@ -60,6 +61,9 @@ struct LidarSweep final : public LidarScan {
   /// @brief Info
   int width() const noexcept { return col_rg.end; }
   bool full() const noexcept { return width() == xyzr.cols; }
+
+  /// @brief Draw
+  const cv::Mat& ExtractRange();
 };
 
 cv::Mat MakeTestXyzr(const cv::Size& size);

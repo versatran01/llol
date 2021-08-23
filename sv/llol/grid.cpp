@@ -59,7 +59,9 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
     : cell_size{params.cell_cols, params.cell_rows},
       max_score{params.max_score},
       nms{params.nms},
-      score{sweep_size / cell_size, CV_32FC1, kNaNF} {
+      score{sweep_size / cell_size, CV_32FC1, kNaNF},
+      mask_filter{sweep_size / cell_size, CV_32FC1, kNaNF},
+      mask_match{sweep_size / cell_size, CV_32FC1, kNaNF} {
   CHECK_GT(max_score, 0);
   CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
   CHECK_EQ(cell_size.height * score.rows, sweep_size.height);
@@ -216,6 +218,28 @@ cv::Point SweepGrid::Grid2Sweep(const cv::Point& px_grid) const {
 
 int SweepGrid::Grid2Ind(const cv::Point& px_grid) const {
   return px_grid.y * score.cols + px_grid.x;
+}
+
+const cv::Mat& SweepGrid::FilterMask() {
+  for (int r = 0; r < score.rows; ++r) {
+    for (int c = 0; c < score.cols; ++c) {
+      const cv::Point px_g{c, r};
+      const auto& match = MatchAt(px_g);
+      mask_filter.at<float>(px_g) = match.SweepOk() ? ScoreAt(px_g) : kNaNF;
+    }
+  }
+  return mask_filter;
+}
+
+const cv::Mat& SweepGrid::MatchMask() {
+  for (int r = 0; r < score.rows; ++r) {
+    for (int c = 0; c < score.cols; ++c) {
+      const cv::Point px_g{c, r};
+      const auto& match = MatchAt(px_g);
+      mask_match.at<float>(px_g) = match.Ok() ? match.mc_p.n : kNaNF;
+    }
+  }
+  return mask_match;
 }
 
 cv::Mat DrawMatches(const SweepGrid& grid) {
