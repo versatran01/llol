@@ -39,11 +39,14 @@ TimerManager::ManualTimer::ManualTimer(std::string name, TimerManager* manager)
   Start();
 }
 
-void TimerManager::ManualTimer::Stop() {
-  if (timer_.IsStopped()) return;
+void TimerManager::ManualTimer::Stop(bool record) {
   timer_.Stop();
-  stats_.Add(absl::Nanoseconds(timer_.Elapsed()));
+  if (record) {
+    stats_.Add(absl::Nanoseconds(timer_.Elapsed()));
+  }
 }
+
+void TimerManager::ManualTimer::Resume() { timer_.Resume(); }
 
 void TimerManager::ManualTimer::Commit() {
   if (timer_.IsRunning()) Stop();

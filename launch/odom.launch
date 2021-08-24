@@ -5,7 +5,7 @@
     <arg name="tbb" default="0"/>
     <arg name="vis" default="true"/>
 
-    <node pkg="llol" type="sv_node_odom" name="llol_node" output="screen" ns="os_node">
+    <node pkg="llol" type="sv_node_odom" name="llol_odom" output="screen" ns="os_node">
         <remap from="~imu" to="imu"/>
         <remap from="~image" to="image"/>
         <remap from="~camera_info" to="camera_info"/>

@@ -154,7 +154,10 @@ class TimerManager final : public StatsManagerBase<absl::Duration> {
     void Start() { timer_.Start(); }
 
     /// Stop and record the elapsed time after Start()
-    void Stop();
+    void Stop(bool record = true);
+
+    /// Resume stopped timer
+    void Resume();
 
     /// Commit changes to manager, potentially expensive since it needs to
     /// acquire a lock

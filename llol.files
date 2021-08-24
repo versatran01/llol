@@ -44,10 +44,8 @@ sv/node.cpp
 sv/node/conv.cpp
 sv/node/conv.h
 sv/node/cov_viz.cpp
-sv/node/factory.cpp
-sv/node/factory.h
-sv/node/frontend.cpp
 sv/node/odom.cpp
+sv/node/odom_old.cpp
 sv/node/viz.cpp
 sv/node/viz.h
 sv/sim/doctest.h

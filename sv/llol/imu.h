@@ -56,6 +56,10 @@ NavState IntegrateMidpoint(const NavState& s0,
 
 using ImuBuffer = boost::circular_buffer<ImuData>;
 
+struct ImuIntegrator {
+  ImuBuffer buf{32};
+};
+
 /// @brief Extract a range of imus that spans the given time
 cv::Range GetImusFromBuffer(const ImuBuffer& buffer, double t0, double t1);
 

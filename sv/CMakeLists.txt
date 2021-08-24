@@ -145,33 +145,21 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_library(
     NAME node_conv
     SRCS "node/conv.cpp"
-    DEPS sv_base sv_ros1)
+    DEPS sv_base sv_ros1 sv_llol_scan sv_llol_grid sv_llol_match)
 
   cc_library(
     NAME node_viz
     SRCS "node/viz.cpp"
     DEPS sv_llol_grid sv_llol_pano sv_ros1)
 
-  cc_library(
-    NAME node_factory
-    SRCS "node/factory.cpp"
-    DEPS sv_ros1 sv_llol_scan sv_llol_grid sv_llol_match)
-
-  cc_binary(
-    NAME node_front
-    SRCS "node/frontend.cpp"
-    DEPS sv_node_factory sv_node_viz sv_llol_imu sv_util_manager)
-
   cc_binary(
     NAME node_odom
     SRCS "node/odom.cpp"
-    DEPS sv_llol_imu
-         sv_llol_factor
-         sv_node_factory
-         sv_node_viz
-         sv_node_conv
-         sv_util_manager
-         Ceres::ceres)
+    DEPS sv_node_conv sv_node_viz sv_llol_imu sv_util_manager)
+
+  # cc_binary( NAME node_odom SRCS "node/odom.cpp" DEPS sv_llol_imu
+  # sv_llol_factor sv_node_factory sv_node_viz sv_node_conv sv_util_manager
+  # Ceres::ceres)
 endif()
 
 # temp =========================================================================
