@@ -25,7 +25,7 @@ bool LocalParamSE3::ComputeJacobian(const double* _T, double* _J) const {
   return true;
 }
 
-GicpFactor::GicpFactor(const NormalMatch& match) {
+GicpFactor::GicpFactor(const IcpMatch& match) {
   pt_s_ = match.mc_s.mean.cast<double>();
   pt_p_ = match.mc_p.mean.cast<double>();
   U_ = match.U.cast<double>();

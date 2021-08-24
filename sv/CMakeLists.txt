@@ -49,6 +49,10 @@ cc_library(
   NAME util_ocv
   SRCS "util/ocv.cpp"
   DEPS sv_base sv_log opencv_core opencv_imgproc opencv_highgui)
+cc_test(
+  NAME util_ocv_test
+  SRCS "util/ocv_test.cpp"
+  DEPS sv_util_ocv)
 
 # llol =========================================================================
 cc_library(
@@ -156,7 +160,7 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_binary(
     NAME node_front
     SRCS "node/frontend.cpp"
-    DEPS sv_node_factory sv_node_viz sv_util_manager)
+    DEPS sv_node_factory sv_node_viz sv_llol_imu sv_util_manager)
 
   cc_binary(
     NAME node_odom

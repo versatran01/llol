@@ -10,7 +10,7 @@
 namespace sv {
 
 bool PointInSize(const cv::Point& p, const cv::Size& size) {
-  return std::abs(p.x) <= size.width && std::abs(p.y) << size.height;
+  return std::abs(p.x) <= size.width && std::abs(p.y) <= size.height;
 }
 
 /// @brief Compute mean covar of win in pano

@@ -31,7 +31,7 @@ TEST(LidarTest, TestInside) {
 TEST(LidarTest, TestToRowToCol) {
   const LidarModel lm{{32, 2}};
 
-  EXPECT_EQ(lm.ToRow(0.0001, 1), 0);
+  EXPECT_EQ(lm.ToRow(0.0001F, 1), 0);
   EXPECT_EQ(lm.ToRow(0, 1), 1);
 }
 

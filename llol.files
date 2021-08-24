@@ -38,8 +38,6 @@ sv/llol/pano_test.cpp
 sv/llol/scan.cpp
 sv/llol/scan.h
 sv/llol/scan_test.cpp
-sv/llol/traj.cpp
-sv/llol/traj.h
 sv/llol/viz.cpp
 sv/llol/viz.h
 sv/node.cpp
@@ -87,5 +85,6 @@ sv/util/math.h
 sv/util/math_test_bench.cpp
 sv/util/ocv.cpp
 sv/util/ocv.h
+sv/util/ocv_test.cpp
 sv/util/stats.h
 sv/util/timer.h

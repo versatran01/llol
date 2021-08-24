@@ -6,10 +6,11 @@
 namespace sv {
 
 std::string CvTypeStr(int type) {
+  cv::Mat a;
   std::string r;
 
-  uchar depth = type & CV_MAT_DEPTH_MASK;
-  uchar chans = 1 + (type >> CV_CN_SHIFT);
+  const uchar depth = type & CV_MAT_DEPTH_MASK;
+  const uchar chans = static_cast<uchar>(1 + (type >> CV_CN_SHIFT));
 
   switch (depth) {
     case CV_8U:

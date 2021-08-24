@@ -61,7 +61,7 @@ class OdomNode {
   // Pose
   Sophus::SE3d T_p_s_;
   Eigen::Vector3d g_;  // gravity in odom frame
-  boost::circular_buffer<ImuData> imu_buf_{32};
+  ImuBuffer imu_buf_{32};
   ImuBias imu_bias_;
   std::vector<NavState> preint_;
 

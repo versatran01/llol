@@ -41,9 +41,9 @@ Affine3 MakeAffine3(T&& t) noexcept {
 struct Transform3h {
   Transform3h() = default;
   Transform3h(const SO3& rot) : pose(rot, Vector3::Zero()) {}
-  Transform3h(const SE3& pose) : pose(pose) {}
-  Transform3h(const SE3& pose, const Vector3& scale)
-      : pose(pose), scale(scale) {}
+  Transform3h(const SE3& pose_in) : pose(pose_in) {}
+  Transform3h(const SE3& pose_in, const Vector3& scale_in)
+      : pose(pose_in), scale(scale_in) {}
 
   Tuple4 operator*(const Tuple4& v) const noexcept { return affine() * v; }
 

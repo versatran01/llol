@@ -6,6 +6,7 @@
     <arg name="vis" default="true"/>
 
     <node pkg="llol" type="sv_node_front" name="llol_front" output="screen" ns="os_node">
+        <remap from="~imu" to="imu"/>
         <remap from="~image" to="image"/>
         <remap from="~camera_info" to="camera_info"/>
 

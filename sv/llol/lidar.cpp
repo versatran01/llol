@@ -8,7 +8,7 @@
 namespace sv {
 
 /// LidarModel =================================================================
-LidarModel::LidarModel(const cv::Size& size, float hfov) : size{size} {
+LidarModel::LidarModel(const cv::Size& size_in, float hfov) : size{size_in} {
   if (hfov <= 0) {
     hfov = kTauF / size.aspectRatio();
   }

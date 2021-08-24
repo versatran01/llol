@@ -9,7 +9,7 @@ namespace sv {
 /// @struct LidarModel
 struct LidarModel {
   LidarModel() = default;
-  explicit LidarModel(const cv::Size& size, float hfov = 0.0F);
+  explicit LidarModel(const cv::Size& size_in, float hfov = 0.0F);
 
   /// @brief xyzr to pixel, bad result is {-1, -1}
   cv::Point2i Forward(float x, float y, float z, float r) const;

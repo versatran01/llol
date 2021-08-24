@@ -23,7 +23,6 @@ TEST(MatcherTest, TestMatch) {
   ProjMatcher matcher;
   const int n = matcher.Match(grid, pano);
   EXPECT_EQ(n, 1984);  // probably miss top and bottom
-  //  EXPECT_EQ(n, matcher.NumMatches());
 }
 
 void BM_MatcherMatch(benchmark::State& state) {

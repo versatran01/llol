@@ -36,7 +36,7 @@ struct IcpFactorBase {
 };
 
 struct GicpFactor final : public IcpFactorBase {
-  GicpFactor(const NormalMatch& match);
+  GicpFactor(const IcpMatch& match);
 
   template <typename T>
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
@@ -52,7 +52,7 @@ struct GicpFactor final : public IcpFactorBase {
 };
 
 struct GicpFactor2 final : public IcpFactorBase {
-  GicpFactor2(const NormalMatch& match) : pmatch{&match} {}
+  GicpFactor2(const IcpMatch& match) : pmatch{&match} {}
 
   template <typename T>
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
@@ -68,7 +68,7 @@ struct GicpFactor2 final : public IcpFactorBase {
     return true;
   }
 
-  const NormalMatch* pmatch{nullptr};
+  const IcpMatch* pmatch{nullptr};
 };
 
 struct GicpFactor3 final : public IcpFactorBase {
@@ -78,37 +78,7 @@ struct GicpFactor3 final : public IcpFactorBase {
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
     Eigen::Map<const Sophus::SE3<T>> T_p_s(_T_p_s);
 
-    //    for (int r = 0; r < grid.size().height; ++r) {
-    //      for (int c = 0; c < grid.width(); ++c) {
-
-    //    using PrivVec =
-    //    tbb::enumerable_thread_specific<std::vector<Vector3<T>>>; PrivVec
-    //    priv;
-
-    //    tbb::parallel_for(
-    //        tbb::blocked_range<int>(0, matches.size(), gsize),
-    //        [&](const auto& blk) {
-    //          for (int i = blk.begin(); i < blk.end(); ++i) {
-    //            const auto& match = matches[i];
-    //            const Eigen::Matrix3d U = match.U.cast<double>();
-    //            const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-    //            const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
-    //            //            Eigen::Map<Vector3<T>> r(_r + kNumResiduals *
-    //            i); auto& local = priv.local(); local.push_back((U * (pt_p -
-    //            T_p_s * pt_s)));
-    //          }
-    //        });
-
-    //    int k = 0;
-    //    for (const auto& each : priv) {
-    //      for (const auto& ri : each) {
-    //        Eigen::Map<Vector3<T>> r(_r + kNumResiduals * k);
-    //        r = ri;
-    //        ++k;
-    //      }
-    //    }
-
-    for (int i = 0; i < matches.size(); ++i) {
+    for (size_t i = 0; i < matches.size(); ++i) {
       const auto& match = matches[i];
 
       const Eigen::Matrix3d U = match.U.cast<double>();
@@ -122,7 +92,7 @@ struct GicpFactor3 final : public IcpFactorBase {
   }
 
   const SweepGrid* pgrid;
-  std::vector<NormalMatch> matches;
+  std::vector<IcpMatch> matches;
   int size_{};
   int gsize_{};
 };
@@ -155,7 +125,7 @@ struct TinyGicpFactor final : public IcpFactorBase {
 
   int size_{};
   Sophus::SE3d T0_;
-  std::vector<NormalMatch> matches;
+  std::vector<IcpMatch> matches;
 };
 
 }  // namespace sv

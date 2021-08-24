@@ -24,7 +24,7 @@ void ScanCellMeanCovar(const LidarScan& scan,
   //  }
 }
 
-void NormalMatch::SqrtInfo(float lambda) {
+void IcpMatch::SqrtInfo(float lambda) {
   Eigen::Matrix3f cov = mc_p.Covar();
   cov.diagonal().array() += lambda;
   U = MatrixSqrtUtU(cov.inverse().eval());
@@ -79,18 +79,10 @@ std::string SweepGrid::Repr() const {
       sv::Repr(col_rg));
 }
 
-void SweepGrid::ResetMatches() {
-  matches.clear();
-  matches.resize(total());
-}
-
 std::pair<int, int> SweepGrid::Add(const LidarScan& scan, int gsize) {
   Check(scan);
 
   // Reset matches at start of sweep
-  if (scan.col_rg.start == 0) {
-    ResetMatches();
-  }
   const int n1 = Score(scan, gsize);
   const int n2 = Reduce(scan, gsize);
   return {n1, n2};
@@ -190,20 +182,23 @@ int SweepGrid::ReduceRow(const LidarScan& scan, int r) {
   // Note that scan is not sweep, so we need to start from 0
   // nms will look at left and right neighbor so need to skip first and last
   const int pad = static_cast<int>(nms);
-  for (int c = pad; c < col_rg.size() - pad; ++c) {
+
+  for (int c = 0; c < col_rg.size(); ++c) {
     // px_g is for grid, so is offset by col_rg
     const cv::Point px_g{c + col_rg.start, r};
-    // Skip if cell is not good
-    if (!IsCellGood(px_g)) continue;
-
     auto& match = MatchAt(px_g);
-    const auto cell = SweepCell({c, r});
-    ScanCellMeanCovar(scan, cell, match.mc_s);
 
-    // Set px_s to sweep px, so use px_g
-    match.px_s = Grid2Sweep(px_g);
-    match.px_s.x += cell_size.width / 2;
-    ++n;
+    // Handle pad for nms
+    if (pad <= c && c < col_rg.size() - pad && IsCellGood(px_g)) {
+      const auto cell = SweepCell({c, r});
+      ScanCellMeanCovar(scan, cell, match.mc_s);
+      // Set px_s to sweep px, so use px_g
+      match.px_s = Grid2Sweep(px_g);
+      match.px_s.x += cell_size.width / 2;
+      ++n;
+    } else {
+      match.Reset();
+    }
   }
   return n;
 }

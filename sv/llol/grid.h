@@ -6,7 +6,7 @@
 namespace sv {
 
 /// @struct Match
-struct NormalMatch {
+struct IcpMatch {
   static constexpr int kBad = -100;
 
   cv::Point px_s{kBad, kBad};  // 8 sweep pixel coord
@@ -27,6 +27,11 @@ struct NormalMatch {
   void ResetPano() {
     px_p = {kBad, kBad};
     mc_p.Reset();
+  }
+  void Reset() {
+    ResetSweep();
+    ResetPano();
+    U.setZero();
   }
 
   void SqrtInfo(float lambda = 0.0F);
@@ -50,7 +55,7 @@ struct SweepGrid {
   cv::Mat score;                     // smoothness score, smaller is smoother
   cv::Range col_rg{};                // working range in this grid
   std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano (nominal)
-  std::vector<NormalMatch> matches;
+  std::vector<IcpMatch> matches;
 
   /// Disp
   cv::Mat mask_filter;
@@ -63,9 +68,6 @@ struct SweepGrid {
   friend std::ostream& operator<<(std::ostream& os, const SweepGrid& rhs) {
     return os << rhs.Repr();
   }
-
-  /// @brief Clear all matches, must be called on a new sweep
-  void ResetMatches();
 
   /// @brief Score, Filter and Reduce
   std::pair<int, int> Add(const LidarScan& scan, int gsize = 0);
@@ -89,8 +91,8 @@ struct SweepGrid {
   /// @brief At
   float& ScoreAt(const cv::Point& px) { return score.at<float>(px); }
   float ScoreAt(const cv::Point& px) const { return score.at<float>(px); }
-  NormalMatch& MatchAt(const cv::Point& px) { return matches[Grid2Ind(px)]; }
-  const NormalMatch& MatchAt(const cv::Point& px) const {
+  IcpMatch& MatchAt(const cv::Point& px) { return matches[Grid2Ind(px)]; }
+  const IcpMatch& MatchAt(const cv::Point& px) const {
     return matches[Grid2Ind(px)];
   }
 
