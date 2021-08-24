@@ -67,7 +67,7 @@ cc_test(
 cc_library(
   NAME llol_scan
   SRCS "llol/scan.cpp"
-  DEPS sv_util_ocv Sophus::Sophus)
+  DEPS sv_util_math sv_util_ocv Sophus::Sophus)
 cc_test(
   NAME llol_scan_test
   SRCS "llol/scan_test.cpp"
@@ -78,17 +78,13 @@ cc_bench(
   DEPS sv_llol_scan GTest::GTest)
 
 cc_library(
-  NAME llol_grid
-  SRCS "llol/grid.cpp"
-  DEPS sv_util_math sv_llol_scan sv_tbb)
+  NAME llol_match
+  SRCS "llol/match.cpp"
+  DEPS sv_base sv_util_math opencv_core)
 cc_test(
-  NAME llol_grid_test
-  SRCS "llol/grid_test.cpp"
-  DEPS sv_llol_grid benchmark::benchmark)
-cc_bench(
-  NAME llol_grid_bench
-  SRCS "llol/grid_test.cpp"
-  DEPS sv_llol_grid GTest::GTest)
+  NAME llol_match_test
+  SRCS "llol/match_test.cpp"
+  DEPS sv_llol_match)
 
 cc_library(
   NAME llol_pano
@@ -104,17 +100,17 @@ cc_bench(
   DEPS sv_llol_pano GTest::GTest)
 
 cc_library(
-  NAME llol_match
-  SRCS "llol/match.cpp"
-  DEPS sv_llol_scan sv_llol_grid sv_llol_pano)
+  NAME llol_grid
+  SRCS "llol/grid.cpp"
+  DEPS sv_llol_match sv_llol_scan sv_llol_pano)
 cc_test(
-  NAME llol_match_test
-  SRCS "llol/match_test.cpp"
-  DEPS sv_llol_match benchmark::benchmark)
+  NAME llol_grid_test
+  SRCS "llol/grid_test.cpp"
+  DEPS sv_llol_grid benchmark::benchmark)
 cc_bench(
-  NAME llol_match_bench
-  SRCS "llol/match_test.cpp"
-  DEPS sv_llol_match GTest::GTest)
+  NAME llol_grid_bench
+  SRCS "llol/grid_test.cpp"
+  DEPS sv_llol_grid GTest::GTest)
 
 cc_library(
   NAME llol_icp

@@ -74,6 +74,8 @@ sv/sim/world.cpp
 sv/sim/world.h
 sv/temp/ceres_bench.cpp
 sv/temp/curve_fitting.cpp
+sv/temp/factor.cpp
+sv/temp/factor.h
 sv/util/CMakeLists.txt
 sv/util/angle.h
 sv/util/manager.cpp

@@ -86,7 +86,7 @@ int ImuIntegrator::Integrate(double t0,
     poses[i].so3() = poses[i - 1].so3() * Sophus::SO3f::exp(omg_l);
   }
 
-  return ibuf - ibuf0;
+  return ibuf - ibuf0 + 1;
 }
 
 int FindNextImu(const ImuBuffer& buf, double t) {

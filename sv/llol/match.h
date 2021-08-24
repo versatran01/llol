@@ -1,37 +1,34 @@
 #pragma once
 
-#include "sv/llol/grid.h"
-#include "sv/llol/pano.h"
-#include "sv/llol/scan.h"
+#include <opencv2/core/types.hpp>
+
+#include "sv/util/math.h"
 
 namespace sv {
 
-/// @class Feature Matcher
-struct MatcherParams {
-  int half_rows{2};        // half rows of pano win
-  float cov_lambda{1e-6};  // lambda added to cov diagonal when inverting
+/// @struct Match
+struct GicpMatch {
+  static constexpr int kBad = -100;
+
+  cv::Point px_s{kBad, kBad};  // 8 sweep pixel coord
+  MeanCovar3f mc_s{};          // 52 sweep mean covar
+  cv::Point px_p{kBad, kBad};  // 8 pano pixel coord
+  MeanCovar3f mc_p{};          // 52 pano mean covar
+  Eigen::Matrix3f U{};         // 36 sqrt of info
+
+  /// @brief Whether this match is good
+  bool Ok() const noexcept { return SweepOk() && PanoOk(); }
+  bool SweepOk() const { return px_s.x >= 0 && mc_s.ok(); }
+  bool PanoOk() const { return px_p.x >= 0 && mc_p.ok(); }
+
+  void ResetSweep();
+  void ResetPano();
+  void Reset();
+
+  void SqrtInfo(float lambda = 0.0F);
 };
 
-struct ProjMatcher {
-  /// Params
-  float cov_lambda;        // lambda added to diagonal of covar
-  cv::Size pano_win_size;  // win size in pano used to compute mean covar
-  cv::Size max_dist_size;  // max dist size to resue pano mc
-  int min_pts;             // min pts in pano win for a valid match
-
-  /// @brief Ctors
-  explicit ProjMatcher(const MatcherParams& params = {});
-
-  std::string Repr() const;
-  friend std::ostream& operator<<(std::ostream& os, const ProjMatcher& rhs) {
-    return os << rhs.Repr();
-  }
-
-  /// @brief Match features in sweep to pano using mask
-  /// @return Number of final matches
-  int Match(SweepGrid& grid, const DepthPano& pano, int gsize = 0);
-  int MatchRow(SweepGrid& grid, const DepthPano& pano, int gr);
-  int MatchCell(SweepGrid& grid, const DepthPano& pano, const cv::Point& gpx);
-};
+/// @brief Computes matrix square root using Cholesky
+Eigen::Matrix3f MatrixSqrtUtU(const Eigen::Matrix3f& A);
 
 }  // namespace sv

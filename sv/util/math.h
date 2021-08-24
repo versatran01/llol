@@ -1,6 +1,5 @@
 #pragma once
 
-#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <cmath>
 #include <type_traits>
@@ -102,12 +101,6 @@ struct MeanCovar {
 using MeanCovar3f = MeanCovar<float, 3>;
 using MeanCovar3d = MeanCovar<double, 3>;
 static_assert(sizeof(MeanCovar3f) == 52, "size of MeanCovar3f is 52 bytes");
-
-/// @brief Computes matrix square root using Cholesky
-template <typename T, int N>
-Eigen::Matrix<T, N, N> MatrixSqrtUtU(const Eigen::Matrix<T, N, N>& A) {
-  return A.template selfadjointView<Eigen::Upper>().llt().matrixU();
-}
 
 /// @brief Compute covariance, each column is a sample
 Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);

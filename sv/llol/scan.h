@@ -3,6 +3,8 @@
 #include <opencv2/core/mat.hpp>
 #include <sophus/se3.hpp>
 
+#include "sv/util/math.h"  // MeanCovar
+
 namespace sv {
 
 /// @struct Lidar Scan like an image, with pixel (x,y,z,r)
@@ -36,12 +38,15 @@ struct LidarScan {
   int total() const { return xyzr.total(); }
   bool empty() const { return xyzr.empty(); }
   cv::Size size() const noexcept { return {xyzr.cols, xyzr.rows}; }
+
+  void MeanCovarAt(const cv::Point& px, int width, MeanCovar3f& mc) const;
+  float CurveAt(const cv::Point& px, int width) const;
 };
 
 /// @struct Lidar Sweep is a Lidar Scan that covers 360 degree hfov
 struct LidarSweep final : public LidarScan {
   /// Data
-  int id{-1};                        // sweep id
+  int id{-1};
   std::vector<Sophus::SE3f> tf_p_s;  // transforms of each columns to some frame
   cv::Mat disp;                      // range image disp, viz only
 

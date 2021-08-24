@@ -1,61 +1,36 @@
 #pragma once
 
-#include "sv/llol/scan.h"  // LidarScan
-#include "sv/util/math.h"  // MeanCovar
+#include "sv/llol/match.h"  // GicpMatch
+#include "sv/llol/pano.h"   // DepthPano
+#include "sv/llol/scan.h"   // LidarScan
 
 namespace sv {
-
-/// @struct Match
-struct IcpMatch {
-  static constexpr int kBad = -100;
-
-  cv::Point px_s{kBad, kBad};  // 8 sweep pixel coord
-  MeanCovar3f mc_s{};          // 52 sweep mean covar
-  cv::Point px_p{kBad, kBad};  // 8 pano pixel coord
-  MeanCovar3f mc_p{};          // 52 pano mean covar
-  Eigen::Matrix3f U{};         // 36 sqrt of info
-
-  /// @brief Whether this match is good
-  bool Ok() const noexcept { return SweepOk() && PanoOk(); }
-  bool SweepOk() const { return px_s.x >= 0 && mc_s.ok(); }
-  bool PanoOk() const { return px_p.x >= 0 && mc_p.ok(); }
-
-  void ResetSweep() {
-    px_s = {kBad, kBad};
-    mc_s.Reset();
-  }
-  void ResetPano() {
-    px_p = {kBad, kBad};
-    mc_p.Reset();
-  }
-  void Reset() {
-    ResetSweep();
-    ResetPano();
-    U.setZero();
-  }
-
-  void SqrtInfo(float lambda = 0.0F);
-};
 
 struct GridParams {
   int cell_rows{2};
   int cell_cols{16};
   float max_score{0.01F};  // score > max_score will be discarded
   bool nms{true};          // non-minimum suppression in Filter()
+  int half_rows{2};
+  float cov_lambda{1e-6F};
 };
 
 /// @struct Sweep Grid summarizes sweep into reduced-sized grid
 struct SweepGrid {
   /// Params
-  cv::Size cell_size{16, 2};
-  float max_score{0.01};
-  bool nms{true};
+  cv::Size cell_size;
+  float max_score{};
+  bool nms{};
+  float cov_lambda{};      // lambda added to diagonal of covar
+  cv::Size pano_win_size;  // win size in pano used to compute mean covar
+  cv::Size max_dist_size;  // max dist size to resue pano mc
+  int min_pts{};           // min pts in pano win for a valid match
 
   /// Data
   cv::Mat score;                     // smoothness score, smaller is smoother
   cv::Range col_rg{};                // working range in this grid
   std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano (nominal)
-  std::vector<IcpMatch> matches;
+  std::vector<GicpMatch> matches;
 
   /// Disp
   cv::Mat mask_filter;
@@ -80,19 +55,22 @@ struct SweepGrid {
   int ScoreRow(const LidarScan& scan, int r);
 
   /// @brief
-  int Reduce(const LidarScan& scan, int gisze = 0);
-  int ReduceRow(const LidarScan& scan, int r);
+  int Filter(const LidarScan& scan, int gisze = 0);
+  int FilterRow(const LidarScan& scan, int r);
   /// @brief Check whether this cell is good or not for Filter()
   bool IsCellGood(const cv::Point& px) const;
 
-  /// @brief Rect in sweep corresponding to a cell
-  cv::Rect SweepCell(const cv::Point& px) const;
+  /// @brief Match features in sweep to pano using mask
+  /// @return Number of final matches
+  int Match(const DepthPano& pano, int gsize = 0);
+  int MatchRow(const DepthPano& pano, int gr);
+  int MatchCell(const DepthPano& pano, const cv::Point& gpx);
 
   /// @brief At
   float& ScoreAt(const cv::Point& px) { return score.at<float>(px); }
   float ScoreAt(const cv::Point& px) const { return score.at<float>(px); }
-  IcpMatch& MatchAt(const cv::Point& px) { return matches[Grid2Ind(px)]; }
-  const IcpMatch& MatchAt(const cv::Point& px) const {
+  GicpMatch& MatchAt(const cv::Point& px) { return matches[Grid2Ind(px)]; }
+  const GicpMatch& MatchAt(const cv::Point& px) const {
     return matches[Grid2Ind(px)];
   }
   const Sophus::SE3f& PoseAt(const cv::Point& px) const {
@@ -115,12 +93,12 @@ struct SweepGrid {
   const cv::Mat& FilterMask();
   const cv::Mat& MatchMask();
 
-  void InterpSweepPoses(LidarSweep& sweep, int gsize = 0) const;
+  void InterpSweep(LidarSweep& sweep, int gsize = 0) const;
 };
 
-void InterpSweepPosesImpl(const std::vector<Sophus::SE3f>& poses_grid,
-                          int cell_width,
-                          std::vector<Sophus::SE3f>& poses_sweep,
-                          int gsize = 0);
+void InterpPosesImpl(const std::vector<Sophus::SE3f>& poses_grid,
+                     int cell_width,
+                     std::vector<Sophus::SE3f>& poses_sweep,
+                     int gsize = 0);
 
 }  // namespace sv

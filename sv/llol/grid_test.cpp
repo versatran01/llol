@@ -15,6 +15,8 @@ TEST(GridTest, TestCtor) {
   EXPECT_EQ(grid.size().height, 32);
   EXPECT_EQ(grid.col_rg.start, 0);
   EXPECT_EQ(grid.col_rg.end, 0);
+  EXPECT_EQ(grid.pano_win_size.height, 5);
+  EXPECT_EQ(grid.pano_win_size.width, 9);
   std::cout << grid << std::endl;
 }
 
@@ -52,7 +54,34 @@ TEST(GridTest, TestScore) {
   std::cout << grid << std::endl;
 }
 
-void BM_Score(benchmark::State& state) {
+TEST(GridTest, TestMatch) {
+  const auto scan = MakeTestScan({1024, 64});
+  auto grid = SweepGrid(scan.size());
+  grid.Add(scan);
+
+  DepthPano pano({1024, 256});
+  pano.dbuf.setTo(DepthPixel::kScale);
+
+  const int n = grid.Match(pano);
+  EXPECT_EQ(n, 1984);  // probably miss top and bottom
+}
+
+void BM_GridMatch(benchmark::State& state) {
+  const auto scan = MakeTestScan({1024, 64});
+  auto grid = SweepGrid(scan.size());
+  grid.Add(scan);
+
+  DepthPano pano({1024, 256});
+  pano.dbuf.setTo(DepthPixel::kScale);
+
+  const int gsize = state.range(0);
+  for (auto _ : state) {
+    grid.Match(pano, gsize);
+  }
+}
+BENCHMARK(BM_GridMatch)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+
+void BM_GridScore(benchmark::State& state) {
   const auto scan = MakeTestScan({1024, 64});
   SweepGrid grid(scan.size());
   const int gsize = state.range(0);
@@ -62,32 +91,32 @@ void BM_Score(benchmark::State& state) {
     benchmark::DoNotOptimize(n);
   }
 }
-BENCHMARK(BM_Score)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+BENCHMARK(BM_GridScore)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
-void BM_Reduce(benchmark::State& state) {
+void BM_GridFilter(benchmark::State& state) {
   const auto scan = MakeTestScan({1024, 64});
   SweepGrid grid(scan.size());
   grid.Score(scan);
   const int gsize = state.range(0);
 
   for (auto _ : state) {
-    grid.Reduce(scan, gsize);
+    grid.Filter(scan, gsize);
     benchmark::DoNotOptimize(grid);
   }
 }
-BENCHMARK(BM_Reduce)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+BENCHMARK(BM_GridFilter)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
-void BM_InterpPoses(benchmark::State& state) {
+void BM_GridInterpPoses(benchmark::State& state) {
   std::vector<Sophus::SE3f> poses_sweep(1024);
   std::vector<Sophus::SE3f> poses_grid(64 + 1);
   int gsize = state.range(0);
 
   for (auto _ : state) {
-    InterpSweepPosesImpl(poses_grid, 16, poses_sweep, gsize);
+    InterpPosesImpl(poses_grid, 16, poses_sweep, gsize);
     benchmark::DoNotOptimize(poses_sweep);
   }
 }
-BENCHMARK(BM_InterpPoses)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+BENCHMARK(BM_GridInterpPoses)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
 }  // namespace
 }  // namespace sv

@@ -25,24 +25,19 @@ LidarScan MakeScan(const sensor_msgs::Image& image_msg,
                     cinfo_msg.roi.x_offset + cinfo_msg.roi.width)};
 }
 
+LidarSweep MakeSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
+  return LidarSweep{cv::Size(cinfo_msg.width, cinfo_msg.height)};
+}
+
 SweepGrid MakeGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size) {
   GridParams gp;
   gp.cell_rows = pnh.param<int>("cell_rows", gp.cell_rows);
   gp.cell_cols = pnh.param<int>("cell_cols", gp.cell_cols);
   gp.max_score = pnh.param<double>("max_score", gp.max_score);
   gp.nms = pnh.param<bool>("nms", gp.nms);
+  gp.half_rows = pnh.param<int>("half_rows", gp.half_rows);
+  gp.cov_lambda = pnh.param<double>("cov_lambda", gp.cov_lambda);
   return SweepGrid{sweep_size, gp};
-}
-
-LidarSweep MakeSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
-  return LidarSweep{cv::Size(cinfo_msg.width, cinfo_msg.height)};
-}
-
-ProjMatcher MakeMatcher(const ros::NodeHandle& pnh) {
-  MatcherParams mp;
-  mp.half_rows = pnh.param<int>("half_rows", mp.half_rows);
-  mp.cov_lambda = pnh.param<double>("cov_lambda", mp.cov_lambda);
-  return ProjMatcher{mp};
 }
 
 DepthPano MakePano(const ros::NodeHandle& pnh) {

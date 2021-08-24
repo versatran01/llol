@@ -34,14 +34,6 @@ TEST(MathTest, TestMeanCovar) {
   }
 }
 
-TEST(LinalgTest, TestMatrixSqrtUpper) {
-  Eigen::Matrix3Xd X = Eigen::Matrix3Xd::Random(3, 100);
-  const Eigen::Matrix3d A = X * X.transpose();
-  const Eigen::Matrix3d U = MatrixSqrtUtU(A);
-  const Eigen::Matrix3d UtU = U.transpose() * U;
-  EXPECT_TRUE(A.isApprox(UtU));
-}
-
 void BM_Covariance(benchmark::State& state) {
   const auto X = Eigen::Matrix3Xd::Random(3, state.range(0)).eval();
 

@@ -1,46 +1,17 @@
 #include "sv/llol/match.h"
 
-#include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
 
 namespace sv {
 namespace {
 
-TEST(MatcherTest, TestCtor) {
-  ProjMatcher pm;
-  EXPECT_EQ(pm.pano_win_size.height, 5);
-  EXPECT_EQ(pm.pano_win_size.width, 9);
+TEST(LinalgTest, TestMatrixSqrtUpper) {
+  Eigen::Matrix3Xf X = Eigen::Matrix3Xf::Random(3, 100);
+  const Eigen::Matrix3f A = X * X.transpose();
+  const Eigen::Matrix3f U = MatrixSqrtUtU(A);
+  const Eigen::Matrix3f UtU = U.transpose() * U;
+  EXPECT_TRUE(A.isApprox(UtU));
 }
-
-TEST(MatcherTest, TestMatch) {
-  const auto scan = MakeTestScan({1024, 64});
-  auto grid = SweepGrid(scan.size());
-  grid.Add(scan);
-
-  DepthPano pano({1024, 256});
-  pano.dbuf.setTo(DepthPixel::kScale);
-
-  ProjMatcher matcher;
-  const int n = matcher.Match(grid, pano);
-  EXPECT_EQ(n, 1984);  // probably miss top and bottom
-}
-
-void BM_MatcherMatch(benchmark::State& state) {
-  const auto scan = MakeTestScan({1024, 64});
-  auto grid = SweepGrid(scan.size());
-  grid.Add(scan);
-
-  DepthPano pano({1024, 256});
-  pano.dbuf.setTo(DepthPixel::kScale);
-
-  ProjMatcher matcher;
-
-  const int gsize = state.range(0);
-  for (auto _ : state) {
-    matcher.Match(grid, pano, gsize);
-  }
-}
-BENCHMARK(BM_MatcherMatch)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
 }  // namespace
 }  // namespace sv

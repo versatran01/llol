@@ -6,15 +6,18 @@
 namespace sv {
 namespace {
 
-TEST(LidarSweepTest, TestDefault) {
+TEST(ScanTest, TestDefault) {
   LidarSweep ls;
   std::cout << ls << "\n";
 
   EXPECT_EQ(ls.width(), 0);
   EXPECT_EQ(ls.full(), true);
+  EXPECT_EQ(ls.time, 0);
+  EXPECT_EQ(ls.dt, 0);
+  EXPECT_EQ(ls.xyzr.empty(), true);
 }
 
-TEST(LidarSweepTest, TestCtor) {
+TEST(ScanTest, TestCtor) {
   LidarSweep ls({8, 4});
   std::cout << ls << "\n";
 
@@ -26,7 +29,7 @@ TEST(LidarSweepTest, TestCtor) {
   EXPECT_EQ(ls.xyzr.channels(), 4);
 }
 
-TEST(LidarSweepTest, TestAddScan) {
+TEST(ScanTest, TestAdd) {
   LidarSweep ls({8, 4});
   LidarScan scan = MakeTestScan({4, 4});
   scan.col_rg = {0, 4};
@@ -35,26 +38,23 @@ TEST(LidarSweepTest, TestAddScan) {
 
   EXPECT_EQ(ls.col_rg.start, 0);
   EXPECT_EQ(ls.col_rg.end, 4);
-  EXPECT_EQ(ls.id, 0);
 
   scan.col_rg = {4, 8};
   ls.Add(scan);
   EXPECT_EQ(ls.col_rg.start, 4);
   EXPECT_EQ(ls.col_rg.end, 8);
-  EXPECT_EQ(ls.id, 0);
   EXPECT_EQ(ls.full(), true);
 
   scan.col_rg = {0, 4};
   ls.Add(scan);
   EXPECT_EQ(ls.col_rg.start, 0);
   EXPECT_EQ(ls.col_rg.end, 4);
-  EXPECT_EQ(ls.id, 1);
   EXPECT_EQ(ls.full(), false);
 
   std::cout << ls << "\n";
 }
 
-void BM_AddScan(benchmark::State& state) {
+void BM_SweepAdd(benchmark::State& state) {
   const cv::Size size{1024, 64};
   LidarSweep sweep(size);
   LidarScan scan = MakeTestScan(size);
@@ -64,7 +64,7 @@ void BM_AddScan(benchmark::State& state) {
     benchmark::DoNotOptimize(n);
   }
 }
-BENCHMARK(BM_AddScan);
+BENCHMARK(BM_SweepAdd);
 
 }  // namespace
 }  // namespace sv

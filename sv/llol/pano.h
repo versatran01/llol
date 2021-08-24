@@ -78,6 +78,12 @@ struct DepthPano {
   cv::Size size() const noexcept { return model.size; }
 
   const std::vector<cv::Mat>& RangeAndCount();
+
+  /// @brief Compute mean and covar on a window centered at px given range
+  void MeanCovarAt(const cv::Point& px,
+                   const cv::Size& size,
+                   float rg,
+                   MeanCovar3f& mc) const;
 };
 
 }  // namespace sv

@@ -187,4 +187,27 @@ const std::vector<cv::Mat>& DepthPano::RangeAndCount() {
   return disp;
 }
 
+void DepthPano::MeanCovarAt(const cv::Point& px,
+                            const cv::Size& size,
+                            float rg,
+                            MeanCovar3f& mc) const {
+  const auto win = BoundWinCenterAt(px, size);
+  mc.Reset();
+
+  for (int wr = 0; wr < win.height; ++wr) {
+    for (int wc = 0; wc < win.width; ++wc) {
+      const cv::Point px_w{wc + win.x, wr + win.y};
+      const auto& dp = PixelAt(px_w);
+      const auto rg_w = dp.GetMeter();
+      // TODO (chao): check if cnt is old enough
+      if (rg_w == 0 || (std::abs(rg_w - rg) / rg) > range_ratio ||
+          dp.cnt * 2 < max_cnt) {
+        continue;
+      }
+      const auto p = model.Backward(px_w.y, px_w.x, rg_w);
+      mc.Add({p.x, p.y, p.z});
+    }
+  }
+}
+
 }  // namespace sv

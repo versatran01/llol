@@ -2,7 +2,6 @@
 
 #include <fmt/core.h>
 #include <glog/logging.h>
-#include <tbb/parallel_for.h>
 
 #include <opencv2/core/core.hpp>
 
@@ -11,6 +10,7 @@
 namespace sv {
 
 /// LidarScan ==================================================================
+
 LidarScan::LidarScan(double t0,
                      double dt,
                      const cv::Mat& xyzr,
@@ -22,6 +22,43 @@ LidarScan::LidarScan(double t0,
   CHECK_EQ(xyzr.cols, col_range.size());
 }
 
+void LidarScan::MeanCovarAt(const cv::Point& px,
+                            int width,
+                            MeanCovar3f& mc) const {
+  mc.Reset();
+
+  // NOTE (chao): for now only take first row of cell due to staggered scan
+  for (int c = 0; c < width; ++c) {
+    const auto& xyzr = XyzrAt({px.x + c, px.y});
+    if (std::isnan(xyzr[0])) continue;
+    mc.Add({xyzr[0], xyzr[1], xyzr[2]});
+  }
+}
+
+float LidarScan::CurveAt(const cv::Point& px, int width) const {
+  static constexpr float kValidCellRatio = 0.8;
+
+  // compute sum of range in cell
+  int num = 0;
+  float sum = 0.0F;
+
+  const int half = width / 2;
+  const auto mid =
+      std::min(RangeAt({px.x + half - 1, px.y}), RangeAt({px.x + half, px.y}));
+  if (std::isnan(mid)) return kNaNF;
+
+  for (int c = 0; c < width; ++c) {
+    const auto rg = RangeAt({px.x + c, px.y});
+    if (std::isnan(rg)) continue;
+    sum += rg;
+    ++num;
+  }
+
+  // Discard if there are too many nans in this cell
+  if (num < kValidCellRatio * width) return kNaNF;
+  return std::abs(sum / mid / num - 1.0F);
+}
+
 /// LidarSweep =================================================================
 int LidarSweep::Add(const LidarScan& scan) {
   if (dt == 0) dt = scan.dt;
@@ -30,7 +67,6 @@ int LidarSweep::Add(const LidarScan& scan) {
   // Increment id when we got a new sweep (indicated by the starting col of the
   // incoming scan being 0)
   if (scan.col_rg.start == 0) {
-    ++id;
     time = scan.time;  // update time
   }
 

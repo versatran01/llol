@@ -3,7 +3,6 @@ grid:
   cell_cols: 16
   nms: True
   max_score: 0.01
-match:
   half_rows: 2
   cov_lambda: 1e-6
 icp:

@@ -54,7 +54,6 @@ struct OdomNode {
   //  ImuBuffer imu_buf_{32};
   LidarSweep sweep_;
   SweepGrid grid_;
-  ProjMatcher matcher_;
   DepthPano pano_;
 
   TimerManager tm_{"llol"};
@@ -204,9 +203,6 @@ void OdomNode::InitSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
   grid_ = MakeGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
-  matcher_ = MakeMatcher({pnh_, "match"});
-  ROS_INFO_STREAM(matcher_);
-
   sweep_init_ = true;
   ROS_INFO_STREAM("--- Lidar initialized!");
 }
@@ -233,12 +229,31 @@ void OdomNode::Integrate() {
   pub_nom_.publish(parray);
 }
 
-void OdomNode::Register() {}
+void OdomNode::Register() {
+  const int n_outer = 1;
+  // Outer icp iters
+  for (int i = 0; i < n_outer; ++i) {
+    ROS_INFO_STREAM("Icp iteration: " << i);
+    const int n_matches = grid_.Match(pano_, tbb_);
+    ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
+                                n_matches,
+                                grid_.total(),
+                                100.0 * n_matches / grid_.total()));
+
+    if (vis_) {
+      // display good match
+      Imshow("match",
+             ApplyCmap(grid_.MatchMask(),
+                       1.0 / grid_.pano_win_size.area(),
+                       cv::COLORMAP_VIRIDIS));
+    }
+  }
+}
 
 void OdomNode::PostProcess() {
   {  // Update sweep poses
     auto _ = tm_.Scoped("Grid.Interp");
-    grid_.InterpSweepPoses(sweep_, tbb_);
+    grid_.InterpSweep(sweep_, tbb_);
   }
 
   int n_added = 0;
@@ -261,8 +276,8 @@ void OdomNode::PostProcess() {
 
   if (vis_) {
     const auto& disps = pano_.RangeAndCount();
-    Imshow("buf", ApplyCmap(disps[0], 30.0 / DepthPixel::kScale));
-    Imshow("cnt",
+    Imshow("pano", ApplyCmap(disps[0], 1.0 / DepthPixel::kScale / 30.0));
+    Imshow("count",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
   }
 }
