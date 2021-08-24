@@ -95,6 +95,9 @@ struct SweepGrid {
   const IcpMatch& MatchAt(const cv::Point& px) const {
     return matches[Grid2Ind(px)];
   }
+  const Sophus::SE3f& PoseAt(const cv::Point& px) const {
+    return tf_p_s.at(px.x);
+  }
 
   /// @brief Pxiel coordinates conversion (sweep <-> grid)
   cv::Point Sweep2Grid(const cv::Point& px_sweep) const;
@@ -111,9 +114,13 @@ struct SweepGrid {
   /// @brief Draw
   const cv::Mat& FilterMask();
   const cv::Mat& MatchMask();
+
+  void InterpSweepPoses(LidarSweep& sweep, int gsize = 0) const;
 };
 
-/// @brief Draw match, valid pixel is percentage of pano points in window
-cv::Mat DrawMatches(const SweepGrid& grid);
+void InterpSweepPosesImpl(const std::vector<Sophus::SE3f>& poses_grid,
+                          int cell_width,
+                          std::vector<Sophus::SE3f>& poses_sweep,
+                          int gsize = 0);
 
 }  // namespace sv

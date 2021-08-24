@@ -14,11 +14,11 @@ package.xml
 sv/CMakeLists.txt
 sv/cov_viz.cpp
 sv/llol/CMakeLists.txt
-sv/llol/factor.cpp
-sv/llol/factor.h
 sv/llol/grid.cpp
 sv/llol/grid.h
 sv/llol/grid_test.cpp
+sv/llol/icp.cpp
+sv/llol/icp.h
 sv/llol/imu.cpp
 sv/llol/imu.h
 sv/llol/imu_test.cpp

@@ -2,7 +2,6 @@
 
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Transform.h>
-#include <nav_msgs/Path.h>
 #include <ros/node_handle.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>

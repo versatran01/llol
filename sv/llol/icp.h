@@ -4,6 +4,7 @@
 #include <tbb/enumerable_thread_specific.h>
 #include <tbb/parallel_for.h>
 
+#include <array>
 #include <sophus/se3.hpp>
 
 #include "sv/llol/match.h"
@@ -126,6 +127,21 @@ struct TinyGicpFactor final : public IcpFactorBase {
   int size_{};
   Sophus::SE3d T0_;
   std::vector<IcpMatch> matches;
+};
+
+struct IcpParams {
+  int n_outer{2};
+  int n_inner{2};
+};
+
+struct Icp {
+  Icp(const IcpParams& params = {});
+
+  void Register(const SweepGrid& grid);
+
+  std::array<Sophus::SE3d, 2> poses;
+  int n_outer;
+  int n_inner;
 };
 
 }  // namespace sv

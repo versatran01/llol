@@ -61,7 +61,7 @@ using ImuBuffer = boost::circular_buffer<ImuData>;
 int FindNextImu(const ImuBuffer& buf, double t);
 
 /// @brief Accumulates imu data and integrate
-/// @todo for now only do rotation
+/// @todo for now only integrate gyro for rotation
 struct ImuIntegrator {
   ImuBuffer buf{32};
   ImuBias bias;
@@ -78,8 +78,5 @@ struct ImuIntegrator {
   /// @brief Given the first pose in poses, predict using imu
   int Integrate(double t0, double dt, absl::Span<Sophus::SE3f> poses) const;
 };
-
-/// @brief Extract a range of imus that spans the given time
-cv::Range GetImusFromBuffer(const ImuBuffer& buffer, double t0, double t1);
 
 }  // namespace sv

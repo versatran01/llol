@@ -61,36 +61,6 @@ NavState IntegrateMidpoint(const NavState& s0,
   return s1;
 }
 
-cv::Range GetImusFromBuffer(const ImuBuffer& buffer, double t0, double t1) {
-  cv::Range range{-1, -1};
-
-  if (t0 >= t1) {
-    LOG(WARNING) << fmt::format("Time span is empty ({},{})", t0, t1);
-    return range;
-  }
-
-  for (int i = 0; i < buffer.size(); ++i) {
-    const auto& imu = buffer[i];
-    // The first one after t0
-    if (range.start < 0 && imu.time > t0) {
-      range.start = i;
-    }
-
-    // The first one before t1
-    if (range.end < 0 && imu.time > t1) {
-      range.end = i;
-    }
-  }
-
-  // If for some reason we don't have any imu that is later than the second time
-  // just use thet last one
-  if (range.start >= 0 && range.end == -1) {
-    range.end = buffer.size();
-  }
-
-  return range;
-}
-
 int ImuIntegrator::Integrate(double t0,
                              double dt,
                              absl::Span<Sophus::SE3f> poses) const {

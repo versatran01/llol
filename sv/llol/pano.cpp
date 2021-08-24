@@ -5,6 +5,8 @@
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_reduce.h>
 
+#include <opencv2/core/core.hpp>
+
 #include "sv/util/ocv.h"  // Repr
 
 namespace sv {
@@ -81,7 +83,7 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   // Ignore too far and too close stuff
   if (rg < min_range || rg > DepthPixel::kMaxRange) return false;
 
-  auto& p = dbuf.at<DepthPixel>(px);
+  auto& p = PixelAt(px);
   // If current pixel is empty, just use this range and give it half of max cnt
   if (p.raw == 0) {
     p.SetMeter(rg);
@@ -90,9 +92,9 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   }
 
   // If cnt is 0, this means there exists enough evidence that differ from
-  // previous measurement, for example some new object just moved into view and
-  // stayed long enough. In this case, we use the new range, but only increment
-  // count by 1
+  // previous measurement, for example some new object just entered and stayed
+  // long enough. In this case, we use the new range, but only increment count
+  // by 1
   if (p.cnt == 0) {
     p.SetMeter(rg);
     ++p.cnt;
@@ -107,6 +109,7 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
     // close, do a weighted update
     const auto rg1 = (rg0 * p.cnt + rg) / (p.cnt + 1);
     p.SetMeter(rg1);
+    // And increment cnt
     if (p.cnt < max_cnt) ++p.cnt;
     return true;
   } else {
@@ -177,6 +180,11 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg) {
   }
 
   return false;
+}
+
+const std::vector<cv::Mat>& DepthPano::RangeAndCount() {
+  cv::split(dbuf, disp);
+  return disp;
 }
 
 }  // namespace sv

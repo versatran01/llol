@@ -17,7 +17,7 @@
 #include <boost/circular_buffer.hpp>
 #include <sophus/interpolate.hpp>
 
-#include "sv/llol/factor.h"
+#include "sv/llol/icp.h"
 #include "sv/llol/imu.h"
 #include "sv/node/conv.h"
 #include "sv/node/viz.h"
@@ -402,12 +402,10 @@ void OdomNode::Postprocess() {
   //                                   pano_.total());
 
   if (vis_) {
-    cv::Mat disps[2];
-    cv::split(pano_.dbuf, disps);
+    const auto& disps = pano_.RangeAndCount();
     Imshow("buf", ApplyCmap(disps[0], 1.0 / DepthPixel::kScale / 30.0));
     Imshow("cnt",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
-    // Imshow("pano2", ApplyCmap(pano_.dbuf2_, 1 / Pixel::kScale / 30.0));
   }
 }
 

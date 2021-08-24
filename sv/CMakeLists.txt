@@ -117,8 +117,8 @@ cc_bench(
   DEPS sv_llol_match GTest::GTest)
 
 cc_library(
-  NAME llol_factor
-  SRCS "llol/factor.cpp"
+  NAME llol_icp
+  SRCS "llol/icp.cpp"
   DEPS sv_llol_match sv_tbb Sophus::Sophus Ceres::ceres)
 
 cc_library(

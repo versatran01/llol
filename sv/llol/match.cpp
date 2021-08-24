@@ -18,6 +18,8 @@ void PanoWinMeanCovar(const DepthPano& pano,
                       const cv::Rect& win,
                       float rg,
                       MeanCovar3f& mc) {
+  mc.Reset();
+
   for (int wr = 0; wr < win.height; ++wr) {
     for (int wc = 0; wc < win.width; ++wc) {
       const cv::Point px_w{wc + win.x, wr + win.y};
@@ -74,9 +76,8 @@ int ProjMatcher::Match(SweepGrid& grid, const DepthPano& pano, int gsize) {
 
 int ProjMatcher::MatchRow(SweepGrid& grid, const DepthPano& pano, int gr) {
   int n = 0;
-  // Note that here we use width instead of col_range, which means we will
-  // revisit earlier matches in the current sweep
-  for (int gc = 0; gc < grid.width(); ++gc) {
+  // TODO (chao): for now we assume full sweep and match everying
+  for (int gc = 0; gc < grid.size().width; ++gc) {
     n += MatchCell(grid, pano, {gc, gr});
   }
   return n;
@@ -89,7 +90,7 @@ int ProjMatcher::MatchCell(SweepGrid& grid,
   if (!match.SweepOk()) return 0;
 
   // Transform to pano frame
-  const Eigen::Vector3f pt_p = grid.tf_p_s.at(px_g.x) * match.mc_s.mean;
+  const Eigen::Vector3f pt_p = grid.PoseAt(px_g) * match.mc_s.mean;
   const float rg_p = pt_p.norm();
 
   // Project to pano
@@ -101,15 +102,14 @@ int ProjMatcher::MatchCell(SweepGrid& grid,
   }
 
   // Check distance between new pix and old pix
-  if (PointInSize(px_p - match.px_p, max_dist_size) && match.mc_p.ok()) {
+  if (PointInSize(px_p - match.px_p, max_dist_size) && match.PanoOk()) {
     // If new and old are close and pano match is ok
-    // we reuse pano and don't recompute
+    // we reuse this match and there is no need to recompute
     return 1;
   }
 
   // Compute normal dist around pano point
   match.px_p = px_p;
-  match.mc_p.Reset();
   const auto win = pano.BoundWinCenterAt(px_p, pano_win_size);
   PanoWinMeanCovar(pano, win, rg_p, match.mc_p);
 
@@ -118,7 +118,7 @@ int ProjMatcher::MatchCell(SweepGrid& grid,
     match.ResetPano();
     return 0;
   }
-  // Otherwise compute U'U = inv(C + lambda * I)
+  // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
   match.SqrtInfo(cov_lambda);
   return 1;
 }

@@ -1,4 +1,4 @@
-#include "sv/llol/factor.h"
+#include "sv/llol/icp.h"
 
 #include <glog/logging.h>
 
@@ -60,5 +60,10 @@ TinyGicpFactor::TinyGicpFactor(const SweepGrid& grid,
 
   CHECK_EQ(matches.size(), size);
 }
+
+Icp::Icp(const IcpParams& params)
+    : n_outer{params.n_outer}, n_inner{params.n_inner} {}
+
+void Icp::Register(const SweepGrid& grid) {}
 
 }  // namespace sv

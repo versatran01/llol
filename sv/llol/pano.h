@@ -41,6 +41,7 @@ struct DepthPano {
   LidarModel model;
   cv::Mat dbuf;   // depth buffer
   cv::Mat dbuf2;  // depth buffer 2
+  std::vector<cv::Mat> disp;
 
   /// @brief Ctors
   DepthPano() = default;
@@ -52,6 +53,7 @@ struct DepthPano {
   }
 
   /// @brief At
+  auto& PixelAt(const cv::Point& pt) { return dbuf.at<DepthPixel>(pt); }
   const auto& PixelAt(const cv::Point& pt) const {
     return dbuf.at<DepthPixel>(pt);
   }
@@ -74,6 +76,8 @@ struct DepthPano {
   bool empty() const { return dbuf.empty(); }
   size_t total() const { return dbuf.total(); }
   cv::Size size() const noexcept { return model.size; }
+
+  const std::vector<cv::Mat>& RangeAndCount();
 };
 
 }  // namespace sv

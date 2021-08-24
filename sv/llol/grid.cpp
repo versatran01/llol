@@ -4,6 +4,7 @@
 #include <fmt/ostream.h>
 #include <glog/logging.h>
 #include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 
 #include "sv/util/math.h"
@@ -237,6 +238,10 @@ const cv::Mat& SweepGrid::MatchMask() {
   return mask_match;
 }
 
+void SweepGrid::InterpSweepPoses(LidarSweep& sweep, int gsize) const {
+  InterpSweepPosesImpl(tf_p_s, cell_size.width, sweep.tf_p_s, gsize);
+}
+
 cv::Mat DrawMatches(const SweepGrid& grid) {
   cv::Mat disp(grid.size(), CV_32FC1, kNaNF);
 
@@ -251,6 +256,39 @@ cv::Mat DrawMatches(const SweepGrid& grid) {
   }
 
   return disp;
+}
+
+void InterpSweepPosesImpl(const std::vector<Sophus::SE3f>& poses_grid,
+                          int cell_width,
+                          std::vector<Sophus::SE3f>& poses_sweep,
+                          int gsize) {
+  CHECK_EQ((poses_grid.size() - 1) * cell_width, poses_sweep.size());
+
+  const int ncells = poses_grid.size() - 1;
+  gsize = gsize <= 0 ? ncells : gsize;
+
+  tbb::parallel_for(
+      tbb::blocked_range<int>(0, ncells, gsize), [&](const auto& blk) {
+        for (int i = blk.begin(); i < blk.end(); ++i) {
+          // interpolate rotation and translation separately
+          const auto& T0 = poses_grid.at(i);
+          const auto& T1 = poses_grid.at(i + 1);
+          const auto& R0 = T0.so3();
+          const auto& R1 = T1.so3();
+          const auto dR = (R0.inverse() * R1).log();
+
+          const auto& t0 = T0.translation();
+          const auto& t1 = T1.translation();
+          const Eigen::Vector3f dt = t1 - t0;
+
+          for (int j = 0; j < cell_width; ++j) {
+            const int k = i * cell_width + j;
+            const float s = static_cast<float>(j) / cell_width;
+            poses_sweep.at(k).so3() = R0 * Sophus::SO3f::exp(s * dR);
+            poses_sweep.at(k).translation() = t0 + s * dt;
+          }
+        }
+      });
 }
 
 }  // namespace sv

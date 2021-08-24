@@ -10,7 +10,7 @@ struct LidarScan {
   using PixelT = cv::Vec4f;
   static constexpr int kDtype = CV_32FC4;
 
-  double t0{};         // time stamp of the first column
+  double time{};       // time stamp of the first column
   double dt{};         // delta time between two columns
   cv::Mat xyzr{};      // scan data (x,y,z,r)
   cv::Range col_rg{};  // indicates scan range within a sweep
@@ -61,8 +61,8 @@ struct LidarSweep final : public LidarScan {
   /// @brief Info
   int width() const noexcept { return col_rg.end; }
   bool full() const noexcept { return width() == xyzr.cols; }
-  double time_begin() const noexcept { return t0; }
-  double time_end() const noexcept { return t0 + xyzr.cols * dt; }
+  double time_begin() const noexcept { return time; }
+  double time_end() const noexcept { return time + xyzr.cols * dt; }
 
   /// @brief Draw
   const cv::Mat& ExtractRange();
