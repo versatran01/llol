@@ -48,7 +48,6 @@ struct LidarSweep final : public LidarScan {
   /// Data
   int id{-1};
   std::vector<Sophus::SE3f> tf_p_s;  // transforms of each columns to some frame
-  cv::Mat disp;                      // range image disp, viz only
 
   LidarSweep() = default;
   explicit LidarSweep(const cv::Size& size);
@@ -73,7 +72,7 @@ struct LidarSweep final : public LidarScan {
   double time_end() const noexcept { return time + xyzr.cols * dt; }
 
   /// @brief Draw
-  const cv::Mat& ExtractRange();
+  cv::Mat DispRange() const;
 };
 
 cv::Mat MakeTestXyzr(const cv::Size& size);

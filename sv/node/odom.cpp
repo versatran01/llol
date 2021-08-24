@@ -11,7 +11,7 @@
 #include <tf2_ros/transform_listener.h>
 
 // sv
-#include "sv/llol/icp.h"
+#include "sv/llol/gicp.h"
 #include "sv/llol/imu.h"
 #include "sv/node/conv.h"
 #include "sv/node/viz.h"
@@ -25,6 +25,8 @@ namespace sv {
 
 using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
+using Vector6d = Eigen::Matrix<double, 6, 1>;
+using Vector6f = Eigen::Matrix<float, 6, 1>;
 
 struct OdomNode {
   /// ros
@@ -153,7 +155,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     static geometry_msgs::PoseArray parray_int;
     parray_int.header.frame_id = pano_frame_;
     parray_int.header.stamp = ros::Time(sweep_.time_begin());
-    SE3fSpan2Ros(absl::MakeConstSpan(grid_.tf_p_s), parray_int);
+    SE3fSpan2Ros(grid_.tf_p_s, parray_int);
     pub_int_.publish(parray_int);
   }
 
@@ -171,7 +173,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     static geometry_msgs::PoseArray parray_opt;
     parray_opt.header.frame_id = pano_frame_;
     parray_opt.header.stamp = ros::Time(sweep_.time_begin());
-    SE3fSpan2Ros(absl::MakeConstSpan(grid_.tf_p_s), parray_opt);
+    SE3fSpan2Ros(grid_.tf_p_s, parray_opt);
     pub_opt_.publish(parray_opt);
   } else {
     ROS_WARN_STREAM("Pano not initialized");
@@ -231,11 +233,11 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 
   if (vis_) {
     Imshow("sweep",
-           ApplyCmap(sweep_.ExtractRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
+           ApplyCmap(sweep_.DispRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
     Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
-               grid_.FilterMask(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
+               grid_.FilterDisp(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
   }
 }
 
@@ -260,13 +262,10 @@ void OdomNode::Integrate() {
   int n_imus{};
   {  // Integarte imu to fill nominal traj
     auto _ = tm_.Scoped("Imu.Integrate");
-    n_imus = imu_int_.Integrate(t0, dt, absl::MakeSpan(grid_.tf_p_s));
+    n_imus = imu_int_.Predict(t0, dt, grid_.tf_p_s);
   }
   ROS_INFO_STREAM("Integrate imus: " << n_imus);
 }
-
-using Vector6d = Eigen::Matrix<double, 6, 1>;
-using Vector6f = Eigen::Matrix<float, 6, 1>;
 
 void OdomNode::Register() {
   const int n_outer = 1;
@@ -319,7 +318,7 @@ void OdomNode::Register() {
     if (vis_) {
       // display good match
       Imshow("match",
-             ApplyCmap(grid_.MatchMask(),
+             ApplyCmap(grid_.MatchDisp(),
                        1.0 / grid_.pano_win_size.area(),
                        cv::COLORMAP_VIRIDIS));
     }
@@ -343,7 +342,7 @@ void OdomNode::PostProcess() {
                               100.0 * n_added / sweep_.total()));
 
   if (!pano_init_) {
-    pano_init_ = true;
+    pano_init_ = false;
     ROS_INFO_STREAM("Pano initialized");
   }
 

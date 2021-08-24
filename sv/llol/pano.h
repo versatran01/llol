@@ -35,7 +35,6 @@ struct DepthPano {
   int max_cnt{10};
   float range_ratio{0.1F};
   float min_range{0.5F};
-  // TODO (chao): also add a min range?
 
   /// Data
   LidarModel model;

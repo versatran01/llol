@@ -61,7 +61,7 @@ ImuData MakeImu(const sensor_msgs::Imu& imu_msg) {
   return imu;
 }
 
-void SE3fSpan2Ros(absl::Span<const Sophus::SE3f> poses,
+void SE3fSpan2Ros(const std::vector<Sophus::SE3f>& poses,
                   geometry_msgs::PoseArray& parray) {
   parray.poses.resize(poses.size());
 

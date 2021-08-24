@@ -10,7 +10,6 @@
 namespace sv {
 
 /// LidarScan ==================================================================
-
 LidarScan::LidarScan(double t0,
                      double dt,
                      const cv::Mat& xyzr,
@@ -93,13 +92,13 @@ void LidarSweep::Check(const LidarScan& scan) const {
   CHECK_GT(dt, 0);
 }
 
-const cv::Mat& LidarSweep::ExtractRange() {
+cv::Mat LidarSweep::DispRange() const {
+  static cv::Mat disp;
   cv::extractChannel(xyzr, disp, 3);
   return disp;
 }
 
-LidarSweep::LidarSweep(const cv::Size& size)
-    : LidarScan{size}, disp{size, CV_32FC1} {
+LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
   tf_p_s.resize(size.width);
 }
 

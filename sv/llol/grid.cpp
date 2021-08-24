@@ -237,33 +237,31 @@ int SweepGrid::Grid2Ind(const cv::Point& px_grid) const {
   return px_grid.y * score.cols + px_grid.x;
 }
 
-const cv::Mat& SweepGrid::FilterMask() {
-  if (mask_filter.empty()) {
-    mask_filter.create(score.rows, score.cols, CV_32FC1);
-  }
-  for (int r = 0; r < score.rows; ++r) {
-    for (int c = 0; c < score.cols; ++c) {
+cv::Mat SweepGrid::FilterDisp() const {
+  static cv::Mat disp;
+  if (disp.empty()) disp.create(size(), CV_32FC1);
+  for (int r = 0; r < disp.rows; ++r) {
+    for (int c = 0; c < disp.cols; ++c) {
       const cv::Point px_g{c, r};
       const auto& match = MatchAt(px_g);
-      mask_filter.at<float>(px_g) = match.GridOk() ? ScoreAt(px_g) : kNaNF;
+      disp.at<float>(px_g) = match.GridOk() ? ScoreAt(px_g) : kNaNF;
     }
   }
-  return mask_filter;
+  return disp;
 }
 
-const cv::Mat& SweepGrid::MatchMask() {
-  if (mask_match.empty()) {
-    mask_match.create(score.rows, score.cols, CV_32FC1);
-  }
+cv::Mat SweepGrid::MatchDisp() const {
+  static cv::Mat disp;
+  if (disp.empty()) disp.create(size(), CV_32FC1);
 
-  for (int r = 0; r < score.rows; ++r) {
-    for (int c = 0; c < score.cols; ++c) {
+  for (int r = 0; r < disp.rows; ++r) {
+    for (int c = 0; c < disp.cols; ++c) {
       const cv::Point px_g{c, r};
       const auto& match = MatchAt(px_g);
-      mask_match.at<float>(px_g) = match.Ok() ? match.mc_p.n : kNaNF;
+      disp.at<float>(px_g) = match.Ok() ? match.mc_p.n : kNaNF;
     }
   }
-  return mask_match;
+  return disp;
 }
 
 void SweepGrid::InterpSweep(LidarSweep& sweep, int gsize) const {

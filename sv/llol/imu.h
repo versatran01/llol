@@ -1,7 +1,5 @@
 #pragma once
 
-#include <absl/types/span.h>
-
 #include <Eigen/Geometry>
 #include <boost/circular_buffer.hpp>
 #include <opencv2/core/types.hpp>
@@ -64,10 +62,10 @@ int FindNextImu(const ImuBuffer& buf, double t);
 /// @todo for now only integrate gyro for rotation
 struct ImuIntegrator {
   ImuBuffer buf{32};
-  ImuBias bias;
-  Sophus::SE3d T_imu_lidar;
+  ImuBias bias{};
+  Sophus::SE3d T_imu_lidar{};
 
-  ImuIntegrator(int buffer_size = 32) : buf{32} {}
+  ImuIntegrator() : buf{32} {}
 
   int size() const { return buf.size(); }
   bool empty() const { return buf.empty(); }
@@ -76,7 +74,8 @@ struct ImuIntegrator {
   void Add(const ImuData& imu) { buf.push_back(imu.DeBiased(bias)); }
 
   /// @brief Given the first pose in poses, predict using imu
-  int Integrate(double t0, double dt, absl::Span<Sophus::SE3f> poses) const;
+  /// @return Number of imus used
+  int Predict(double t0, double dt, std::vector<Sophus::SE3f>& poses) const;
 };
 
 }  // namespace sv

@@ -2,7 +2,7 @@
 
 #include <opencv2/core/types.hpp>
 
-#include "sv/util/math.h"
+#include "sv/util/math.h"  // MeanCovar
 
 namespace sv {
 
@@ -10,8 +10,8 @@ namespace sv {
 struct GicpMatch {
   static constexpr int kBad = -100;
 
-  cv::Point px_g{kBad, kBad};  // 8 sweep pixel coord
-  MeanCovar3f mc_g{};          // 52 sweep mean covar
+  cv::Point px_g{kBad, kBad};  // 8 grid pixel coord
+  MeanCovar3f mc_g{};          // 52 grid mean covar
   cv::Point px_p{kBad, kBad};  // 8 pano pixel coord
   MeanCovar3f mc_p{};          // 52 pano mean covar
   Eigen::Matrix3f U{};         // 36 sqrt of info

@@ -36,6 +36,7 @@ find_package(TBB REQUIRED)
 find_package(fmt REQUIRED)
 find_package(glog REQUIRED)
 find_package(absl REQUIRED)
+find_package(Boost REQUIRED)
 
 find_package(Ceres REQUIRED)
 find_package(Sophus REQUIRED)

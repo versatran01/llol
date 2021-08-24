@@ -50,7 +50,8 @@
 
 #pragma once
 
-#include <Eigen/Dense>
+#include <Eigen/Cholesky>
+#include <Eigen/Core>
 #include <cassert>
 #include <cmath>
 

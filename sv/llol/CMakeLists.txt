@@ -56,14 +56,14 @@ cc_bench(
   DEPS sv_llol_grid GTest::GTest)
 
 cc_library(
-  NAME llol_icp
-  SRCS "icp.cpp"
+  NAME llol_gicp
+  SRCS "gicp.cpp"
   DEPS sv_llol_grid sv_util_solver Ceres::ceres)
 
 cc_library(
   NAME llol_imu
   SRCS "imu.cpp"
-  DEPS sv_base sv_log sv_util_ocv Sophus::Sophus Eigen3::Eigen)
+  DEPS sv_base sv_log sv_util_ocv Sophus::Sophus Eigen3::Eigen Boost::boost)
 cc_test(
   NAME llol_imu_test
   SRCS "imu_test.cpp"

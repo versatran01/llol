@@ -9,10 +9,10 @@ namespace sv {
 struct GridParams {
   int cell_rows{2};
   int cell_cols{16};
-  float max_score{0.01F};  // score > max_score will be discarded
-  bool nms{true};          // non-minimum suppression in Filter()
-  int half_rows{2};
-  float cov_lambda{1e-6F};
+  float max_score{0.01F};   // score > max_score will be discarded
+  bool nms{true};           // non-minimum suppression in Filter()
+  int half_rows{2};         // half rows when match in pano
+  float cov_lambda{1e-6F};  // lambda added to diagonal of cov
 };
 
 /// @struct Sweep Grid summarizes sweep into reduced-sized grid
@@ -31,10 +31,6 @@ struct SweepGrid {
   cv::Range col_rg{};                // working range in this grid
   std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano (nominal)
   std::vector<GicpMatch> matches;
-
-  /// Disp
-  cv::Mat mask_filter;
-  cv::Mat mask_match;
 
   SweepGrid() = default;
   explicit SweepGrid(const cv::Size& sweep_size, const GridParams& params = {});
@@ -88,8 +84,8 @@ struct SweepGrid {
   cv::Size size() const noexcept { return {score.cols, score.rows}; }
 
   /// @brief Draw
-  const cv::Mat& FilterMask();
-  const cv::Mat& MatchMask();
+  cv::Mat FilterDisp() const;
+  cv::Mat MatchDisp() const;
 
   void InterpSweep(LidarSweep& sweep, int gsize = 0) const;
 };

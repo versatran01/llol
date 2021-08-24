@@ -61,9 +61,9 @@ NavState IntegrateMidpoint(const NavState& s0,
   return s1;
 }
 
-int ImuIntegrator::Integrate(double t0,
-                             double dt,
-                             absl::Span<Sophus::SE3f> poses) const {
+int ImuIntegrator::Predict(double t0,
+                           double dt,
+                           std::vector<Sophus::SE3f>& poses) const {
   int ibuf = FindNextImu(buf, t0);
   if (ibuf < 0) return 0;  // no valid imu found
 
@@ -83,7 +83,7 @@ int ImuIntegrator::Integrate(double t0,
     // Transform gyr to lidar frame
     const auto gyr_l = T_imu_lidar.so3().inverse() * imu.gyr;
     const auto omg_l = (dt * gyr_l).cast<float>();
-    poses[i].so3() = poses[i - 1].so3() * Sophus::SO3f::exp(omg_l);
+    poses.at(i).so3() = poses.at(i - 1).so3() * Sophus::SO3f::exp(omg_l);
   }
 
   return ibuf - ibuf0 + 1;

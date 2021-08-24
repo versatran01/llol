@@ -25,7 +25,7 @@ cc_bench(
 cc_library(
   NAME util_ocv
   SRCS "ocv.cpp"
-  DEPS sv_base sv_log opencv_core opencv_imgproc opencv_highgui)
+  DEPS sv_base sv_log opencv_core)
 cc_test(
   NAME util_ocv_test
   SRCS "ocv_test.cpp"

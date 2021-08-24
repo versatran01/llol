@@ -1,4 +1,4 @@
-#include "sv/llol/icp.h"
+#include "sv/llol/gicp.h"
 
 #include <glog/logging.h>
 

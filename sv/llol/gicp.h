@@ -92,7 +92,7 @@ using AdGicpCostLinear =
                                       Eigen::Dynamic,
                                       GicpCostLinear::kTotalParams>;
 
-struct IcpParams {
+struct GicpParams {
   int n_outer{2};
   int n_inner{2};
 };
