@@ -56,4 +56,24 @@ DepthPano MakePano(const ros::NodeHandle& pnh) {
   return DepthPano({pano_cols, pano_rows}, pp);
 }
 
+ImuData MakeImu(const sensor_msgs::Imu& imu_msg) {
+  ImuData imu;
+  imu.time = imu_msg.header.stamp.toSec();
+  const auto& a = imu_msg.linear_acceleration;
+  const auto& w = imu_msg.angular_velocity;
+  imu.acc = {a.x, a.y, a.z};
+  imu.gyr = {w.x, w.y, w.z};
+  return imu;
+}
+
+void SE3fSpan2Ros(absl::Span<const Sophus::SE3f> poses,
+                  geometry_msgs::PoseArray& parray) {
+  parray.poses.resize(poses.size());
+
+  for (int i = 0; i < poses.size(); ++i) {
+    auto& pose = parray.poses[i];
+    SO3d2Ros(poses[i].so3(), pose.orientation);
+  }
+}
+
 }  // namespace sv

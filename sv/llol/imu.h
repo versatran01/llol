@@ -1,5 +1,7 @@
 #pragma once
 
+#include <absl/types/span.h>
+
 #include <Eigen/Geometry>
 #include <boost/circular_buffer.hpp>
 #include <opencv2/core/types.hpp>
@@ -56,8 +58,25 @@ NavState IntegrateMidpoint(const NavState& s0,
 
 using ImuBuffer = boost::circular_buffer<ImuData>;
 
+int FindNextImu(const ImuBuffer& buf, double t);
+
+/// @brief Accumulates imu data and integrate
+/// @todo for now only do rotation
 struct ImuIntegrator {
   ImuBuffer buf{32};
+  ImuBias bias;
+  Sophus::SE3d T_imu_lidar;
+
+  ImuIntegrator(int buffer_size = 32) : buf{32} {}
+
+  int size() const { return buf.size(); }
+  bool empty() const { return buf.empty(); }
+
+  /// @brief Add imu data into buffer
+  void Add(const ImuData& imu) { buf.push_back(imu.DeBiased(bias)); }
+
+  /// @brief Given the first pose in poses, predict using imu
+  int Integrate(double t0, double dt, absl::Span<Sophus::SE3f> poses) const;
 };
 
 /// @brief Extract a range of imus that spans the given time

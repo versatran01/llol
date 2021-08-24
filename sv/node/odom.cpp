@@ -6,9 +6,6 @@
 #include <image_transport/image_transport.h>
 #include <nav_msgs/Path.h>
 #include <ros/ros.h>
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/Imu.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
@@ -24,7 +21,6 @@
 
 namespace sv {
 
-using geometry_msgs::PoseArray;
 using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
 
@@ -50,10 +46,10 @@ struct OdomNode {
   std::string lidar_frame_{};
   std::string pano_frame_{"pano"};
   std::string odom_frame_{"odom"};
-  Sophus::SE3d T_imu_lidar_;
 
   /// odom
-  ImuBuffer imu_buf_{32};
+  ImuIntegrator imu_int_;
+  //  ImuBuffer imu_buf_{32};
   LidarSweep sweep_;
   SweepGrid grid_;
   ProjMatcher matcher_;
@@ -76,7 +72,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   sub_camera_ = it_.subscribeCamera("image", 10, &OdomNode::CameraCb, this);
   sub_imu_ = pnh_.subscribe("imu", 100, &OdomNode::ImuCb, this);
 
-  pub_nom_ = pnh_.advertise<nav_msgs::Path>("path_nom", 1);
+  pub_nom_ = pnh_.advertise<geometry_msgs::PoseArray>("parray_nom", 1);
   pub_opt_ = pnh_.advertise<nav_msgs::Path>("path_opt", 1);
 
   vis_ = pnh_.param<bool>("vis", true);
@@ -87,14 +83,12 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 }
 
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
-  // Add debiased data to buffer
-  ImuData imu;
-  imu.time = imu_msg.header.stamp.toSec();
-  const auto& a = imu_msg.linear_acceleration;
-  const auto& w = imu_msg.angular_velocity;
-  imu.acc = {a.x, a.y, a.z};
-  imu.gyr = {w.x, w.y, w.z};
-  imu_buf_.push_back(imu);
+  // Add imu data to buffer
+  const auto imu = MakeImu(imu_msg);
+  imu_int_.Add(imu);
+  //  imu_buf_.push_back(imu);
+
+  if (tf_init_) return;
 
   // tf stuff
   if (lidar_frame_.empty()) {
@@ -102,23 +96,22 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     return;
   }
 
-  if (!tf_init_) {
-    try {
-      const auto tf_imu_lidar = tf_buffer_.lookupTransform(
-          imu_msg.header.frame_id, lidar_frame_, ros::Time(0));
+  try {
+    const auto tf_imu_lidar = tf_buffer_.lookupTransform(
+        imu_msg.header.frame_id, lidar_frame_, ros::Time(0));
 
-      const auto& t = tf_imu_lidar.transform.translation;
-      const auto& q = tf_imu_lidar.transform.rotation;
-      const Eigen::Vector3d t_imu_lidar{t.x, t.y, t.z};
-      const Eigen::Quaterniond q_imu_lidar{q.w, q.x, q.y, q.z};
-      T_imu_lidar_ = Sophus::SE3d{q_imu_lidar, t_imu_lidar};
+    const auto& t = tf_imu_lidar.transform.translation;
+    const auto& q = tf_imu_lidar.transform.rotation;
+    const Eigen::Vector3d t_imu_lidar{t.x, t.y, t.z};
+    const Eigen::Quaterniond q_imu_lidar{q.w, q.x, q.y, q.z};
+    imu_int_.T_imu_lidar = Sophus::SE3d{q_imu_lidar, t_imu_lidar};
 
-      ROS_INFO_STREAM("Transform from lidar to imu\n" << T_imu_lidar_.matrix());
-      tf_init_ = true;
-    } catch (tf2::TransformException& ex) {
-      ROS_WARN_STREAM(ex.what());
-      return;
-    }
+    ROS_INFO_STREAM("Transform from lidar to imu\n"
+                    << imu_int_.T_imu_lidar.matrix());
+    tf_init_ = true;
+  } catch (tf2::TransformException& ex) {
+    ROS_WARN_STREAM(ex.what());
+    return;
   }
 }
 
@@ -137,7 +130,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   const auto scan = MakeScan(*image_msg, *cinfo_msg);
   Preprocess(scan);
 
-  if (tf_init_ && !imu_buf_.empty()) {
+  if (tf_init_) {
     Integrate();
   }
 
@@ -207,72 +200,22 @@ void OdomNode::Integrate() {
   auto timer = tm_.Manual("Imu.Integrate");
 
   const auto t0 = sweep_.time_begin();
-  const auto t1 = sweep_.time_end();
-  auto& tf_n = grid_.tf_p_s;
+  const auto dt = sweep_.dt * grid_.cell_size.width;
+  auto& nominal = grid_.tf_p_s;
 
-  CHECK(!imu_buf_.empty());
-  // Find the first imu data that is later than t0
-  int ibuf = -1;
-  for (int i = 0; i < imu_buf_.size(); ++i) {
-    if (imu_buf_[i].time > t0) {
-      ibuf = i;
-      break;
-    }
+  int nimus = 0;
+  {  // Integarte imu to fill nominal traj
+    auto _ = tm_.Scoped("Imu.Integrate");
+    nimus = imu_int_.Integrate(t0, dt, absl::MakeSpan(nominal));
   }
+  ROS_INFO_STREAM("Integrate pose using " << nimus << " imus");
 
-  timer.Stop(false);
-
-  if (ibuf >= 0) {
-    ROS_INFO_STREAM(
-        fmt::format("Found imu at {}, buf size {}, available {}, sweep time "
-                    "{}, imu time {}",
-                    ibuf,
-                    imu_buf_.size(),
-                    imu_buf_.size() - ibuf,
-                    t0,
-                    imu_buf_[ibuf].time));
-    timer.Resume();
-    // Integrate imu to get initial nominal traj for grid
-    // Assumes first pose is given, and currently only use gyro
-    const auto dt = sweep_.dt * grid_.cell_size.width;
-    auto& nominal = grid_.tf_p_s;
-
-    for (int i = 0; i < grid_.size().width; ++i) {
-      const int j = i + 1;
-      const auto ti = t0 + dt * j;
-      // increment ibuf if it is ealier than current cell time
-      if (ti > imu_buf_[ibuf].time) ++ibuf;
-      // make sure it is always valid
-      if (ibuf >= imu_buf_.size()) ibuf = imu_buf_.size() - 1;
-      const auto& imu = imu_buf_[ibuf];
-      // Transform gyr to lidar frame
-      const auto gyr_l = T_imu_lidar_.so3().inverse() * imu.gyr;
-      const auto omg_l = (dt * gyr_l).cast<float>();
-      nominal[j].so3() = nominal[i].so3() * Sophus::SO3f::exp(omg_l);
-    }
-    timer.Stop();
-
-    // Publish as pose array
-    nav_msgs::Path path;
-    path.header.frame_id = pano_frame_;
-    path.header.stamp = ros::Time(t0);
-    path.poses.reserve(nominal.size());
-
-    for (int i = 0; i < nominal.size(); ++i) {
-      geometry_msgs::PoseStamped pose;
-      pose.header.frame_id = pano_frame_;
-      pose.header.stamp = ros::Time(t0 + i * dt);
-      SO3d2Ros(nominal[i].so3(), pose.pose.orientation);
-      path.poses.push_back(pose);
-    }
-    pub_nom_.publish(path);
-
-  } else {
-    ROS_WARN_STREAM(
-        "No valid imu found in buffer, propagate assuming constant velocity");
-  }
-
-  timer.Commit();
+  // Publish as pose array
+  static geometry_msgs::PoseArray parray;
+  parray.header.frame_id = pano_frame_;
+  parray.header.stamp = ros::Time(t0);
+  SE3fSpan2Ros(absl::MakeConstSpan(nominal), parray);
+  pub_nom_.publish(parray);
 }
 
 }  // namespace sv

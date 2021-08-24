@@ -16,35 +16,9 @@ TEST(ImuTest, TestExtractImus) {
     buffer.push_back(d);
   }
 
-  {
-    const auto rg = GetImusFromBuffer(buffer, 15, 10);
-    EXPECT_EQ(rg.start, -1);
-    EXPECT_EQ(rg.end, -1);
-  }
-
-  {
-    const auto rg = GetImusFromBuffer(buffer, 10, 15);
-    EXPECT_EQ(rg.start, -1);
-    EXPECT_EQ(rg.end, -1);
-  }
-
-  {
-    const auto rg = GetImusFromBuffer(buffer, 0, 4);
-    EXPECT_EQ(rg.start, 1);
-    EXPECT_EQ(rg.end, 5);
-  }
-
-  {
-    const auto rg = GetImusFromBuffer(buffer, 0.5, 3.5);
-    EXPECT_EQ(rg.start, 1);
-    EXPECT_EQ(rg.end, 4);
-  }
-
-  {
-    const auto rg = GetImusFromBuffer(buffer, 0.5, 10);
-    EXPECT_EQ(rg.start, 1);
-    EXPECT_EQ(rg.end, 5);
-  }
+  EXPECT_EQ(FindNextImu(buffer, 15), -1);
+  EXPECT_EQ(FindNextImu(buffer, 0), 1);
+  EXPECT_EQ(FindNextImu(buffer, 0.5), 1);
 }
 
 void BM_IntegrateRot(benchmark::State& state) {

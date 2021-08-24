@@ -91,4 +91,43 @@ cv::Range GetImusFromBuffer(const ImuBuffer& buffer, double t0, double t1) {
   return range;
 }
 
+int ImuIntegrator::Integrate(double t0,
+                             double dt,
+                             absl::Span<Sophus::SE3f> poses) const {
+  int ibuf = FindNextImu(buf, t0);
+  if (ibuf < 0) return 0;  // no valid imu found
+
+  // Now try to fill in later poses by integrating gyro only
+  const int ibuf0 = ibuf;
+  for (int i = 1; i < poses.size(); ++i) {
+    const auto ti = t0 + dt * i;
+    // increment ibuf if it is ealier than current cell time
+    if (ti > buf[ibuf].time) {
+      ++ibuf;
+    }
+    // make sure it is always valid
+    if (ibuf >= buf.size()) {
+      ibuf = buf.size() - 1;
+    }
+    const auto& imu = buf[ibuf];
+    // Transform gyr to lidar frame
+    const auto gyr_l = T_imu_lidar.so3().inverse() * imu.gyr;
+    const auto omg_l = (dt * gyr_l).cast<float>();
+    poses[i].so3() = poses[i - 1].so3() * Sophus::SO3f::exp(omg_l);
+  }
+
+  return ibuf - ibuf0;
+}
+
+int FindNextImu(const ImuBuffer& buf, double t) {
+  int ibuf = -1;
+  for (int i = 0; i < buf.size(); ++i) {
+    if (buf[i].time > t) {
+      ibuf = i;
+      break;
+    }
+  }
+  return ibuf;
+}
+
 }  // namespace sv
