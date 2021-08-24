@@ -6,9 +6,17 @@ namespace sv {
 
 using SE3d = Sophus::SE3d;
 
-Icp::Icp(const IcpParams& params)
-    : n_outer{params.n_outer}, n_inner{params.n_inner} {}
+GicpCostBase::GicpCostBase(const SweepGrid& grid, int size) : pgrid{&grid} {
+  matches.reserve(size);
+  for (int r = 0; r < grid.size().height; ++r) {
+    for (int c = 0; c < grid.size().width; ++c) {
+      const auto& match = grid.MatchAt({c, r});
+      if (!match.Ok()) continue;
+      matches.push_back(match);
+    }
+  }
 
-void Icp::Register(const SweepGrid& grid) {}
+  CHECK_EQ(matches.size(), size);
+}
 
 }  // namespace sv

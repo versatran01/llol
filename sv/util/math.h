@@ -12,6 +12,12 @@ static constexpr auto kTauF = static_cast<float>(M_PI * 2);
 static constexpr auto kPiD = static_cast<double>(M_PI);
 static constexpr auto kTauD = static_cast<double>(M_PI * 2);
 
+template <typename T, int N>
+using Vector = Eigen::Matrix<T, N, 1>;
+
+template <int N>
+using Vectord = Eigen::Matrix<double, N, 1>;
+
 template <typename T>
 T Deg2Rad(T deg) {
   static_assert(std::is_floating_point_v<T>, "T must be floating point");

@@ -5,11 +5,13 @@
 #include <image_transport/camera_subscriber.h>
 #include <image_transport/image_transport.h>
 #include <nav_msgs/Path.h>
+#include <pcl_ros/point_cloud.h>
 #include <ros/ros.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_ros/transform_listener.h>
 
 // sv
+#include "sv/llol/icp.h"
 #include "sv/llol/imu.h"
 #include "sv/node/conv.h"
 #include "sv/node/viz.h"
@@ -30,8 +32,11 @@ struct OdomNode {
   image_transport::ImageTransport it_;
   image_transport::CameraSubscriber sub_camera_;
   ros::Subscriber sub_imu_;
-  ros::Publisher pub_nom_;
+  ros::Publisher pub_int_;
   ros::Publisher pub_opt_;
+  ros::Publisher pub_sweep_;
+  ros::Publisher pub_pano_;
+  ros::Publisher pub_match_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
@@ -51,7 +56,6 @@ struct OdomNode {
 
   /// odom
   ImuIntegrator imu_int_;
-  //  ImuBuffer imu_buf_{32};
   LidarSweep sweep_;
   SweepGrid grid_;
   DepthPano pano_;
@@ -75,8 +79,11 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   sub_camera_ = it_.subscribeCamera("image", 10, &OdomNode::CameraCb, this);
   sub_imu_ = pnh_.subscribe("imu", 100, &OdomNode::ImuCb, this);
 
-  pub_nom_ = pnh_.advertise<geometry_msgs::PoseArray>("parray_nom", 1);
-  pub_opt_ = pnh_.advertise<nav_msgs::Path>("path_opt", 1);
+  pub_int_ = pnh_.advertise<geometry_msgs::PoseArray>("parray_int", 1);
+  pub_opt_ = pnh_.advertise<geometry_msgs::PoseArray>("parray_opt", 1);
+  pub_sweep_ = pnh_.advertise<CloudXYZ>("sweep", 1);
+  pub_pano_ = pnh_.advertise<CloudXYZ>("pano", 1);
+  pub_match_ = pnh_.advertise<visualization_msgs::MarkerArray>("match", 1);
 
   vis_ = pnh_.param<bool>("vis", true);
   ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -141,23 +148,60 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   if (tf_init_) {
     // Predict poses using imu
     Integrate();
+
+    // Publish as pose array
+    static geometry_msgs::PoseArray parray_int;
+    parray_int.header.frame_id = pano_frame_;
+    parray_int.header.stamp = ros::Time(sweep_.time_begin());
+    SE3fSpan2Ros(absl::MakeConstSpan(grid_.tf_p_s), parray_int);
+    pub_int_.publish(parray_int);
   }
 
   if (pano_init_) {
     Register();
+
+    static visualization_msgs::MarkerArray match_marray;
+    std_msgs::Header match_header;
+    match_header.frame_id = pano_frame_;
+    match_header.stamp = cinfo_msg->header.stamp;
+    Grid2Markers(grid_, match_header, match_marray.markers);
+    pub_match_.publish(match_marray);
+
+    // Publish as pose array
+    static geometry_msgs::PoseArray parray_opt;
+    parray_opt.header.frame_id = pano_frame_;
+    parray_opt.header.stamp = ros::Time(sweep_.time_begin());
+    SE3fSpan2Ros(absl::MakeConstSpan(grid_.tf_p_s), parray_opt);
+    pub_opt_.publish(parray_opt);
   } else {
     ROS_WARN_STREAM("Pano not initialized");
   }
 
   PostProcess();
 
-  /// Transform from pano to odom
+  // Transform from pano to odom
   TransformStamped tf_o_p;
   tf_o_p.header.frame_id = odom_frame_;
   tf_o_p.header.stamp = cinfo_msg->header.stamp;
   tf_o_p.child_frame_id = pano_frame_;
   tf_o_p.transform.rotation.w = 1.0;
   tf_broadcaster_.sendTransform(tf_o_p);
+
+  // publish undistorted sweep
+  static CloudXYZ sweep_cloud;
+  std_msgs::Header sweep_header;
+  sweep_header.frame_id = pano_frame_;
+  sweep_header.stamp = cinfo_msg->header.stamp;
+  Sweep2Cloud(sweep_, sweep_header, sweep_cloud);
+  pub_sweep_.publish(sweep_cloud);
+
+  // Publish pano
+  static CloudXYZ pano_cloud;
+  std_msgs::Header pano_header;
+  pano_header.frame_id = pano_frame_;
+  pano_header.stamp = cinfo_msg->header.stamp;
+  Pano2Cloud(pano_, pano_header, pano_cloud);
+  pub_pano_.publish(pano_cloud);
 
   ROS_DEBUG_STREAM_THROTTLE(1, tm_.ReportAll(true));
 }
@@ -212,33 +256,65 @@ void OdomNode::Integrate() {
 
   const auto t0 = sweep_.time_begin();
   const auto dt = sweep_.dt * grid_.cell_size.width;
-  auto& nominal = grid_.tf_p_s;
 
   int n_imus{};
   {  // Integarte imu to fill nominal traj
     auto _ = tm_.Scoped("Imu.Integrate");
-    n_imus = imu_int_.Integrate(t0, dt, absl::MakeSpan(nominal));
+    n_imus = imu_int_.Integrate(t0, dt, absl::MakeSpan(grid_.tf_p_s));
   }
   ROS_INFO_STREAM("Integrate imus: " << n_imus);
-
-  // Publish as pose array
-  static geometry_msgs::PoseArray parray;
-  parray.header.frame_id = pano_frame_;
-  parray.header.stamp = ros::Time(t0);
-  SE3fSpan2Ros(absl::MakeConstSpan(nominal), parray);
-  pub_nom_.publish(parray);
 }
+
+using Vector6d = Eigen::Matrix<double, 6, 1>;
+using Vector6f = Eigen::Matrix<float, 6, 1>;
 
 void OdomNode::Register() {
   const int n_outer = 1;
+  const int n_inner = 100;
   // Outer icp iters
+  auto t_match = tm_.Manual("Grid.Match", false);
+  auto t_build = tm_.Manual("Icp.Build", false);
+  auto t_solve = tm_.Manual("Icp.Solve", false);
+
+  Eigen::Matrix<double, 12, 1> errors;
+  errors.setZero();
+
   for (int i = 0; i < n_outer; ++i) {
     ROS_INFO_STREAM("Icp iteration: " << i);
-    const int n_matches = grid_.Match(pano_, tbb_);
+
+    t_match.Resume();
+    const auto n_matches = grid_.Match(pano_, tbb_);
+    t_match.Stop(false);
+
     ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
                                 n_matches,
                                 grid_.total(),
                                 100.0 * n_matches / grid_.total()));
+
+    // Build
+    t_build.Resume();
+    GicpCostLinear cost(grid_, n_matches);
+    AdGicpCostLinear adcost(cost);
+    t_build.Stop(false);
+
+    // Solve
+    t_solve.Resume();
+    TinySolver<AdGicpCostLinear> solver;
+    solver.options.max_num_iterations = n_inner;
+    solver.Solve(adcost, &errors);
+    t_solve.Stop(false);
+    ROS_INFO_STREAM(solver.summary.Report());
+
+    // Update
+    auto& tf_p_s = grid_.tf_p_s;
+    const Vector6d dT = errors.tail<6>() - errors.head<6>();
+    for (int i = 0; i < tf_p_s.size(); ++i) {
+      const double s = 1.0 * i / (tf_p_s.size() - 1.0);
+      const Vector6d Ts = errors.head<6>() + s * dT;
+      auto& T_p_s = tf_p_s[i];
+      T_p_s.so3() = T_p_s.so3() * Sophus::SO3f::exp(Ts.head<3>().cast<float>());
+      T_p_s.translation() += Ts.tail<3>().cast<float>();
+    }
 
     if (vis_) {
       // display good match

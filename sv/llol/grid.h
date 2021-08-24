@@ -73,9 +73,7 @@ struct SweepGrid {
   const GicpMatch& MatchAt(const cv::Point& px) const {
     return matches[Grid2Ind(px)];
   }
-  const Sophus::SE3f& PoseAt(const cv::Point& px) const {
-    return tf_p_s.at(px.x);
-  }
+  const Sophus::SE3f& PoseAt(int c) const { return tf_p_s.at(c); }
 
   /// @brief Pxiel coordinates conversion (sweep <-> grid)
   cv::Point Sweep2Grid(const cv::Point& px_sweep) const;

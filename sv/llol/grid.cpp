@@ -133,10 +133,11 @@ int SweepGrid::FilterRow(const LidarScan& scan, int r) {
     // Handle pad for nms
     if (pad <= c && c < col_rg.size() - pad && IsCellGood(px_g)) {
       // scan starts from 0 so use {c, r}
-      scan.MeanCovarAt(Grid2Sweep({c, r}), cell_size.width, match.mc_s);
+      scan.MeanCovarAt(Grid2Sweep({c, r}), cell_size.width, match.mc_g);
+      match.px_g = px_g;
       // Set px_s to sweep px, so use px_g
-      match.px_s = Grid2Sweep(px_g);
-      match.px_s.x += cell_size.width / 2;
+      //      match.px_g = Grid2Sweep(px_g);
+      //      match.px_g.x += cell_size.width / 2;
       ++n;
     } else {
       match.Reset();
@@ -189,10 +190,10 @@ int SweepGrid::MatchRow(const DepthPano& pano, int gr) {
 
 int SweepGrid::MatchCell(const DepthPano& pano, const cv::Point& px_g) {
   auto& match = MatchAt(px_g);
-  if (!match.SweepOk()) return 0;
+  if (!match.GridOk()) return 0;
 
   // Transform to pano frame
-  const Eigen::Vector3f pt_p = PoseAt(px_g) * match.mc_s.mean;
+  const Eigen::Vector3f pt_p = PoseAt(px_g.x) * match.mc_g.mean;
   const float rg_p = pt_p.norm();
 
   // Project to pano
@@ -244,7 +245,7 @@ const cv::Mat& SweepGrid::FilterMask() {
     for (int c = 0; c < score.cols; ++c) {
       const cv::Point px_g{c, r};
       const auto& match = MatchAt(px_g);
-      mask_filter.at<float>(px_g) = match.SweepOk() ? ScoreAt(px_g) : kNaNF;
+      mask_filter.at<float>(px_g) = match.GridOk() ? ScoreAt(px_g) : kNaNF;
     }
   }
   return mask_filter;

@@ -33,10 +33,16 @@ StatsManager& GlobalStatsManager() {
   return sm;
 }
 
-TimerManager::ManualTimer::ManualTimer(std::string name, TimerManager* manager)
+TimerManager::ManualTimer::ManualTimer(std::string name,
+                                       TimerManager* manager,
+                                       bool start)
     : name_{std::move(name)}, manager_{manager} {
   CHECK_NOTNULL(manager_);
-  Start();
+  if (start) {
+    timer_.Start();
+  } else {
+    timer_.Reset();
+  }
 }
 
 void TimerManager::ManualTimer::Stop(bool record) {
@@ -46,10 +52,8 @@ void TimerManager::ManualTimer::Stop(bool record) {
   }
 }
 
-void TimerManager::ManualTimer::Resume() { timer_.Resume(); }
-
 void TimerManager::ManualTimer::Commit() {
-  if (timer_.IsRunning()) Stop();
+  Stop();
   if (!stats_.ok()) return;  // Noop if there's no stats to commit
 
   // Already checked in ctor

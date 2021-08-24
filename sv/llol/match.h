@@ -10,18 +10,18 @@ namespace sv {
 struct GicpMatch {
   static constexpr int kBad = -100;
 
-  cv::Point px_s{kBad, kBad};  // 8 sweep pixel coord
-  MeanCovar3f mc_s{};          // 52 sweep mean covar
+  cv::Point px_g{kBad, kBad};  // 8 sweep pixel coord
+  MeanCovar3f mc_g{};          // 52 sweep mean covar
   cv::Point px_p{kBad, kBad};  // 8 pano pixel coord
   MeanCovar3f mc_p{};          // 52 pano mean covar
   Eigen::Matrix3f U{};         // 36 sqrt of info
 
   /// @brief Whether this match is good
-  bool Ok() const noexcept { return SweepOk() && PanoOk(); }
-  bool SweepOk() const { return px_s.x >= 0 && mc_s.ok(); }
+  bool Ok() const noexcept { return GridOk() && PanoOk(); }
+  bool GridOk() const { return px_g.x >= 0 && mc_g.ok(); }
   bool PanoOk() const { return px_p.x >= 0 && mc_p.ok(); }
 
-  void ResetSweep();
+  void ResetGrid();
   void ResetPano();
   void Reset();
 

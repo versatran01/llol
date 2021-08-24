@@ -12,7 +12,7 @@
 
 namespace sv {
 
-using Cloud = pcl::PointCloud<pcl::PointXYZ>;
+using CloudXYZ = pcl::PointCloud<pcl::PointXYZ>;
 
 /// @brief Apply color map to mat
 /// @details input must be 1-channel, assume after scale the max will be 1
@@ -25,7 +25,7 @@ cv::Mat ApplyCmap(const cv::Mat& input,
 /// @brief Create a window with name and show mat
 void Imshow(const std::string& name,
             const cv::Mat& mat,
-            int flag = cv::WINDOW_NORMAL | cv::WINDOW_FREERATIO);
+            int flag = cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
 
 void MeanCovar2Marker(visualization_msgs::Marker& marker,
                       const Eigen::Vector3d& mean,
@@ -39,6 +39,10 @@ void Grid2Markers(const SweepGrid& grid,
 
 void Pano2Cloud(const DepthPano& pano,
                 const std_msgs::Header header,
-                Cloud& cloud);
+                CloudXYZ& cloud);
+
+void Sweep2Cloud(const LidarSweep& sweep,
+                 const std_msgs::Header header,
+                 CloudXYZ& cloud);
 
 }  // namespace sv

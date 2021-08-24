@@ -58,7 +58,7 @@ struct GicpFactor2 final : public IcpFactorBase {
 
     const Eigen::Matrix3d U = match.U.cast<double>();
     const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-    const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
+    const Eigen::Vector3d pt_s = match.mc_g.mean.cast<double>();
 
     r = U * (pt_p - T_p_s * pt_s);
     return true;
@@ -79,7 +79,7 @@ struct GicpFactor3 final : public IcpFactorBase {
 
       const Eigen::Matrix3d U = match.U.cast<double>();
       const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-      const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
+      const Eigen::Vector3d pt_s = match.mc_g.mean.cast<double>();
       Eigen::Map<Vector3<T>> r(_r + kNumResiduals * i);
       r = U * (pt_p - T_p_s * pt_s);
     }
@@ -111,7 +111,7 @@ struct TinyGicpFactor final : public IcpFactorBase {
 
       const Eigen::Matrix3d U = match.U.cast<double>();
       const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-      const Eigen::Vector3d pt_s = match.mc_s.mean.cast<double>();
+      const Eigen::Vector3d pt_s = match.mc_g.mean.cast<double>();
       Eigen::Map<Vector3<T>> r(_r + kNumResiduals * i);
       r = U * (pt_p - T_p_s * pt_s);
     }

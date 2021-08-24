@@ -58,6 +58,9 @@ struct LidarSweep final : public LidarScan {
     return os << rhs.Repr();
   }
 
+  /// @brief At
+  const Sophus::SE3f& PoseAt(int c) const { return tf_p_s.at(c); }
+
   /// @brief Add a scan to this sweep
   /// @return Number of points added
   int Add(const LidarScan& scan);

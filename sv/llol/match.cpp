@@ -5,9 +5,9 @@
 
 namespace sv {
 
-void GicpMatch::ResetSweep() {
-  px_s = {kBad, kBad};
-  mc_s.Reset();
+void GicpMatch::ResetGrid() {
+  px_g = {kBad, kBad};
+  mc_g.Reset();
 }
 
 void GicpMatch::ResetPano() {
@@ -16,7 +16,7 @@ void GicpMatch::ResetPano() {
 }
 
 void GicpMatch::Reset() {
-  ResetSweep();
+  ResetGrid();
   ResetPano();
   U.setZero();
 }

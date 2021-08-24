@@ -140,9 +140,9 @@ class TimerManager final : public StatsManagerBase<absl::Duration> {
   /// Create multiple timers if you want to log time in multiple-threads
   class ManualTimer {
    public:
-    /// Timer starts on construction
-    ManualTimer(std::string name, TimerManager* manager);
-    virtual ~ManualTimer() noexcept = default;
+    /// If start is true then start on construction, otherise stopped
+    ManualTimer(std::string name, TimerManager* manager, bool start = true);
+    virtual ~ManualTimer() { Commit(); }
 
     /// Disable copy, allow move
     ManualTimer(const ManualTimer&) = delete;
@@ -157,7 +157,7 @@ class TimerManager final : public StatsManagerBase<absl::Duration> {
     void Stop(bool record = true);
 
     /// Resume stopped timer
-    void Resume();
+    void Resume() { timer_.Resume(); }
 
     /// Commit changes to manager, potentially expensive since it needs to
     /// acquire a lock
@@ -190,7 +190,9 @@ class TimerManager final : public StatsManagerBase<absl::Duration> {
   /// Elapsed time will automatically added to the stats when stopped.
   /// After stop one can just call timer.Start() to restart.
   /// Need to call Commit() to aggregate stats
-  ManualTimer Manual(std::string name) { return {std::move(name), this}; }
+  ManualTimer Manual(std::string name, bool start = true) {
+    return {std::move(name), this, start};
+  }
 
   /// Returns a ScopedTimer (already started) and will stop when out of scope
   ScopedTimer Scoped(std::string name) { return {std::move(name), this}; }

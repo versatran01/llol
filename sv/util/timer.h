@@ -45,6 +45,12 @@ class Timer {
     return NowNs() - time_ns_;       // time_ns_ is when the timer started
   }
 
+  /// Reset timer
+  void Reset() {
+    time_ns_ = 0;
+    running_ = false;
+  }
+
  private:
   int64_t time_ns_{0};  // either start (running) or elapsed (stopped)
   bool running_{false};

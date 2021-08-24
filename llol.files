@@ -86,5 +86,7 @@ sv/util/math_test_bench.cpp
 sv/util/ocv.cpp
 sv/util/ocv.h
 sv/util/ocv_test.cpp
+sv/util/solver.cpp
+sv/util/solver.h
 sv/util/stats.h
 sv/util/timer.h

@@ -35,13 +35,13 @@ void MeanCovar2Marker(Marker& marker,
 void Grid2Markers(const SweepGrid& grid,
                   const std_msgs::Header& header,
                   std::vector<Marker>& markers) {
-  markers.reserve(grid.total());
+  markers.resize(grid.total());
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
 
   Marker pano_mk;
   pano_mk.header = header;
-  pano_mk.ns = "match_pano";
+  pano_mk.ns = "match";
   pano_mk.type = Marker::SPHERE;
   pano_mk.color.a = 0.5;
   pano_mk.color.r = 0.0;
@@ -53,23 +53,24 @@ void Grid2Markers(const SweepGrid& grid,
   // TODO (chao): only draw matches up to width?
   // TODO (chao): also need to remove bad match
   for (int r = 0; r < grid.size().height; ++r) {
-    for (int c = 0; c < grid.width(); ++c) {
+    for (int c = 0; c < grid.size().width; ++c) {
       const auto i = grid.Grid2Ind({c, r});
       const auto& match = grid.matches.at(i);
-      pano_mk.id = i;
+
+      auto& marker = markers.at(grid.Grid2Ind({c, r}));
+      marker = pano_mk;
+      marker.id = i;
 
       if (match.Ok()) {
-        pano_mk.action = Marker::ADD;
+        marker.action = Marker::ADD;
         covar = match.mc_p.Covar();
         covar.diagonal().array() += 1e-6;
         es.compute(covar);
         MeanCovar2Marker(
-            pano_mk, match.mc_p.mean, es.eigenvalues(), es.eigenvectors());
+            marker, match.mc_p.mean, es.eigenvalues(), es.eigenvectors());
       } else {
-        pano_mk.action = Marker::DELETE;
+        marker.action = Marker::DELETE;
       }
-
-      markers.push_back(pano_mk);
     }
   }
 }
@@ -99,7 +100,7 @@ void Imshow(const std::string& name, const cv::Mat& mat, int flag) {
 
 void Pano2Cloud(const DepthPano& pano,
                 const std_msgs::Header header,
-                Cloud& cloud) {
+                CloudXYZ& cloud) {
   const auto size = pano.size();
   if (cloud.empty()) {
     cloud.resize(pano.total());
@@ -121,6 +122,35 @@ void Pano2Cloud(const DepthPano& pano,
                             pc.x = pp.x;
                             pc.y = pp.y;
                             pc.z = pp.z;
+                          }
+                        }
+                      }
+                    });
+}
+
+void Sweep2Cloud(const LidarSweep& sweep,
+                 const std_msgs::Header header,
+                 CloudXYZ& cloud) {
+  const auto size = sweep.size();
+  if (cloud.empty()) {
+    cloud.resize(sweep.total());
+    cloud.width = size.width;
+    cloud.height = size.height;
+  }
+
+  pcl_conversions::toPCL(header, cloud.header);
+  tbb::parallel_for(tbb::blocked_range<int>(0, size.height),
+                    [&](const auto& blk) {
+                      for (int r = blk.begin(); r < blk.end(); ++r) {
+                        for (int c = 0; c < size.width; ++c) {
+                          const auto& tf = sweep.PoseAt(c);
+                          const auto& xyzr = sweep.XyzrAt({c, r});
+                          auto& pc = cloud.at(c, r);
+                          if (std::isnan(xyzr[0])) {
+                            pc.x = pc.y = pc.z = kNaNF;
+                          } else {
+                            Eigen::Map<const Eigen::Vector3f> xyz(&xyzr[0]);
+                            pc.getArray3fMap() = tf * xyz;
                           }
                         }
                       }
