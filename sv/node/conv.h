@@ -17,8 +17,8 @@ namespace sv {
 
 void SE3d2Ros(const Sophus::SE3d& pose, geometry_msgs::Transform& tf);
 void SO3d2Ros(const Sophus::SO3d& rot, geometry_msgs::Quaternion& q);
-void SE3fSpan2Ros(const std::vector<Sophus::SE3f>& poses,
-                  geometry_msgs::PoseArray& parray);
+void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,
+                 geometry_msgs::PoseArray& parray);
 
 ImuData MakeImu(const sensor_msgs::Imu& imu_msg);
 

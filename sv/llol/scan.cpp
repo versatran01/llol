@@ -99,7 +99,7 @@ cv::Mat LidarSweep::DispRange() const {
 }
 
 LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
-  tf_p_s.resize(size.width);
+  tfs.resize(size.width);
 }
 
 std::string LidarSweep::Repr() const {

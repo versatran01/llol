@@ -55,7 +55,7 @@ void Grid2Markers(const SweepGrid& grid,
   for (int r = 0; r < grid.size().height; ++r) {
     for (int c = 0; c < grid.size().width; ++c) {
       const auto i = grid.Grid2Ind({c, r});
-      const auto& match = grid.matches.at(i);
+      const auto& match = grid.MatchAt({c, r});
 
       auto& marker = markers.at(grid.Grid2Ind({c, r}));
       marker = pano_mk;
@@ -143,7 +143,7 @@ void Sweep2Cloud(const LidarSweep& sweep,
                     [&](const auto& blk) {
                       for (int r = blk.begin(); r < blk.end(); ++r) {
                         for (int c = 0; c < size.width; ++c) {
-                          const auto& tf = sweep.PoseAt(c);
+                          const auto& tf = sweep.TfAt(c);
                           const auto& xyzr = sweep.XyzrAt({c, r});
                           auto& pc = cloud.at(c, r);
                           if (std::isnan(xyzr[0])) {

@@ -61,13 +61,17 @@ ImuData MakeImu(const sensor_msgs::Imu& imu_msg) {
   return imu;
 }
 
-void SE3fSpan2Ros(const std::vector<Sophus::SE3f>& poses,
-                  geometry_msgs::PoseArray& parray) {
+void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,
+                 geometry_msgs::PoseArray& parray) {
   parray.poses.resize(poses.size());
 
   for (int i = 0; i < poses.size(); ++i) {
-    auto& pose = parray.poses[i];
-    SO3d2Ros(poses[i].so3(), pose.orientation);
+    auto& pose = parray.poses.at(i);
+    const auto& t = poses.at(i).translation();
+    pose.position.x = t.x();
+    pose.position.y = t.y();
+    pose.position.z = t.z();
+    SO3d2Ros(poses.at(i).so3(), pose.orientation);
   }
 }
 

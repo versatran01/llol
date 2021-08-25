@@ -47,7 +47,7 @@ struct LidarScan {
 struct LidarSweep final : public LidarScan {
   /// Data
   int id{-1};
-  std::vector<Sophus::SE3f> tf_p_s;  // transforms of each columns to some frame
+  std::vector<Sophus::SE3f> tfs;  // transforms of each columns to some frame
 
   LidarSweep() = default;
   explicit LidarSweep(const cv::Size& size);
@@ -58,7 +58,7 @@ struct LidarSweep final : public LidarScan {
   }
 
   /// @brief At
-  const Sophus::SE3f& PoseAt(int c) const { return tf_p_s.at(c); }
+  const Sophus::SE3f& TfAt(int c) const { return tfs.at(c); }
 
   /// @brief Add a scan to this sweep
   /// @return Number of points added

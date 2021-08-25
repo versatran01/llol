@@ -27,9 +27,9 @@ struct SweepGrid {
   int min_pts{};           // min pts in pano win for a valid match
 
   /// Data
-  cv::Mat score;                     // smoothness score, smaller is smoother
-  cv::Range col_rg{};                // working range in this grid
-  std::vector<Sophus::SE3f> tf_p_s;  // transforms from sweep to pano (nominal)
+  cv::Mat score;                  // smoothness score, smaller is smoother
+  cv::Range col_rg{};             // working range in this grid
+  std::vector<Sophus::SE3f> tfs;  // transforms from edge of cell to pano
   std::vector<GicpMatch> matches;
 
   SweepGrid() = default;
@@ -69,7 +69,7 @@ struct SweepGrid {
   const GicpMatch& MatchAt(const cv::Point& px) const {
     return matches[Grid2Ind(px)];
   }
-  const Sophus::SE3f& PoseAt(int c) const { return tf_p_s.at(c); }
+  Sophus::SE3f CellTfAt(int c) const;
 
   /// @brief Pxiel coordinates conversion (sweep <-> grid)
   cv::Point Sweep2Grid(const cv::Point& px_sweep) const;
@@ -84,15 +84,15 @@ struct SweepGrid {
   cv::Size size() const noexcept { return {score.cols, score.rows}; }
 
   /// @brief Draw
-  cv::Mat FilterDisp() const;
-  cv::Mat MatchDisp() const;
+  cv::Mat DispFilter() const;
+  cv::Mat DispMatch() const;
 
   void InterpSweep(LidarSweep& sweep, int gsize = 0) const;
 };
 
-void InterpPosesImpl(const std::vector<Sophus::SE3f>& poses_grid,
+void InterpPosesImpl(const std::vector<Sophus::SE3f>& tf_cell,
                      int cell_width,
-                     std::vector<Sophus::SE3f>& poses_sweep,
+                     std::vector<Sophus::SE3f>& tf_col,
                      int gsize = 0);
 
 }  // namespace sv

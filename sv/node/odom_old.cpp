@@ -183,7 +183,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
-               grid_.FilterDisp(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
+               grid_.DispFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
   }
 
   IntegrateImu();
@@ -215,7 +215,7 @@ void OdomNode::IntegrateImu() {
     // Initialize first state using the last of the previous nominal state
     preint_.push_back({});
     preint_[0].time = sweep_.t0;
-    preint_[0].rot = grid_.tf_p_s.back().so3().cast<double>();
+    preint_[0].rot = grid_.tfs.back().so3().cast<double>();
 
     // For now only consider rotation, so pos and vel are integrated but
     // ignored
@@ -252,7 +252,7 @@ void OdomNode::IntegrateImu() {
 
     // Then we use these to estimate nominal trajectory in grid (pose only)
     // Make a copy for now just for testing
-    auto nominal = grid_.tf_p_s;
+    auto nominal = grid_.tfs;
     const auto dt_cell = sweep_.dt * grid_.cell_size.width;  // dt for nominal
 
     // Again, first state is the same as last of previous nominal state
@@ -294,8 +294,8 @@ void OdomNode::IntegrateImu() {
 bool OdomNode::Register(const std_msgs::Header& header) {
   /// Query grid poses
   //    auto _ = tm_.Scoped("Traj.GridPose");
-  for (int i = 0; i < grid_.tf_p_s.size(); ++i) {
-    grid_.tf_p_s[i] = T_p_s_.cast<float>();
+  for (int i = 0; i < grid_.tfs.size(); ++i) {
+    grid_.tfs[i] = T_p_s_.cast<float>();
   }
 
   int n_matches = 0;
@@ -376,8 +376,8 @@ bool OdomNode::Register(const std_msgs::Header& header) {
 void OdomNode::Postprocess() {
   /// Query pose again
   //    auto _ = tm_.Scoped("Traj.SweepPose");
-  for (int i = 0; i < sweep_.tf_p_s.size(); ++i) {
-    sweep_.tf_p_s[i] = T_p_s_.cast<float>();
+  for (int i = 0; i < sweep_.tfs.size(); ++i) {
+    sweep_.tfs[i] = T_p_s_.cast<float>();
   }
 
   int num_added = 0;
@@ -402,7 +402,7 @@ void OdomNode::Postprocess() {
   //                                   pano_.total());
 
   if (vis_) {
-    const auto& disps = pano_.RangeAndCount();
+    const auto& disps = pano_.DispRangeCount();
     Imshow("buf", ApplyCmap(disps[0], 1.0 / DepthPixel::kScale / 30.0));
     Imshow("cnt",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));

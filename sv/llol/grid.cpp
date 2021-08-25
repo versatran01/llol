@@ -5,6 +5,8 @@
 #include <tbb/parallel_for.h>
 #include <tbb/parallel_reduce.h>
 
+#include <sophus/interpolate.hpp>
+
 #include "sv/util/ocv.h"
 
 namespace sv {
@@ -23,7 +25,7 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
   CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
   CHECK_EQ(cell_size.height * score.rows, sweep_size.height);
 
-  tf_p_s.resize(score.cols + 1);  // one more to cover both ends
+  tfs.resize(score.cols + 1);  // one more to cover both ends
   matches.resize(total());
 
   pano_win_size.height = params.half_rows * 2 + 1;
@@ -193,7 +195,7 @@ int SweepGrid::MatchCell(const DepthPano& pano, const cv::Point& px_g) {
   if (!match.GridOk()) return 0;
 
   // Transform to pano frame
-  const Eigen::Vector3f pt_p = PoseAt(px_g.x) * match.mc_g.mean;
+  const Eigen::Vector3f pt_p = CellTfAt(px_g.x) * match.mc_g.mean;
   const float rg_p = pt_p.norm();
 
   // Project to pano
@@ -205,7 +207,8 @@ int SweepGrid::MatchCell(const DepthPano& pano, const cv::Point& px_g) {
   }
 
   // Check distance between new pix and old pix
-  if (PointInSize(px_p - match.px_p, max_dist_size) && match.PanoOk()) {
+  //    if (PointInSize(px_p - match.px_p, max_dist_size) && match.PanoOk()) {
+  if (px_p == match.px_p && match.PanoOk()) {
     // If new and old are close and pano match is ok
     // we reuse this match and there is no need to recompute
     return 1;
@@ -225,6 +228,15 @@ int SweepGrid::MatchCell(const DepthPano& pano, const cv::Point& px_g) {
   return 1;
 }
 
+Sophus::SE3f SweepGrid::CellTfAt(int c) const {
+  Sophus::SE3f tf;
+  const auto& T0 = tfs.at(c);
+  const auto& T1 = tfs.at(c + 1);
+  tf.so3() = Sophus::interpolate(T0.so3(), T1.so3(), 0.5);
+  tf.translation() = (T0.translation() + T1.translation()) / 2;
+  return tf;
+}
+
 cv::Point SweepGrid::Sweep2Grid(const cv::Point& px_sweep) const {
   return {px_sweep.x / cell_size.width, px_sweep.y / cell_size.height};
 }
@@ -237,7 +249,7 @@ int SweepGrid::Grid2Ind(const cv::Point& px_grid) const {
   return px_grid.y * score.cols + px_grid.x;
 }
 
-cv::Mat SweepGrid::FilterDisp() const {
+cv::Mat SweepGrid::DispFilter() const {
   static cv::Mat disp;
   if (disp.empty()) disp.create(size(), CV_32FC1);
   for (int r = 0; r < disp.rows; ++r) {
@@ -250,7 +262,7 @@ cv::Mat SweepGrid::FilterDisp() const {
   return disp;
 }
 
-cv::Mat SweepGrid::MatchDisp() const {
+cv::Mat SweepGrid::DispMatch() const {
   static cv::Mat disp;
   if (disp.empty()) disp.create(size(), CV_32FC1);
 
@@ -265,24 +277,24 @@ cv::Mat SweepGrid::MatchDisp() const {
 }
 
 void SweepGrid::InterpSweep(LidarSweep& sweep, int gsize) const {
-  InterpPosesImpl(tf_p_s, cell_size.width, sweep.tf_p_s, gsize);
+  InterpPosesImpl(tfs, cell_size.width, sweep.tfs, gsize);
 }
 
-void InterpPosesImpl(const std::vector<Sophus::SE3f>& poses_grid,
+void InterpPosesImpl(const std::vector<Sophus::SE3f>& tf_grid,
                      int cell_width,
-                     std::vector<Sophus::SE3f>& poses_sweep,
+                     std::vector<Sophus::SE3f>& tf_sweep,
                      int gsize) {
-  CHECK_EQ((poses_grid.size() - 1) * cell_width, poses_sweep.size());
+  CHECK_EQ((tf_grid.size() - 1) * cell_width, tf_sweep.size());
 
-  const int ncells = poses_grid.size() - 1;
+  const int ncells = tf_grid.size() - 1;
   gsize = gsize <= 0 ? ncells : gsize;
 
   tbb::parallel_for(
       tbb::blocked_range<int>(0, ncells, gsize), [&](const auto& blk) {
         for (int i = blk.begin(); i < blk.end(); ++i) {
           // interpolate rotation and translation separately
-          const auto& T0 = poses_grid.at(i);
-          const auto& T1 = poses_grid.at(i + 1);
+          const auto& T0 = tf_grid.at(i);
+          const auto& T1 = tf_grid.at(i + 1);
           const auto& R0 = T0.so3();
           const auto& R1 = T1.so3();
           const auto dR = (R0.inverse() * R1).log();
@@ -295,8 +307,8 @@ void InterpPosesImpl(const std::vector<Sophus::SE3f>& poses_grid,
             // which column
             const int col = i * cell_width + j;
             const float s = static_cast<float>(j) / cell_width;
-            poses_sweep.at(col).so3() = R0 * Sophus::SO3f::exp(s * dR);
-            poses_sweep.at(col).translation() = t0 + s * dt;
+            tf_sweep.at(col).so3() = R0 * Sophus::SO3f::exp(s * dR);
+            tf_sweep.at(col).translation() = t0 + s * dt;
           }
         }
       });

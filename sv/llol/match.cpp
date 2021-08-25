@@ -23,7 +23,9 @@ void GicpMatch::Reset() {
 
 void GicpMatch::SqrtInfo(float lambda) {
   Eigen::Matrix3f cov = mc_p.Covar();
-  cov.diagonal().array() += lambda;
+  if (lambda > 0) {
+    cov.diagonal().array() += lambda;
+  }
   U = MatrixSqrtUtU(cov.inverse().eval());
 }
 

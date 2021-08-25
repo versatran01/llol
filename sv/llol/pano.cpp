@@ -65,7 +65,7 @@ int DepthPano::AddRow(const LidarSweep& sweep, int sr) {
     if (!(rg_s > 0)) continue;   // filter out nan
 
     Eigen::Map<const Eigen::Vector3f> pt_s(&xyzr[0]);
-    const Eigen::Vector3f pt_p = sweep.tf_p_s.at(sc) * pt_s;
+    const Eigen::Vector3f pt_p = sweep.tfs.at(sc) * pt_s;
     const auto rg_p = pt_p.norm();
 
     // Project to pano
@@ -182,7 +182,8 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg) {
   return false;
 }
 
-const std::vector<cv::Mat>& DepthPano::RangeAndCount() {
+const std::vector<cv::Mat>& DepthPano::DispRangeCount() {
+  static std::vector<cv::Mat> disp;
   cv::split(dbuf, disp);
   return disp;
 }
@@ -191,8 +192,8 @@ void DepthPano::MeanCovarAt(const cv::Point& px,
                             const cv::Size& size,
                             float rg,
                             MeanCovar3f& mc) const {
-  const auto win = BoundWinCenterAt(px, size);
   mc.Reset();
+  const auto win = BoundWinCenterAt(px, size);
 
   for (int wr = 0; wr < win.height; ++wr) {
     for (int wc = 0; wc < win.width; ++wc) {
@@ -204,8 +205,8 @@ void DepthPano::MeanCovarAt(const cv::Point& px,
           dp.cnt * 2 < max_cnt) {
         continue;
       }
-      const auto p = model.Backward(px_w.y, px_w.x, rg_w);
-      mc.Add({p.x, p.y, p.z});
+      const auto pt = model.Backward(px_w.y, px_w.x, rg_w);
+      mc.Add({pt.x, pt.y, pt.z});
     }
   }
 }

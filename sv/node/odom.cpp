@@ -16,6 +16,7 @@
 #include "sv/node/conv.h"
 #include "sv/node/viz.h"
 #include "sv/util/manager.h"
+#include "sv/util/solver.h"
 
 // others
 #include <fmt/ostream.h>
@@ -62,6 +63,8 @@ struct OdomNode {
   SweepGrid grid_;
   DepthPano pano_;
 
+  std::pair<int, int> icp_iters_;
+
   TimerManager tm_{"llol"};
 
   /// Methods
@@ -92,6 +95,12 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
+
+  ros::NodeHandle icp_nh{pnh_, "icp"};
+  icp_iters_.first = icp_nh.param<int>("outer", 2);
+  icp_iters_.second = icp_nh.param<int>("inner", 2);
+  ROS_INFO_STREAM("Icp outer: " << icp_iters_.first
+                                << " inner: " << icp_iters_.second);
 
   pano_ = MakePano({pnh_, "pano"});
   ROS_INFO_STREAM(pano_);
@@ -137,6 +146,14 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     ROS_INFO_STREAM("Lidar frame: " << lidar_frame_);
   }
 
+  // Transform from pano to odom
+  TransformStamped tf_o_p;
+  tf_o_p.header.frame_id = odom_frame_;
+  tf_o_p.header.stamp = cinfo_msg->header.stamp;
+  tf_o_p.child_frame_id = pano_frame_;
+  tf_o_p.transform.rotation.w = 1.0;
+  tf_broadcaster_.sendTransform(tf_o_p);
+
   // Allocate storage for sweep, grid and matcher
   if (!sweep_init_) {
     InitSweep(*cinfo_msg);
@@ -155,12 +172,12 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     static geometry_msgs::PoseArray parray_int;
     parray_int.header.frame_id = pano_frame_;
     parray_int.header.stamp = ros::Time(sweep_.time_begin());
-    SE3fSpan2Ros(grid_.tf_p_s, parray_int);
+    SE3fVec2Ros(grid_.tfs, parray_int);
     pub_int_.publish(parray_int);
   }
 
   if (pano_init_) {
-    Register();
+    // Register();
 
     static visualization_msgs::MarkerArray match_marray;
     std_msgs::Header match_header;
@@ -173,21 +190,13 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     static geometry_msgs::PoseArray parray_opt;
     parray_opt.header.frame_id = pano_frame_;
     parray_opt.header.stamp = ros::Time(sweep_.time_begin());
-    SE3fSpan2Ros(grid_.tf_p_s, parray_opt);
+    SE3fVec2Ros(grid_.tfs, parray_opt);
     pub_opt_.publish(parray_opt);
   } else {
     ROS_WARN_STREAM("Pano not initialized");
   }
 
   PostProcess();
-
-  // Transform from pano to odom
-  TransformStamped tf_o_p;
-  tf_o_p.header.frame_id = odom_frame_;
-  tf_o_p.header.stamp = cinfo_msg->header.stamp;
-  tf_o_p.child_frame_id = pano_frame_;
-  tf_o_p.transform.rotation.w = 1.0;
-  tf_broadcaster_.sendTransform(tf_o_p);
 
   // publish undistorted sweep
   static CloudXYZ sweep_cloud;
@@ -237,7 +246,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
-               grid_.FilterDisp(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
+               grid_.DispFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
   }
 }
 
@@ -262,23 +271,23 @@ void OdomNode::Integrate() {
   int n_imus{};
   {  // Integarte imu to fill nominal traj
     auto _ = tm_.Scoped("Imu.Integrate");
-    n_imus = imu_int_.Predict(t0, dt, grid_.tf_p_s);
+    n_imus = imu_int_.Predict(t0, dt, grid_.tfs);
   }
   ROS_INFO_STREAM("Integrate imus: " << n_imus);
 }
 
 void OdomNode::Register() {
-  const int n_outer = 1;
-  const int n_inner = 100;
   // Outer icp iters
   auto t_match = tm_.Manual("Grid.Match", false);
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
   Eigen::Matrix<double, 12, 1> errors;
-  errors.setZero();
+  TinySolver<AdGicpCostLinear> solver;
+  solver.options.max_num_iterations = icp_iters_.second;
 
-  for (int i = 0; i < n_outer; ++i) {
+  for (int i = 0; i < icp_iters_.first; ++i) {
+    errors.setZero();
     ROS_INFO_STREAM("Icp iteration: " << i);
 
     t_match.Resume();
@@ -298,27 +307,36 @@ void OdomNode::Register() {
 
     // Solve
     t_solve.Resume();
-    TinySolver<AdGicpCostLinear> solver;
-    solver.options.max_num_iterations = n_inner;
     solver.Solve(adcost, &errors);
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 
+    // TODO: maybe try interp in SE3?
+    ROS_INFO_STREAM("errors: " << errors.transpose());
     // Update
-    auto& tf_p_s = grid_.tf_p_s;
+    auto& tfs_g = grid_.tfs;
+    ROS_INFO_STREAM(
+        "diff nominal before: "
+        << (tfs_g.back().translation() - tfs_g.front().translation()).norm());
     const Vector6d dT = errors.tail<6>() - errors.head<6>();
-    for (int i = 0; i < tf_p_s.size(); ++i) {
-      const double s = 1.0 * i / (tf_p_s.size() - 1.0);
-      const Vector6d Ts = errors.head<6>() + s * dT;
-      auto& T_p_s = tf_p_s[i];
-      T_p_s.so3() = T_p_s.so3() * Sophus::SO3f::exp(Ts.head<3>().cast<float>());
-      T_p_s.translation() += Ts.tail<3>().cast<float>();
+    for (int i = 0; i < tfs_g.size(); ++i) {
+      const double s = 1.0 * i / (tfs_g.size() - 1.0);
+      CHECK_LE(0, s);
+      CHECK_LE(s, 1);
+      const Vector6d dTs = errors.head<6>() + s * dT;
+      auto& T_p_s = tfs_g.at(i);
+      T_p_s.so3() *= Sophus::SO3f::exp(dTs.head<3>().cast<float>());
+      T_p_s.translation() += dTs.tail<3>().cast<float>();
     }
+    ROS_INFO_STREAM("diff dist: " << dT.tail<3>().norm());
+    ROS_INFO_STREAM(
+        "diff nominal after: "
+        << (tfs_g.back().translation() - tfs_g.front().translation()).norm());
 
     if (vis_) {
       // display good match
       Imshow("match",
-             ApplyCmap(grid_.MatchDisp(),
+             ApplyCmap(grid_.DispMatch(),
                        1.0 / grid_.pano_win_size.area(),
                        cv::COLORMAP_VIRIDIS));
     }
@@ -342,15 +360,15 @@ void OdomNode::PostProcess() {
                               100.0 * n_added / sweep_.total()));
 
   if (!pano_init_) {
-    pano_init_ = false;
+    pano_init_ = true;
     ROS_INFO_STREAM("Pano initialized");
   }
 
   // TODO (chao): update first pose of grid for next round of imu integration
-  grid_.tf_p_s.front() = grid_.tf_p_s.back();
+  grid_.tfs.front() = grid_.tfs.back();
 
   if (vis_) {
-    const auto& disps = pano_.RangeAndCount();
+    const auto& disps = pano_.DispRangeCount();
     Imshow("pano", ApplyCmap(disps[0], 1.0 / DepthPixel::kScale / 30.0));
     Imshow("count",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));

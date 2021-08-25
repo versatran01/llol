@@ -79,10 +79,11 @@ int ImuIntegrator::Predict(double t0,
     if (ibuf >= buf.size()) {
       ibuf = buf.size() - 1;
     }
-    const auto& imu = buf[ibuf];
+    const auto& imu = buf.at(ibuf);
     // Transform gyr to lidar frame
     const auto gyr_l = T_imu_lidar.so3().inverse() * imu.gyr;
     const auto omg_l = (dt * gyr_l).cast<float>();
+    poses.at(i).translation() = poses.at(0).translation();
     poses.at(i).so3() = poses.at(i - 1).so3() * Sophus::SO3f::exp(omg_l);
   }
 

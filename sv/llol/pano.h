@@ -40,7 +40,6 @@ struct DepthPano {
   LidarModel model;
   cv::Mat dbuf;   // depth buffer
   cv::Mat dbuf2;  // depth buffer 2
-  std::vector<cv::Mat> disp;
 
   /// @brief Ctors
   DepthPano() = default;
@@ -76,7 +75,7 @@ struct DepthPano {
   size_t total() const { return dbuf.total(); }
   cv::Size size() const noexcept { return model.size; }
 
-  const std::vector<cv::Mat>& RangeAndCount();
+  const std::vector<cv::Mat>& DispRangeCount();
 
   /// @brief Compute mean and covar on a window centered at px given range
   void MeanCovarAt(const cv::Point& px,

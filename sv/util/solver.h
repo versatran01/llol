@@ -138,10 +138,9 @@ enum class SolverStatus {
 std::string Repr(SolverStatus status);
 
 struct SolverOptions {
-  double gradient_tolerance = 1e-10;  // eps > max(J'*f(x))
+  double gradient_tolerance = 1e-8;   // eps > max(J'*f(x))
   double parameter_tolerance = 1e-8;  // eps > ||dx|| / ||x||
-  double cost_threshold =             // eps > ||f(x)||
-      std::numeric_limits<double>::epsilon();
+  double cost_threshold = 1e-8;       // eps > ||f(x)||
   double initial_trust_region_radius = 1e4;
   int max_num_iterations = 50;
 };
@@ -197,8 +196,8 @@ class TinySolver {
     // TODO(sameeragarwal): Refactor this to allow for DenseQR
     // factorization.
     jacobian_ = jacobian_ * jacobi_scaling_.asDiagonal();
-    jtj_.noalias() = jacobian_.transpose() * jacobian_;
-    g_.noalias() = jacobian_.transpose() * error_;
+    jtj_ = jacobian_.transpose() * jacobian_;
+    g_ = jacobian_.transpose() * error_;
     summary.gradient_max_norm = g_.array().abs().maxCoeff();
     cost_ = error_.squaredNorm() / 2.0;
     return true;
@@ -244,7 +243,7 @@ class TinySolver {
       // TODO(sameeragarwal): Check for failure and deal with it.
       linear_solver_.compute(jtj_regularized_);
       lm_step_ = linear_solver_.solve(g_);
-      dx_.noalias() = jacobi_scaling_.asDiagonal() * lm_step_;
+      dx_ = jacobi_scaling_.asDiagonal() * lm_step_;
 
       // Adding parameter_tolerance to x.norm() ensures that this
       // works if x is near zero.
@@ -255,7 +254,7 @@ class TinySolver {
         summary.status = SolverStatus::RELATIVE_STEP_SIZE_TOO_SMALL;
         break;
       }
-      x_new_.noalias() = x + dx_;
+      x_new_ = x + dx_;
 
       // TODO(keir): Add proper handling of errors from user eval of cost
       // functions.
