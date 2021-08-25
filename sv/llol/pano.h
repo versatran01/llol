@@ -17,8 +17,12 @@ struct DepthPixel {
   uint16_t raw{0};
   uint16_t cnt{0};
 
-  float GetMeter() const noexcept { return raw / kScale; }
-  void SetMeter(float rg) { raw = static_cast<uint16_t>(rg * kScale); }
+  float GetRange() const noexcept { return raw / kScale; }
+  void SetRange(float rg) { raw = static_cast<uint16_t>(rg * kScale); }
+  void SetRangeCount(float rg, int n) {
+    SetRange(rg);
+    cnt = n;
+  }
 } __attribute__((packed));
 static_assert(sizeof(DepthPixel) == 4, "Size of DepthPixel is not 4");
 
@@ -55,7 +59,7 @@ struct DepthPano {
   const auto& PixelAt(const cv::Point& pt) const {
     return dbuf.at<DepthPixel>(pt);
   }
-  float RangeAt(const cv::Point& pt) const { return PixelAt(pt).GetMeter(); }
+  float RangeAt(const cv::Point& pt) const { return PixelAt(pt).GetRange(); }
   /// @brief Get a bounded window centered at pt with given size
   cv::Rect BoundWinCenterAt(const cv::Point& pt, const cv::Size& size) const;
 
@@ -65,7 +69,6 @@ struct DepthPano {
   bool FuseDepth(const cv::Point& px, float rg);
 
   /// @brief Render pano at a new location
-  /// @todo Currently disabled
   int Render(const Sophus::SE3f& tf_2_1, int gsize = 0);
   int RenderRow(const Sophus::SE3f& tf_2_1, int row);
   bool UpdateBuffer(const cv::Point& px, float rg);

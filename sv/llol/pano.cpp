@@ -81,13 +81,12 @@ int DepthPano::AddRow(const LidarSweep& sweep, int sr) {
 bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   // TODO (chao): when adding consider distance, weigh far points less
   // Ignore too far and too close stuff
-  if (rg < min_range || rg > DepthPixel::kMaxRange) return false;
+  if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
 
   auto& p = PixelAt(px);
   // If current pixel is empty, just use this range and give it half of max cnt
   if (p.raw == 0) {
-    p.SetMeter(rg);
-    p.cnt = max_cnt / 2;
+    p.SetRangeCount(rg, max_cnt / 2);
     return true;
   }
 
@@ -96,19 +95,19 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   // long enough. In this case, we use the new range, but only increment count
   // by 1
   if (p.cnt == 0) {
-    p.SetMeter(rg);
+    p.SetRange(rg);
     ++p.cnt;
     return true;
   }
 
   // Otherwise we have a valid depth with cnt
-  const auto rg0 = p.GetMeter();
+  const auto rg0 = p.GetRange();
 
   // Check if new and old are close enough
   if ((std::abs(rg - rg0) / rg0) < range_ratio) {
     // close, do a weighted update
     const auto rg1 = (rg0 * p.cnt + rg) / (p.cnt + 1);
-    p.SetMeter(rg1);
+    p.SetRange(rg1);
     // And increment cnt
     if (p.cnt < max_cnt) ++p.cnt;
     return true;
@@ -124,12 +123,10 @@ int DepthPano::Render(const Sophus::SE3f& tf_2_1, int gsize) {
   dbuf2.setTo(0);
 
   gsize = gsize <= 0 ? dbuf.rows : gsize;
-  CHECK_GE(gsize, 1);
-
   return tbb::parallel_reduce(
       tbb::blocked_range<int>(0, dbuf.rows, gsize),
       0,
-      [&](const tbb::blocked_range<int>& blk, int n) {
+      [&](const auto& blk, int n) {
         for (int r = blk.begin(); r < blk.end(); ++r) {
           n += RenderRow(tf_2_1, r);
         }
@@ -145,19 +142,16 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_2_1, int r1) {
     if (rg1 == 0) continue;
 
     // px1 -> xyz1
-    const auto xyz1 = model.Backward(r1, c1, rg1);
-    Eigen::Map<const Eigen::Vector3f> xyz1_map(&xyz1.x);
+    const auto pt1 = model.Backward(r1, c1, rg1);
+    Eigen::Map<const Eigen::Vector3f> xyz1(&pt1.x);
 
     // xyz1 -> xyz2
-    const Eigen::Vector3f xyz2 = tf_2_1 * xyz1_map;
+    const Eigen::Vector3f xyz2 = tf_2_1 * xyz1;
     const auto rg2 = xyz2.norm();
 
     // xyz2 -> px2
     const auto px2 = model.Forward(xyz2.x(), xyz2.y(), xyz2.z(), rg2);
     if (px2.x < 0) continue;
-
-    // check max range
-    if (rg2 >= DepthPixel::kMaxRange) continue;
 
     // Check occlusion
     n += UpdateBuffer(px2, rg2);
@@ -166,16 +160,18 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_2_1, int r1) {
 }
 
 bool DepthPano::UpdateBuffer(const cv::Point& px, float rg) {
+  if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
+
   auto& p = dbuf2.at<DepthPixel>(px);
   if (p.raw == 0) {
-    p.SetMeter(rg);
+    p.SetRangeCount(rg, max_cnt / 2);
     return true;
   }
 
   // Depth buffer update, handles occlusion
-  const auto rg0 = p.GetMeter();
+  const auto rg0 = p.GetRange();
   if (rg < rg0) {
-    p.SetMeter(rg);
+    p.SetRangeCount(rg, max_cnt / 2);
     return true;
   }
 
@@ -199,7 +195,7 @@ void DepthPano::MeanCovarAt(const cv::Point& px,
     for (int wc = 0; wc < win.width; ++wc) {
       const cv::Point px_w{wc + win.x, wr + win.y};
       const auto& dp = PixelAt(px_w);
-      const auto rg_w = dp.GetMeter();
+      const auto rg_w = dp.GetRange();
       // TODO (chao): check if cnt is old enough
       if (rg_w == 0 || (std::abs(rg_w - rg) / rg) > range_ratio ||
           dp.cnt * 2 < max_cnt) {
