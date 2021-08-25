@@ -85,8 +85,9 @@ struct GicpCostLinear final : public GicpCostBase {
 
       // Interp
       const Vec6 tf_e_s = tf_e0 + s * dtf_e;
-      tfs_e[i].so3() = SO3::exp(tf_e_s.template head<3>());
-      tfs_e[i].translation() = tf_e_s.template tail<3>();
+      //      tfs_e[i].so3() = SO3::exp(tf_e_s.template head<3>());
+      //      tfs_e[i].translation() = tf_e_s.template tail<3>();
+      tfs_e.at(i) = SE3::exp(tf_e_s);
     }
 
     // Fill in residuals
@@ -99,11 +100,11 @@ struct GicpCostLinear final : public GicpCostBase {
 
       Eigen::Map<Vec3> r(_r + kNumResiduals * i);
       // TODO (chao): is this right?
-      SE3 tf_p_g;
-      tf_p_g.so3() = tfs_g.at(c).so3() * tfs_e.at(c).so3();
-      tf_p_g.translation() =
-          tfs_g.at(c).translation() + tfs_e.at(c).translation();
-      r = U * (pt_p - tf_p_g * pt_g);
+      //      SE3 tf_p_g;
+      //      tf_p_g.so3() = tfs_g.at(c).so3() * tfs_e.at(c).so3();
+      //      tf_p_g.translation() =
+      //          tfs_g.at(c).translation() + tfs_e.at(c).translation();
+      r = U * (pt_p - tfs_g.at(c) * tfs_e.at(c) * pt_g);
     }
 
     return true;

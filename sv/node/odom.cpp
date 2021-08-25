@@ -177,7 +177,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   }
 
   if (pano_init_) {
-    // Register();
+    Register();
 
     static visualization_msgs::MarkerArray match_marray;
     std_msgs::Header match_header;
@@ -325,8 +325,9 @@ void OdomNode::Register() {
       CHECK_LE(s, 1);
       const Vector6d dTs = errors.head<6>() + s * dT;
       auto& T_p_s = tfs_g.at(i);
-      T_p_s.so3() *= Sophus::SO3f::exp(dTs.head<3>().cast<float>());
-      T_p_s.translation() += dTs.tail<3>().cast<float>();
+      T_p_s = T_p_s * Sophus::SE3f::exp(dTs.cast<float>());
+      //      T_p_s.so3() *= Sophus::SO3f::exp(dTs.head<3>().cast<float>());
+      //      T_p_s.translation() += dTs.tail<3>().cast<float>();
     }
     ROS_INFO_STREAM("diff dist: " << dT.tail<3>().norm());
     ROS_INFO_STREAM(

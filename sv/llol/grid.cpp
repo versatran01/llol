@@ -229,12 +229,13 @@ int SweepGrid::MatchCell(const DepthPano& pano, const cv::Point& px_g) {
 }
 
 Sophus::SE3f SweepGrid::CellTfAt(int c) const {
-  Sophus::SE3f tf;
-  const auto& T0 = tfs.at(c);
-  const auto& T1 = tfs.at(c + 1);
-  tf.so3() = Sophus::interpolate(T0.so3(), T1.so3(), 0.5);
-  tf.translation() = (T0.translation() + T1.translation()) / 2;
-  return tf;
+  //  Sophus::SE3f tf;
+  const auto& tf0 = tfs.at(c);
+  const auto& tf1 = tfs.at(c + 1);
+  return Sophus::interpolate(tf0, tf1, 0.5);
+  //  tf.so3() = Sophus::interpolate(tf0.so3(), T1.so3(), 0.5);
+  //  tf.translation() = (tf0.translation() + T1.translation()) / 2;
+  //  return tf;
 }
 
 cv::Point SweepGrid::Sweep2Grid(const cv::Point& px_sweep) const {
