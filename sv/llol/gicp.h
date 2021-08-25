@@ -54,6 +54,22 @@ struct GicpCostSingle final : public GicpCostBase {
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
 
+    Eigen::Map<const Vec6> x(_x);
+    const SO3 dR = SO3::exp(x.template head<3>());
+    const Vec3 dt = x.template tail<3>();
+    const SE3 dT{dR, dt};
+
+    for (int i = 0; i < matches.size(); ++i) {
+      const auto& match = matches.at(i);
+      const int c = match.px_g.x;
+      const Eigen::Matrix3d U = match.U.cast<double>();
+      const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+      const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
+
+      Eigen::Map<Vec3> r(_r + kNumResiduals * i);
+      r = U * (pt_p - tfs_g.at(c) * dT * pt_g);
+    }
+
     return true;
   }
 };
@@ -111,10 +127,13 @@ struct GicpCostLinear final : public GicpCostBase {
   }
 };
 
-using AdGicpCostLinear =
-    ceres::TinySolverAutoDiffFunction<GicpCostLinear,
-                                      Eigen::Dynamic,
-                                      GicpCostLinear::kTotalParams>;
+template <typename T>
+using AdCost =
+    ceres::TinySolverAutoDiffFunction<T, Eigen::Dynamic, T::kTotalParams>;
+
+using AdGicpCostSingle = AdCost<GicpCostSingle>;
+
+using AdGicpCostLinear = AdCost<GicpCostLinear>;
 
 struct GicpParams {
   int n_outer{2};

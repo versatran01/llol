@@ -83,6 +83,7 @@ int ImuIntegrator::Predict(double t0,
     // Transform gyr to lidar frame
     const auto gyr_l = T_imu_lidar.so3().inverse() * imu.gyr;
     const auto omg_l = (dt * gyr_l).cast<float>();
+    // TODO (chao): for now assume translation stays the same
     poses.at(i).translation() = poses.at(0).translation();
     poses.at(i).so3() = poses.at(i - 1).so3() * Sophus::SO3f::exp(omg_l);
   }

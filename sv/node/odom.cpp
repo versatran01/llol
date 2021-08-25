@@ -282,12 +282,14 @@ void OdomNode::Register() {
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
-  Eigen::Matrix<double, 12, 1> errors;
-  TinySolver<AdGicpCostLinear> solver;
+  //  Eigen::Matrix<double, 12, 1> errors;
+  //  TinySolver<AdGicpCostLinear> solver;
+  Eigen::Matrix<double, 6, 1> x;
+  TinySolver<AdGicpCostSingle> solver;
   solver.options.max_num_iterations = icp_iters_.second;
 
   for (int i = 0; i < icp_iters_.first; ++i) {
-    errors.setZero();
+    x.setZero();
     ROS_INFO_STREAM("Icp iteration: " << i);
 
     t_match.Resume();
@@ -301,38 +303,50 @@ void OdomNode::Register() {
 
     // Build
     t_build.Resume();
-    GicpCostLinear cost(grid_, n_matches);
-    AdGicpCostLinear adcost(cost);
+    GicpCostSingle cost(grid_, n_matches);
+    AdGicpCostSingle adcost(cost);
     t_build.Stop(false);
 
     // Solve
     t_solve.Resume();
-    solver.Solve(adcost, &errors);
+    solver.Solve(adcost, &x);
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 
     // TODO: maybe try interp in SE3?
-    ROS_INFO_STREAM("errors: " << errors.transpose());
+    ROS_INFO_STREAM("errors: " << x.transpose());
     // Update
     auto& tfs_g = grid_.tfs;
-    ROS_INFO_STREAM(
-        "diff nominal before: "
-        << (tfs_g.back().translation() - tfs_g.front().translation()).norm());
-    const Vector6d dT = errors.tail<6>() - errors.head<6>();
-    for (int i = 0; i < tfs_g.size(); ++i) {
-      const double s = 1.0 * i / (tfs_g.size() - 1.0);
-      CHECK_LE(0, s);
-      CHECK_LE(s, 1);
-      const Vector6d dTs = errors.head<6>() + s * dT;
-      auto& T_p_s = tfs_g.at(i);
-      T_p_s = T_p_s * Sophus::SE3f::exp(dTs.cast<float>());
-      //      T_p_s.so3() *= Sophus::SO3f::exp(dTs.head<3>().cast<float>());
-      //      T_p_s.translation() += dTs.tail<3>().cast<float>();
+    //    ROS_INFO_STREAM(
+    //        "diff nominal before: "
+    //        << (tfs_g.back().translation() -
+    //        tfs_g.front().translation()).norm());
+    //    ROS_INFO_STREAM(grid_.tfs.front().translation().transpose());
+    //    ROS_INFO_STREAM(grid_.tfs.back().translation().transpose());
+    Sophus::SE3f dT;
+    dT.so3() = Sophus::SO3f::exp(x.head<3>().cast<float>());
+    dT.translation() = x.tail<3>().cast<float>();
+    for (auto& tf : tfs_g) {
+      tf = tf * dT;
     }
-    ROS_INFO_STREAM("diff dist: " << dT.tail<3>().norm());
-    ROS_INFO_STREAM(
-        "diff nominal after: "
-        << (tfs_g.back().translation() - tfs_g.front().translation()).norm());
+    //    const Vector6d dT = errors.tail<6>() - errors.head<6>();
+    //    for (int i = 0; i < tfs_g.size(); ++i) {
+    //      const double s = 1.0 * i / (tfs_g.size() - 1.0);
+    //      CHECK_LE(0, s);
+    //      CHECK_LE(s, 1);
+    //      const Vector6d dTs = errors.head<6>() + s * dT;
+    //      auto& T_p_s = tfs_g.at(i);
+    //      T_p_s = T_p_s * Sophus::SE3f::exp(dTs.cast<float>());
+    //      T_p_s.so3() *= Sophus::SO3f::exp(dTs.head<3>().cast<float>());
+    //      T_p_s.translation() += dTs.tail<3>().cast<float>();
+    //    }
+    //    ROS_INFO_STREAM("diff dist: " << dT.tail<3>().norm());
+    //    ROS_INFO_STREAM(
+    //        "diff nominal after: "
+    //        << (tfs_g.back().translation() -
+    //        tfs_g.front().translation()).norm());
+    //    ROS_INFO_STREAM(grid_.tfs.front().translation().transpose());
+    //    ROS_INFO_STREAM(grid_.tfs.back().translation().transpose());
 
     if (vis_) {
       // display good match
@@ -367,6 +381,12 @@ void OdomNode::PostProcess() {
 
   // TODO (chao): update first pose of grid for next round of imu integration
   grid_.tfs.front() = grid_.tfs.back();
+  //  const auto& tfs_g = grid_.tfs;
+  //  ROS_INFO_STREAM(
+  //      "diff nominal after: "
+  //      << (tfs_g.back().translation() - tfs_g.front().translation()).norm());
+  //  ROS_INFO_STREAM(grid_.tfs.front().translation().transpose());
+  //  ROS_INFO_STREAM(grid_.tfs.back().translation().transpose());
 
   if (vis_) {
     const auto& disps = pano_.DispRangeCount();

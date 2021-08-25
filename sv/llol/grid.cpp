@@ -207,8 +207,8 @@ int SweepGrid::MatchCell(const DepthPano& pano, const cv::Point& px_g) {
   }
 
   // Check distance between new pix and old pix
-  //    if (PointInSize(px_p - match.px_p, max_dist_size) && match.PanoOk()) {
-  if (px_p == match.px_p && match.PanoOk()) {
+  if (PointInSize(px_p - match.px_p, max_dist_size) && match.PanoOk()) {
+    //  if (px_p == match.px_p && match.PanoOk()) {
     // If new and old are close and pano match is ok
     // we reuse this match and there is no need to recompute
     return 1;
@@ -229,13 +229,13 @@ int SweepGrid::MatchCell(const DepthPano& pano, const cv::Point& px_g) {
 }
 
 Sophus::SE3f SweepGrid::CellTfAt(int c) const {
-  //  Sophus::SE3f tf;
-  const auto& tf0 = tfs.at(c);
-  const auto& tf1 = tfs.at(c + 1);
-  return Sophus::interpolate(tf0, tf1, 0.5);
-  //  tf.so3() = Sophus::interpolate(tf0.so3(), T1.so3(), 0.5);
-  //  tf.translation() = (tf0.translation() + T1.translation()) / 2;
-  //  return tf;
+  const auto& Tc0 = tfs.at(c);
+  const auto& Tc1 = tfs.at(c + 1);
+  //  return Sophus::interpolate(tf0, tf1, 0.5);
+  Sophus::SE3f Tc;
+  Tc.so3() = Sophus::interpolate(Tc0.so3(), Tc1.so3(), 0.5);
+  Tc.translation() = (Tc0.translation() + Tc1.translation()) / 2;
+  return Tc;
 }
 
 cv::Point SweepGrid::Sweep2Grid(const cv::Point& px_sweep) const {
