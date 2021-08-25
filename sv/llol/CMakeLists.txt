@@ -58,7 +58,7 @@ cc_bench(
 cc_library(
   NAME llol_gicp
   SRCS "gicp.cpp"
-  DEPS sv_llol_grid sv_util_solver Ceres::ceres)
+  DEPS sv_llol_grid sv_util_solver sv_tbb Ceres::ceres)
 
 cc_library(
   NAME llol_imu

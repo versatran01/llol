@@ -3,6 +3,7 @@
 #include <ceres/local_parameterization.h>
 #include <ceres/tiny_solver_autodiff_function.h>
 #include <glog/logging.h>
+#include <tbb/parallel_for.h>
 
 #include <sophus/se3.hpp>
 
@@ -31,12 +32,13 @@ struct GicpCostBase {
   static constexpr int kNumParams = 6;
   static constexpr int kNumResiduals = 3;
 
-  GicpCostBase(const SweepGrid& grid, int size);
+  GicpCostBase(const SweepGrid& grid, int gsize = 0);
   virtual ~GicpCostBase() noexcept = default;
 
   int NumResiduals() const { return matches.size() * kNumResiduals; }
 
   const SweepGrid* const pgrid;
+  int gsize{};
   std::vector<GicpMatch> matches;
   std::vector<Sophus::SE3d> tfs_g;
 };
@@ -59,16 +61,20 @@ struct GicpCostSingle final : public GicpCostBase {
     const Vec3 dt = x.template tail<3>();
     const SE3 dT{dR, dt};
 
-    for (int i = 0; i < matches.size(); ++i) {
-      const auto& match = matches.at(i);
-      const int c = match.px_g.x;
-      const Eigen::Matrix3d U = match.U.cast<double>();
-      const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-      const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
+    tbb::parallel_for(
+        tbb::blocked_range<int>(0, matches.size(), gsize * 2),
+        [&](const auto& blk) {
+          for (int i = blk.begin(); i < blk.end(); ++i) {
+            const auto& match = matches.at(i);
+            const int c = match.px_g.x;
+            const Eigen::Matrix3d U = match.U.cast<double>();
+            const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+            const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
 
-      Eigen::Map<Vec3> r(_r + kNumResiduals * i);
-      r = U * (pt_p - tfs_g.at(c) * dT * pt_g);
-    }
+            Eigen::Map<Vec3> r(_r + kNumResiduals * i);
+            r = U * (pt_p - tfs_g.at(c) * dT * pt_g);
+          }
+        });
 
     return true;
   }

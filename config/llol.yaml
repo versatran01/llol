@@ -6,7 +6,7 @@ grid:
   half_rows: 2
   cov_lambda: 1e-6
 icp:
-  outer: 2
+  outer: 3
   inner: 3
 pano:
   rows: 256

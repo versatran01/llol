@@ -25,9 +25,10 @@ bool LocalParamSE3::ComputeJacobian(const double* _T, double* _J) const {
   return true;
 }
 
-GicpCostBase::GicpCostBase(const SweepGrid& grid, int size) : pgrid{&grid} {
+GicpCostBase::GicpCostBase(const SweepGrid& grid, int gsize)
+    : pgrid{&grid}, gsize{gsize} {
   // Collect all good matches
-  matches.reserve(size);
+  matches.reserve(grid.total() / 4);
   for (int r = 0; r < grid.size().height; ++r) {
     for (int c = 0; c < grid.size().width; ++c) {
       const auto& match = grid.MatchAt({c, r});
@@ -41,8 +42,6 @@ GicpCostBase::GicpCostBase(const SweepGrid& grid, int size) : pgrid{&grid} {
   for (int c = 0; c < grid.size().width; ++c) {
     tfs_g.push_back(grid.CellTfAt(c).cast<double>());
   }
-
-  CHECK_EQ(matches.size(), size);
 }
 
 }  // namespace sv

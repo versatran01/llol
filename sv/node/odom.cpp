@@ -303,7 +303,7 @@ void OdomNode::Register() {
 
     // Build
     t_build.Resume();
-    GicpCostSingle cost(grid_, n_matches);
+    GicpCostSingle cost(grid_, tbb_);
     AdGicpCostSingle adcost(cost);
     t_build.Stop(false);
 
@@ -317,12 +317,6 @@ void OdomNode::Register() {
     ROS_INFO_STREAM("errors: " << x.transpose());
     // Update
     auto& tfs_g = grid_.tfs;
-    //    ROS_INFO_STREAM(
-    //        "diff nominal before: "
-    //        << (tfs_g.back().translation() -
-    //        tfs_g.front().translation()).norm());
-    //    ROS_INFO_STREAM(grid_.tfs.front().translation().transpose());
-    //    ROS_INFO_STREAM(grid_.tfs.back().translation().transpose());
     Sophus::SE3f dT;
     dT.so3() = Sophus::SO3f::exp(x.head<3>().cast<float>());
     dT.translation() = x.tail<3>().cast<float>();
