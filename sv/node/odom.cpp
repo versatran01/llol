@@ -76,6 +76,7 @@ struct OdomNode {
   void InitSweep(const sensor_msgs::CameraInfo& cinfo_msg);
   void Integrate();
   void Register();
+  void Register2();
   void PostProcess();
 };
 
@@ -341,6 +342,69 @@ void OdomNode::Register() {
     //        tfs_g.front().translation()).norm());
     //    ROS_INFO_STREAM(grid_.tfs.front().translation().transpose());
     //    ROS_INFO_STREAM(grid_.tfs.back().translation().transpose());
+
+    if (vis_) {
+      // display good match
+      Imshow("match",
+             ApplyCmap(grid_.DispMatch(),
+                       1.0 / grid_.pano_win_size.area(),
+                       cv::COLORMAP_VIRIDIS));
+    }
+  }
+}
+
+void OdomNode::Register2() {  // Outer icp iters
+  auto t_match = tm_.Manual("Grid.Match", false);
+  auto t_build = tm_.Manual("Icp.Build", false);
+  auto t_solve = tm_.Manual("Icp.Solve", false);
+
+  Eigen::Matrix<double, 12, 1> x;
+  TinySolver<AdGicpCostLinear> solver;
+  solver.options.max_num_iterations = icp_iters_.second;
+
+  for (int i = 0; i < icp_iters_.first; ++i) {
+    x.setZero();
+    ROS_INFO_STREAM("Icp iteration: " << i);
+
+    t_match.Resume();
+    const auto n_matches = grid_.Match(pano_, tbb_);
+    t_match.Stop(false);
+
+    ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
+                                n_matches,
+                                grid_.total(),
+                                100.0 * n_matches / grid_.total()));
+
+    // Build
+    t_build.Resume();
+    GicpCostLinear cost(grid_, tbb_);
+    AdGicpCostLinear adcost(cost);
+    t_build.Stop(false);
+
+    // Solve
+    t_solve.Resume();
+    solver.Solve(adcost, &x);
+    t_solve.Stop(false);
+    ROS_INFO_STREAM(solver.summary.Report());
+
+    // TODO: maybe try interp in SE3?
+    ROS_INFO_STREAM("errors: " << x.transpose());
+    // Update
+    auto& tfs = grid_.tfs;
+    const Vector6d dx = x.tail<6>() - x.head<6>();
+    for (int i = 0; i < tfs.size(); ++i) {
+      const double s = 1.0 * i / (tfs.size() - 1.0);
+      const Vector6d x_s = x.head<6>() + s * dx;
+      auto& T_p_s = tfs.at(i);
+      Sophus::SE3f T_new;
+      T_new.so3() = Sophus::SO3f::exp(x_s.head<3>().cast<float>());
+      T_new.translation() = x_s.tail<3>().cast<float>();
+      T_p_s = T_p_s * T_new;
+    }
+    ROS_INFO_STREAM("diff dist: " << dx.tail<3>().norm());
+    ROS_INFO_STREAM(
+        "diff nominal after: "
+        << (tfs.back().translation() - tfs.front().translation()).norm());
 
     if (vis_) {
       // display good match

@@ -93,23 +93,22 @@ struct GicpCostLinear final : public GicpCostBase {
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
 
-    Eigen::Map<const Vec6> tf_e0(_x);
-    Eigen::Map<const Vec6> tf_e1(_x + 6);
+    Eigen::Map<const Vec6> x0(_x);
+    Eigen::Map<const Vec6> x1(_x + 6);
 
     // TODO (chao): Maybe precompute these interp
     std::vector<SE3> tfs_e;
     tfs_e.resize(tfs_g.size());
 
     // Precompute all interpolated error
-    const Vec6 dtf_e = tf_e1 - tf_e0;
+    const Vec6 dx = x1 - x0;
     for (int i = 0; i < tfs_e.size(); ++i) {
       const double s = (i + 0.5) / tfs_e.size();  // 0.5 for center of cell
 
       // Interp
-      const Vec6 tf_e_s = tf_e0 + s * dtf_e;
-      //      tfs_e[i].so3() = SO3::exp(tf_e_s.template head<3>());
-      //      tfs_e[i].translation() = tf_e_s.template tail<3>();
-      tfs_e.at(i) = SE3::exp(tf_e_s);
+      const Vec6 x_s = x0 + s * dx;
+      tfs_e[i].so3() = SO3::exp(x_s.template head<3>());
+      tfs_e[i].translation() = x_s.template tail<3>();
     }
 
     // Fill in residuals
@@ -121,11 +120,6 @@ struct GicpCostLinear final : public GicpCostBase {
       const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
 
       Eigen::Map<Vec3> r(_r + kNumResiduals * i);
-      // TODO (chao): is this right?
-      //      SE3 tf_p_g;
-      //      tf_p_g.so3() = tfs_g.at(c).so3() * tfs_e.at(c).so3();
-      //      tf_p_g.translation() =
-      //          tfs_g.at(c).translation() + tfs_e.at(c).translation();
       r = U * (pt_p - tfs_g.at(c) * tfs_e.at(c) * pt_g);
     }
 
