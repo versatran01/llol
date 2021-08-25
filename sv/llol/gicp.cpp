@@ -44,4 +44,24 @@ GicpCostBase::GicpCostBase(const SweepGrid& grid, int gsize)
   }
 }
 
+GicpCostSingle2::GicpCostSingle2(const SweepGrid& grid, int gsize)
+    : pgrid{&grid}, gsize{gsize} {
+  // Collect all good matches
+  pmatches.reserve(grid.total() / 4);
+  for (int r = 0; r < grid.size().height; ++r) {
+    for (int c = 0; c < grid.size().width; ++c) {
+      const auto& match = grid.MatchAt({c, r});
+      if (!match.Ok()) continue;
+      pmatches.push_back(&grid.matches[grid.Grid2Ind({c, r})]);
+    }
+  }
+
+  // Get poses of each grid col
+  // TODO (chao): this needs to be done several times
+  tfs_g.reserve(grid.size().width);
+  for (int c = 0; c < grid.size().width; ++c) {
+    tfs_g.push_back(grid.CellTfAt(c).cast<double>());
+  }
+}
+
 }  // namespace sv

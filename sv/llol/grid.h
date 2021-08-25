@@ -65,9 +65,9 @@ struct SweepGrid {
   /// @brief At
   float& ScoreAt(const cv::Point& px) { return score.at<float>(px); }
   float ScoreAt(const cv::Point& px) const { return score.at<float>(px); }
-  GicpMatch& MatchAt(const cv::Point& px) { return matches[Grid2Ind(px)]; }
+  GicpMatch& MatchAt(const cv::Point& px) { return matches.at(Grid2Ind(px)); }
   const GicpMatch& MatchAt(const cv::Point& px) const {
-    return matches[Grid2Ind(px)];
+    return matches.at(Grid2Ind(px));
   }
   Sophus::SE3f CellTfAt(int c) const;
 

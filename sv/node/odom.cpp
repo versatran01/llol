@@ -178,7 +178,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   }
 
   if (pano_init_) {
-    Register2();
+    Register();
 
     static visualization_msgs::MarkerArray match_marray;
     std_msgs::Header match_header;
@@ -281,8 +281,10 @@ void OdomNode::Register() {
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
+  using Cost = GicpCostSingle;
+
   Eigen::Matrix<double, 6, 1> x;
-  TinySolver<AdGicpCostSingle> solver;
+  TinySolver<AdCost<Cost>> solver;
   solver.options.max_num_iterations = icp_iters_.second;
 
   for (int i = 0; i < icp_iters_.first; ++i) {
@@ -297,11 +299,10 @@ void OdomNode::Register() {
                                 n_matches,
                                 grid_.total(),
                                 100.0 * n_matches / grid_.total()));
-
     // Build
     t_build.Resume();
-    GicpCostSingle cost(grid_, tbb_);
-    AdGicpCostSingle adcost(cost);
+    Cost cost(grid_, tbb_);
+    AdCost<Cost> adcost(cost);
     t_build.Stop(false);
 
     // Solve
@@ -337,8 +338,8 @@ void OdomNode::Register2() {  // Outer icp iters
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
-  Eigen::Matrix<double, 9, 1> x;
-  TinySolver<AdCost<GicpCost3>> solver;
+  Eigen::Matrix<double, 12, 1> x;
+  TinySolver<AdGicpCostLinear> solver;
   solver.options.max_num_iterations = icp_iters_.second;
 
   for (int i = 0; i < icp_iters_.first; ++i) {
@@ -356,8 +357,8 @@ void OdomNode::Register2() {  // Outer icp iters
 
     // Build
     t_build.Resume();
-    GicpCost3 cost(grid_, tbb_);
-    AdCost<GicpCost3> adcost(cost);
+    GicpCostLinear cost(grid_, tbb_);
+    AdGicpCostLinear adcost(cost);
     t_build.Stop(false);
 
     // Solve

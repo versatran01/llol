@@ -57,9 +57,7 @@ struct GicpCostSingle final : public GicpCostBase {
     using SO3 = Sophus::SO3<T>;
 
     Eigen::Map<const Vec6> x(_x);
-    const SO3 dR = SO3::exp(x.template head<3>());
-    const Vec3 dt = x.template tail<3>();
-    const SE3 dT{dR, dt};
+    const SE3 dT{SO3::exp(x.template head<3>()), x.template tail<3>()};
 
     tbb::parallel_for(
         tbb::blocked_range<int>(0, matches.size(), gsize * 2),
@@ -78,6 +76,55 @@ struct GicpCostSingle final : public GicpCostBase {
 
     return true;
   }
+};
+
+struct GicpCostSingle2 {
+  static constexpr int kTotalParams = 6;
+
+  GicpCostSingle2(const SweepGrid& grid, int gsize = 0);
+
+  int NumResiduals() const { return pmatches.size() * 3; }
+
+  template <typename T>
+  bool operator()(const T* const _x, T* _r) const {
+    using Vec6 = Eigen::Matrix<T, 6, 1>;
+    using Vec3 = Eigen::Matrix<T, 3, 1>;
+    using SE3 = Sophus::SE3<T>;
+    using SO3 = Sophus::SO3<T>;
+
+    Eigen::Map<const Vec6> x(_x);
+    const SE3 dT{SO3::exp(x.template head<3>()), x.template tail<3>()};
+
+    tbb::parallel_for(
+        tbb::blocked_range<int>(0, pmatches.size(), gsize * 2),
+        [&](const auto& blk) {
+          for (int i = blk.begin(); i < blk.end(); ++i) {
+            const auto* pmatch = pmatches.at(i);
+            CHECK_NOTNULL(pmatch);
+            const auto& match = *pmatch;
+
+            Eigen::Map<Vec3> r(_r + 3 * i);
+            if (!match.Ok()) {
+              r.setZero();
+              continue;
+            }
+
+            const int c = match.px_g.x;
+            const Eigen::Matrix3d U = match.U.cast<double>();
+            const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+            const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
+
+            r = U * (pt_p - tfs_g.at(c) * dT * pt_g);
+          }
+        });
+
+    return true;
+  }
+
+  const SweepGrid* pgrid;
+  int gsize{};
+  std::vector<Sophus::SE3d> tfs_g;
+  std::vector<const GicpMatch*> pmatches;
 };
 
 struct GicpCostLinear final : public GicpCostBase {
@@ -133,51 +180,12 @@ struct GicpCostLinear final : public GicpCostBase {
   }
 };
 
-struct GicpCost3 final : public GicpCostBase {
-  static constexpr int kTotalParams = 9;
-
-  using GicpCostBase::GicpCostBase;
-
-  template <typename T>
-  bool operator()(const T* const _x, T* _r) const {
-    using Vec6 = Eigen::Matrix<T, 6, 1>;
-    using Vec3 = Eigen::Matrix<T, 3, 1>;
-    using SE3 = Sophus::SE3<T>;
-    using SO3 = Sophus::SO3<T>;
-
-    Eigen::Map<const Vec3> e0(_x);
-    Eigen::Map<const Vec3> t0(_x + 3);
-    Eigen::Map<const Vec3> t1(_x + 6);
-
-    const SO3 dR = SO3::exp(e0);
-
-    // Fill in residuals
-    for (int i = 0; i < matches.size(); ++i) {
-      const auto& match = matches.at(i);
-      const int c = match.px_g.x;
-      const Eigen::Matrix3d U = match.U.cast<double>();
-      const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-      const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
-
-      const double s = (c + 0.5) / tfs_g.size();
-
-      Eigen::Map<Vec3> r(_r + kNumResiduals * i);
-      SE3 tf_e;
-      tf_e.so3() = dR;
-      tf_e.translation() = (1 - s) * t0 + s * t1;
-      r = U * (pt_p - tfs_g.at(c) * tf_e * pt_g);
-    }
-
-    return true;
-  }
-};
-
 template <typename T>
 using AdCost =
     ceres::TinySolverAutoDiffFunction<T, Eigen::Dynamic, T::kTotalParams>;
 
 using AdGicpCostSingle = AdCost<GicpCostSingle>;
-
+using AdGicpCostSingle2 = AdCost<GicpCostSingle2>;
 using AdGicpCostLinear = AdCost<GicpCostLinear>;
 
 struct GicpParams {
