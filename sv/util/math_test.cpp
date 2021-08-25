@@ -1,7 +1,7 @@
+#include "sv/util/math.h"
+
 #include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
-
-#include "sv/util/math.h"
 
 namespace sv {
 
@@ -43,7 +43,19 @@ void BM_Covariance(benchmark::State& state) {
 }
 BENCHMARK(BM_Covariance)->Range(8, 512);
 
-void BM_MeanCovar(benchmark::State& state) {
+void BM_MeanCovar3f(benchmark::State& state) {
+  const auto X = Eigen::Matrix3Xf::Random(3, state.range(0)).eval();
+
+  for (auto _ : state) {
+    MeanCovar3f mc;
+    for (int i = 0; i < X.cols(); ++i) mc.Add(X.col(i));
+    const auto cov = mc.Covar();
+    benchmark::DoNotOptimize(cov);
+  }
+}
+BENCHMARK(BM_MeanCovar3f)->Range(8, 512);
+
+void BM_MeanCovar3d(benchmark::State& state) {
   const auto X = Eigen::Matrix3Xd::Random(3, state.range(0)).eval();
 
   for (auto _ : state) {
@@ -53,5 +65,6 @@ void BM_MeanCovar(benchmark::State& state) {
     benchmark::DoNotOptimize(cov);
   }
 }
-BENCHMARK(BM_MeanCovar)->Range(8, 512);
+BENCHMARK(BM_MeanCovar3d)->Range(8, 512);
+
 }  // namespace sv

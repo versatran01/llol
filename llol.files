@@ -82,7 +82,7 @@ sv/util/manager.cpp
 sv/util/manager.h
 sv/util/math.cpp
 sv/util/math.h
-sv/util/math_test_bench.cpp
+sv/util/math_test.cpp
 sv/util/ocv.cpp
 sv/util/ocv.h
 sv/util/ocv_test.cpp

@@ -35,7 +35,7 @@ struct GicpCostBase {
   GicpCostBase(const SweepGrid& grid, int gsize = 0);
   virtual ~GicpCostBase() noexcept = default;
 
-  int NumResiduals() const { return matches.size() * kNumResiduals; }
+  virtual int NumResiduals() const { return matches.size() * kNumResiduals; }
 
   const SweepGrid* const pgrid;
   int gsize{};
@@ -86,6 +86,10 @@ struct GicpCostLinear final : public GicpCostBase {
 
   using GicpCostBase::GicpCostBase;
 
+  //  int NumResiduals() const override {
+  //    return (matches.size() + 1) * kNumResiduals;
+  //  }
+
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
     using Vec6 = Eigen::Matrix<T, 6, 1>;
@@ -97,8 +101,7 @@ struct GicpCostLinear final : public GicpCostBase {
     Eigen::Map<const Vec6> x1(_x + 6);
 
     // TODO (chao): Maybe precompute these interp
-    std::vector<SE3> tfs_e;
-    tfs_e.resize(tfs_g.size());
+    std::vector<SE3> tfs_e(tfs_g.size());
 
     // Precompute all interpolated error
     const Vec6 dx = x1 - x0;
@@ -121,6 +124,48 @@ struct GicpCostLinear final : public GicpCostBase {
 
       Eigen::Map<Vec3> r(_r + kNumResiduals * i);
       r = U * (pt_p - tfs_g.at(c) * tfs_e.at(c) * pt_g);
+    }
+
+    //    Eigen::Map<Vec3> rp(_r + kNumResiduals * matches.size());
+    //    rp = dx.template tail<3>() * 10000.0;
+
+    return true;
+  }
+};
+
+struct GicpCost3 final : public GicpCostBase {
+  static constexpr int kTotalParams = 9;
+
+  using GicpCostBase::GicpCostBase;
+
+  template <typename T>
+  bool operator()(const T* const _x, T* _r) const {
+    using Vec6 = Eigen::Matrix<T, 6, 1>;
+    using Vec3 = Eigen::Matrix<T, 3, 1>;
+    using SE3 = Sophus::SE3<T>;
+    using SO3 = Sophus::SO3<T>;
+
+    Eigen::Map<const Vec3> e0(_x);
+    Eigen::Map<const Vec3> t0(_x + 3);
+    Eigen::Map<const Vec3> t1(_x + 6);
+
+    const SO3 dR = SO3::exp(e0);
+
+    // Fill in residuals
+    for (int i = 0; i < matches.size(); ++i) {
+      const auto& match = matches.at(i);
+      const int c = match.px_g.x;
+      const Eigen::Matrix3d U = match.U.cast<double>();
+      const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
+      const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
+
+      const double s = (c + 0.5) / tfs_g.size();
+
+      Eigen::Map<Vec3> r(_r + kNumResiduals * i);
+      SE3 tf_e;
+      tf_e.so3() = dR;
+      tf_e.translation() = (1 - s) * t0 + s * t1;
+      r = U * (pt_p - tfs_g.at(c) * tf_e * pt_g);
     }
 
     return true;

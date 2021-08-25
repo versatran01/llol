@@ -178,7 +178,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   }
 
   if (pano_init_) {
-    Register();
+    Register2();
 
     static visualization_msgs::MarkerArray match_marray;
     std_msgs::Header match_header;
@@ -230,16 +230,16 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Grid.Add");
     n_cells = grid_.Add(scan, tbb_);
   }
-  ROS_INFO_STREAM(fmt::format(
-      "Scan points: {}, valid cells: {} / {} / {:02.2f}%, filtered cells: "
-      "{} / {} / {:02.2f}%",
-      n_points,
-      n_cells.first,
-      grid_.total(),
-      100.0 * n_cells.first / grid_.total(),
-      n_cells.second,
-      grid_.total(),
-      100.0 * n_cells.second / grid_.total()));
+  ROS_INFO_STREAM(
+      fmt::format("[1 Preprocess]: Scan points: {}, valid cells: {} / {} / "
+                  "{:02.2f}%, filtered cells: {} / {} / {:02.2f}%",
+                  n_points,
+                  n_cells.first,
+                  grid_.total(),
+                  100.0 * n_cells.first / grid_.total(),
+                  n_cells.second,
+                  grid_.total(),
+                  100.0 * n_cells.second / grid_.total()));
 
   if (vis_) {
     Imshow("sweep",
@@ -264,8 +264,6 @@ void OdomNode::InitSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
 }
 
 void OdomNode::Integrate() {
-  auto timer = tm_.Manual("Imu.Integrate");
-
   const auto t0 = sweep_.time_begin();
   const auto dt = sweep_.dt * grid_.cell_size.width;
 
@@ -274,7 +272,7 @@ void OdomNode::Integrate() {
     auto _ = tm_.Scoped("Imu.Integrate");
     n_imus = imu_int_.Predict(t0, dt, grid_.tfs);
   }
-  ROS_INFO_STREAM("Integrate imus: " << n_imus);
+  ROS_INFO_STREAM("[2 Integrate] using imus: " << n_imus);
 }
 
 void OdomNode::Register() {
@@ -283,8 +281,6 @@ void OdomNode::Register() {
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
-  //  Eigen::Matrix<double, 12, 1> errors;
-  //  TinySolver<AdGicpCostLinear> solver;
   Eigen::Matrix<double, 6, 1> x;
   TinySolver<AdGicpCostSingle> solver;
   solver.options.max_num_iterations = icp_iters_.second;
@@ -312,10 +308,11 @@ void OdomNode::Register() {
     t_solve.Resume();
     solver.Solve(adcost, &x);
     t_solve.Stop(false);
-    ROS_INFO_STREAM(solver.summary.Report());
+    ROS_INFO_STREAM("1: " << solver.summary.Report());
 
     // TODO: maybe try interp in SE3?
-    ROS_INFO_STREAM("errors: " << x.transpose());
+    ROS_INFO_STREAM("norm1: " << x.norm());
+
     // Update
     auto& tfs_g = grid_.tfs;
     Sophus::SE3f dT;
@@ -324,24 +321,6 @@ void OdomNode::Register() {
     for (auto& tf : tfs_g) {
       tf = tf * dT;
     }
-    //    const Vector6d dT = errors.tail<6>() - errors.head<6>();
-    //    for (int i = 0; i < tfs_g.size(); ++i) {
-    //      const double s = 1.0 * i / (tfs_g.size() - 1.0);
-    //      CHECK_LE(0, s);
-    //      CHECK_LE(s, 1);
-    //      const Vector6d dTs = errors.head<6>() + s * dT;
-    //      auto& T_p_s = tfs_g.at(i);
-    //      T_p_s = T_p_s * Sophus::SE3f::exp(dTs.cast<float>());
-    //      T_p_s.so3() *= Sophus::SO3f::exp(dTs.head<3>().cast<float>());
-    //      T_p_s.translation() += dTs.tail<3>().cast<float>();
-    //    }
-    //    ROS_INFO_STREAM("diff dist: " << dT.tail<3>().norm());
-    //    ROS_INFO_STREAM(
-    //        "diff nominal after: "
-    //        << (tfs_g.back().translation() -
-    //        tfs_g.front().translation()).norm());
-    //    ROS_INFO_STREAM(grid_.tfs.front().translation().transpose());
-    //    ROS_INFO_STREAM(grid_.tfs.back().translation().transpose());
 
     if (vis_) {
       // display good match
@@ -358,8 +337,8 @@ void OdomNode::Register2() {  // Outer icp iters
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
-  Eigen::Matrix<double, 12, 1> x;
-  TinySolver<AdGicpCostLinear> solver;
+  Eigen::Matrix<double, 9, 1> x;
+  TinySolver<AdCost<GicpCost3>> solver;
   solver.options.max_num_iterations = icp_iters_.second;
 
   for (int i = 0; i < icp_iters_.first; ++i) {
@@ -377,8 +356,8 @@ void OdomNode::Register2() {  // Outer icp iters
 
     // Build
     t_build.Resume();
-    GicpCostLinear cost(grid_, tbb_);
-    AdGicpCostLinear adcost(cost);
+    GicpCost3 cost(grid_, tbb_);
+    AdCost<GicpCost3> adcost(cost);
     t_build.Stop(false);
 
     // Solve
@@ -387,21 +366,31 @@ void OdomNode::Register2() {  // Outer icp iters
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 
-    // TODO: maybe try interp in SE3?
     ROS_INFO_STREAM("errors: " << x.transpose());
     // Update
     auto& tfs = grid_.tfs;
-    const Vector6d dx = x.tail<6>() - x.head<6>();
+    //    const Vector6d dx = x.tail<6>() - x.head<6>();
+    //    for (int i = 0; i < tfs.size(); ++i) {
+    //      const double s = 1.0 * i / (tfs.size() - 1.0);
+    //      const Vector6d x_s = x.head<6>() + s * dx;
+    //      auto& T_p_s = tfs.at(i);
+    //      Sophus::SE3f T_new;
+    //      T_new.so3() = Sophus::SO3f::exp(x_s.head<3>().cast<float>());
+    //      T_new.translation() = x_s.tail<3>().cast<float>();
+    //      T_p_s = T_p_s * T_new;
+    //    }
+    const Eigen::Vector3f t0 = x.segment<3>(3).cast<float>();
+    const Eigen::Vector3f t1 = x.segment<3>(6).cast<float>();
+    Sophus::SE3f T_new;
+    T_new.so3() = Sophus::SO3f::exp(x.head<3>().cast<float>());
+
     for (int i = 0; i < tfs.size(); ++i) {
       const double s = 1.0 * i / (tfs.size() - 1.0);
-      const Vector6d x_s = x.head<6>() + s * dx;
       auto& T_p_s = tfs.at(i);
-      Sophus::SE3f T_new;
-      T_new.so3() = Sophus::SO3f::exp(x_s.head<3>().cast<float>());
-      T_new.translation() = x_s.tail<3>().cast<float>();
+      T_new.translation() = (1 - s) * t0 + s * t1;
       T_p_s = T_p_s * T_new;
     }
-    ROS_INFO_STREAM("diff dist: " << dx.tail<3>().norm());
+    //    ROS_INFO_STREAM("diff dist: " << dx.tail<3>().norm());
     ROS_INFO_STREAM(
         "diff nominal after: "
         << (tfs.back().translation() - tfs.front().translation()).norm());
@@ -427,7 +416,7 @@ void OdomNode::PostProcess() {
     auto _ = tm_.Scoped("Pano.Add");
     n_added = pano_.Add(sweep_, tbb_);
   }
-  ROS_INFO_STREAM(fmt::format("Num added: {} / {} / {:02.2f}%",
+  ROS_INFO_STREAM(fmt::format("[4 PostProcess] Num added: {} / {} / {:02.2f}%",
                               n_added,
                               sweep_.total(),
                               100.0 * n_added / sweep_.total()));
@@ -439,12 +428,6 @@ void OdomNode::PostProcess() {
 
   // TODO (chao): update first pose of grid for next round of imu integration
   grid_.tfs.front() = grid_.tfs.back();
-  //  const auto& tfs_g = grid_.tfs;
-  //  ROS_INFO_STREAM(
-  //      "diff nominal after: "
-  //      << (tfs_g.back().translation() - tfs_g.front().translation()).norm());
-  //  ROS_INFO_STREAM(grid_.tfs.front().translation().transpose());
-  //  ROS_INFO_STREAM(grid_.tfs.back().translation().transpose());
 
   if (vis_) {
     const auto& disps = pano_.DispRangeCount();
