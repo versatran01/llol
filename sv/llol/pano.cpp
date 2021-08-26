@@ -38,8 +38,6 @@ cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
 }
 
 int DepthPano::Add(const LidarSweep& sweep, int gsize) {
-  CHECK(sweep.full());
-
   const int sweep_rows = sweep.size().height;
   gsize = gsize <= 0 ? sweep_rows : gsize;
 

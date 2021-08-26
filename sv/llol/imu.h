@@ -60,15 +60,10 @@ int FindNextImu(const ImuBuffer& buf, double t);
 
 /// @brief Accumulates imu data and integrate
 /// @todo for now only integrate gyro for rotation
-struct ImuIntegrator {
-  ImuBuffer buf{32};
+struct ImuModel {
+  ImuBuffer buf{16};
   ImuBias bias{};
   Sophus::SE3d T_imu_lidar{};
-
-  ImuIntegrator() : buf{32} {}
-
-  int size() const { return buf.size(); }
-  bool empty() const { return buf.empty(); }
 
   /// @brief Add imu data into buffer
   void Add(const ImuData& imu) { buf.push_back(imu.DeBiased(bias)); }

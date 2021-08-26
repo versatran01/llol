@@ -24,6 +24,7 @@
 
 namespace sv {
 
+using geometry_msgs::PoseArray;
 using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
 using Vector6d = Eigen::Matrix<double, 6, 1>;
@@ -35,8 +36,8 @@ struct OdomNode {
   image_transport::ImageTransport it_;
   image_transport::CameraSubscriber sub_camera_;
   ros::Subscriber sub_imu_;
-  ros::Publisher pub_int_;
-  ros::Publisher pub_opt_;
+  ros::Publisher pub_traj_;
+  ros::Publisher pub_path_;
   ros::Publisher pub_sweep_;
   ros::Publisher pub_pano_;
   ros::Publisher pub_match_;
@@ -49,16 +50,14 @@ struct OdomNode {
   int tbb_{0};
 
   bool tf_init_{false};
-  bool imu_init_{false};
-  bool pano_init_{false};
-  bool sweep_init_{false};
+  bool lidar_init_{false};
 
   std::string lidar_frame_{};
   std::string pano_frame_{"pano"};
   std::string odom_frame_{"odom"};
 
   /// odom
-  ImuIntegrator imu_int_;
+  ImuModel imu_;
   LidarSweep sweep_;
   SweepGrid grid_;
   DepthPano pano_;
@@ -73,11 +72,9 @@ struct OdomNode {
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
   void Preprocess(const LidarScan& scan);
-  void InitSweep(const sensor_msgs::CameraInfo& cinfo_msg);
-  void Integrate();
+  void InitLidar(const sensor_msgs::CameraInfo& cinfo_msg);
   void Register();
-  void Register2();
-  void PostProcess();
+  void PostProcess(const LidarScan& scan);
 };
 
 OdomNode::OdomNode(const ros::NodeHandle& pnh)
@@ -85,11 +82,11 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   sub_camera_ = it_.subscribeCamera("image", 10, &OdomNode::CameraCb, this);
   sub_imu_ = pnh_.subscribe("imu", 100, &OdomNode::ImuCb, this);
 
-  pub_int_ = pnh_.advertise<geometry_msgs::PoseArray>("parray_int", 1);
-  pub_opt_ = pnh_.advertise<geometry_msgs::PoseArray>("parray_opt", 1);
+  pub_traj_ = pnh_.advertise<PoseArray>("traj", 1);
+  pub_path_ = pnh_.advertise<nav_msgs::Path>("path", 1);
   pub_sweep_ = pnh_.advertise<CloudXYZ>("sweep", 1);
   pub_pano_ = pnh_.advertise<CloudXYZ>("pano", 1);
-  pub_match_ = pnh_.advertise<visualization_msgs::MarkerArray>("match", 1);
+  pub_match_ = pnh_.advertise<MarkerArray>("match", 1);
 
   vis_ = pnh_.param<bool>("vis", true);
   ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -110,8 +107,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   // Add imu data to buffer
   const auto imu = MakeImu(imu_msg);
-  imu_int_.Add(imu);
-  //  imu_buf_.push_back(imu);
+  imu_.Add(imu);
 
   if (tf_init_) return;
 
@@ -129,15 +125,24 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const auto& q = tf_imu_lidar.transform.rotation;
     const Eigen::Vector3d t_imu_lidar{t.x, t.y, t.z};
     const Eigen::Quaterniond q_imu_lidar{q.w, q.x, q.y, q.z};
-    imu_int_.T_imu_lidar = Sophus::SE3d{q_imu_lidar, t_imu_lidar};
+    imu_.T_imu_lidar = Sophus::SE3d{q_imu_lidar, t_imu_lidar};
 
     ROS_INFO_STREAM("Transform from lidar to imu\n"
-                    << imu_int_.T_imu_lidar.matrix());
+                    << imu_.T_imu_lidar.matrix());
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {
     ROS_WARN_STREAM(ex.what());
     return;
   }
+}
+
+void OdomNode::InitLidar(const sensor_msgs::CameraInfo& cinfo_msg) {
+  ROS_INFO_STREAM("+++ Initializing lidar");
+  sweep_ = MakeSweep(cinfo_msg);
+  ROS_INFO_STREAM(sweep_);
+
+  grid_ = MakeGrid({pnh_, "grid"}, sweep_.size());
+  ROS_INFO_STREAM(grid_);
 }
 
 void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
@@ -156,8 +161,21 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   tf_broadcaster_.sendTransform(tf_o_p);
 
   // Allocate storage for sweep, grid and matcher
-  if (!sweep_init_) {
-    InitSweep(*cinfo_msg);
+  if (!lidar_init_) {
+    InitLidar(*cinfo_msg);
+    lidar_init_ = true;
+    ROS_INFO_STREAM("Sweep storage initialized!");
+  }
+
+  if (!imu_.buf.full()) {
+    ROS_WARN_STREAM(fmt::format(
+        "Imu buffer not full: {}/{}", imu_.buf.size(), imu_.buf.capacity()));
+    return;
+  }
+
+  if (!tf_init_) {
+    ROS_WARN_STREAM("Transform not initialized");
+    return;
   }
 
   // We can always process incoming scan no matter what
@@ -165,39 +183,23 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   // Add scan to sweep, compute score and filter
   Preprocess(scan);
 
-  if (tf_init_) {
-    // Predict poses using imu
-    Integrate();
+  Register();
 
-    // Publish as pose array
-    static geometry_msgs::PoseArray parray_int;
-    parray_int.header.frame_id = pano_frame_;
-    parray_int.header.stamp = ros::Time(sweep_.time_begin());
-    SE3fVec2Ros(grid_.tfs, parray_int);
-    pub_int_.publish(parray_int);
-  }
+  static MarkerArray match_marray;
+  std_msgs::Header match_header;
+  match_header.frame_id = pano_frame_;
+  match_header.stamp = cinfo_msg->header.stamp;
+  Grid2Markers(grid_, match_header, match_marray.markers);
+  pub_match_.publish(match_marray);
 
-  if (pano_init_) {
-    Register();
+  // Publish as pose array
+  static PoseArray parray_traj;
+  parray_traj.header.frame_id = pano_frame_;
+  parray_traj.header.stamp = cinfo_msg->header.stamp;
+  SE3fVec2Ros(grid_.tfs, parray_traj);
+  pub_traj_.publish(parray_traj);
 
-    static visualization_msgs::MarkerArray match_marray;
-    std_msgs::Header match_header;
-    match_header.frame_id = pano_frame_;
-    match_header.stamp = cinfo_msg->header.stamp;
-    Grid2Markers(grid_, match_header, match_marray.markers);
-    pub_match_.publish(match_marray);
-
-    // Publish as pose array
-    static geometry_msgs::PoseArray parray_opt;
-    parray_opt.header.frame_id = pano_frame_;
-    parray_opt.header.stamp = ros::Time(sweep_.time_begin());
-    SE3fVec2Ros(grid_.tfs, parray_opt);
-    pub_opt_.publish(parray_opt);
-  } else {
-    ROS_WARN_STREAM("Pano not initialized");
-  }
-
-  PostProcess();
+  PostProcess(scan);
 
   // publish undistorted sweep
   static CloudXYZ sweep_cloud;
@@ -219,60 +221,41 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {
-  int n_points{};
-  {  // Add scan to sweep
-    auto t = tm_.Scoped("Sweep.Add");
-    n_points = sweep_.Add(scan);
-  }
-
   std::pair<int, int> n_cells{};
   {  // Reduce scan to grid and Filter
     auto _ = tm_.Scoped("Grid.Add");
     n_cells = grid_.Add(scan, tbb_);
   }
+
+  const int grid_total = grid_.total();
+
   ROS_INFO_STREAM(
-      fmt::format("[1 Preprocess]: Scan points: {}, valid cells: {} / {} / "
-                  "{:02.2f}%, filtered cells: {} / {} / {:02.2f}%",
-                  n_points,
+      fmt::format("[Grid.Add]: valid cells: {} / {} / {:02.2f}%, "
+                  "filtered cells: {} / {} / {:02.2f}%",
                   n_cells.first,
-                  grid_.total(),
-                  100.0 * n_cells.first / grid_.total(),
+                  grid_total,
+                  100.0 * n_cells.first / grid_total,
                   n_cells.second,
-                  grid_.total(),
-                  100.0 * n_cells.second / grid_.total()));
+                  grid_total,
+                  100.0 * n_cells.second / grid_total));
+
+  int n_imus{};
+  {  // Integarte imu to fill nominal traj
+    auto _ = tm_.Scoped("Imu.Integrate");
+    const auto t0 = scan.time;
+    const auto dt = scan.dt * grid_.cell_size.width;
+    n_imus = imu_.Predict(t0, dt, grid_.tfs);
+  }
+  ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
 
   if (vis_) {
-    Imshow("sweep",
-           ApplyCmap(sweep_.DispRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
+    //    Imshow("sweep",
+    //           ApplyCmap(sweep_.DispRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
     Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
                grid_.DispFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
   }
-}
-
-void OdomNode::InitSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
-  ROS_INFO_STREAM("+++ Initializing lidar");
-  sweep_ = MakeSweep(cinfo_msg);
-  ROS_INFO_STREAM(sweep_);
-
-  grid_ = MakeGrid({pnh_, "grid"}, sweep_.size());
-  ROS_INFO_STREAM(grid_);
-
-  sweep_init_ = true;
-  ROS_INFO_STREAM("--- Lidar initialized!");
-}
-
-void OdomNode::Integrate() {
-  const auto t0 = sweep_.time_begin();
-  const auto dt = sweep_.dt * grid_.cell_size.width;
-
-  int n_imus{};
-  {  // Integarte imu to fill nominal traj
-    auto _ = tm_.Scoped("Imu.Integrate");
-    n_imus = imu_int_.Predict(t0, dt, grid_.tfs);
-  }
-  ROS_INFO_STREAM("[2 Integrate] using imus: " << n_imus);
 }
 
 void OdomNode::Register() {
@@ -299,6 +282,12 @@ void OdomNode::Register() {
                                 n_matches,
                                 grid_.total(),
                                 100.0 * n_matches / grid_.total()));
+
+    if (n_matches < 10) {
+      ROS_WARN_STREAM("Not enough matches: " << n_matches);
+      continue;
+    }
+
     // Build
     t_build.Resume();
     Cost cost(grid_, tbb_);
@@ -333,98 +322,30 @@ void OdomNode::Register() {
   }
 }
 
-void OdomNode::Register2() {  // Outer icp iters
-  auto t_match = tm_.Manual("Grid.Match", false);
-  auto t_build = tm_.Manual("Icp.Build", false);
-  auto t_solve = tm_.Manual("Icp.Solve", false);
-
-  Eigen::Matrix<double, 12, 1> x;
-  TinySolver<AdGicpCostLinear> solver;
-  solver.options.max_num_iterations = icp_iters_.second;
-
-  for (int i = 0; i < icp_iters_.first; ++i) {
-    x.setZero();
-    ROS_INFO_STREAM("Icp iteration: " << i);
-
-    t_match.Resume();
-    const auto n_matches = grid_.Match(pano_, tbb_);
-    t_match.Stop(false);
-
-    ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
-                                n_matches,
-                                grid_.total(),
-                                100.0 * n_matches / grid_.total()));
-
-    // Build
-    t_build.Resume();
-    GicpCostLinear cost(grid_, tbb_);
-    AdGicpCostLinear adcost(cost);
-    t_build.Stop(false);
-
-    // Solve
-    t_solve.Resume();
-    solver.Solve(adcost, &x);
-    t_solve.Stop(false);
-    ROS_INFO_STREAM(solver.summary.Report());
-
-    ROS_INFO_STREAM("errors: " << x.transpose());
-    // Update
-    auto& tfs = grid_.tfs;
-    //    const Vector6d dx = x.tail<6>() - x.head<6>();
-    //    for (int i = 0; i < tfs.size(); ++i) {
-    //      const double s = 1.0 * i / (tfs.size() - 1.0);
-    //      const Vector6d x_s = x.head<6>() + s * dx;
-    //      auto& T_p_s = tfs.at(i);
-    //      Sophus::SE3f T_new;
-    //      T_new.so3() = Sophus::SO3f::exp(x_s.head<3>().cast<float>());
-    //      T_new.translation() = x_s.tail<3>().cast<float>();
-    //      T_p_s = T_p_s * T_new;
-    //    }
-    const Eigen::Vector3f t0 = x.segment<3>(3).cast<float>();
-    const Eigen::Vector3f t1 = x.segment<3>(6).cast<float>();
-    Sophus::SE3f T_new;
-    T_new.so3() = Sophus::SO3f::exp(x.head<3>().cast<float>());
-
-    for (int i = 0; i < tfs.size(); ++i) {
-      const double s = 1.0 * i / (tfs.size() - 1.0);
-      auto& T_p_s = tfs.at(i);
-      T_new.translation() = (1 - s) * t0 + s * t1;
-      T_p_s = T_p_s * T_new;
-    }
-    //    ROS_INFO_STREAM("diff dist: " << dx.tail<3>().norm());
-    ROS_INFO_STREAM(
-        "diff nominal after: "
-        << (tfs.back().translation() - tfs.front().translation()).norm());
-
-    if (vis_) {
-      // display good match
-      Imshow("match",
-             ApplyCmap(grid_.DispMatch(),
-                       1.0 / grid_.pano_win_size.area(),
-                       cv::COLORMAP_VIRIDIS));
-    }
-  }
-}
-
-void OdomNode::PostProcess() {
-  {  // Update sweep poses
-    auto _ = tm_.Scoped("Grid.Interp");
-    grid_.InterpSweep(sweep_, tbb_);
-  }
-
+void OdomNode::PostProcess(const LidarScan& scan) {
   int n_added = 0;
   {  // Add sweep to pano
     auto _ = tm_.Scoped("Pano.Add");
     n_added = pano_.Add(sweep_, tbb_);
   }
-  ROS_INFO_STREAM(fmt::format("[4 PostProcess] Num added: {} / {} / {:02.2f}%",
+  ROS_INFO_STREAM(fmt::format("[Pano.Add] Num added: {} / {} / {:02.2f}%",
                               n_added,
                               sweep_.total(),
                               100.0 * n_added / sweep_.total()));
 
-  if (!pano_init_) {
-    pano_init_ = true;
-    ROS_INFO_STREAM("Pano initialized");
+  int n_points = 0;
+  {  // Add scan to sweep
+    auto _ = tm_.Scoped("Sweep.Add");
+    n_points = sweep_.Add(scan);
+  }
+  ROS_INFO_STREAM(fmt::format("[Sweep.Add] Num added: {} / {} / {:02.2f}%",
+                              n_points,
+                              sweep_.total(),
+                              100.0 * n_points / sweep_.total()));
+
+  {  // Update sweep poses
+    auto _ = tm_.Scoped("Grid.Interp");
+    grid_.InterpSweep(sweep_, tbb_);
   }
 
   // TODO (chao): update first pose of grid for next round of imu integration

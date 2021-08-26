@@ -61,7 +61,7 @@ NavState IntegrateMidpoint(const NavState& s0,
   return s1;
 }
 
-int ImuIntegrator::Predict(double t0,
+int ImuModel::Predict(double t0,
                            double dt,
                            std::vector<Sophus::SE3f>& poses) const {
   int ibuf = FindNextImu(buf, t0);
