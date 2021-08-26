@@ -59,5 +59,17 @@ void BM_SweepAdd(benchmark::State& state) {
 }
 BENCHMARK(BM_SweepAdd);
 
+void BM_SweepInterp(benchmark::State& state) {
+  LidarSweep sweep({1024, 64});
+  std::vector<Sophus::SE3f> traj(64 + 1);
+  int gsize = state.range(0);
+
+  for (auto _ : state) {
+    sweep.Interp(traj, gsize);
+    benchmark::DoNotOptimize(sweep);
+  }
+}
+BENCHMARK(BM_SweepInterp)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+
 }  // namespace
 }  // namespace sv

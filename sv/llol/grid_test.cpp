@@ -75,17 +75,5 @@ void BM_GridFilter(benchmark::State& state) {
 }
 BENCHMARK(BM_GridFilter)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
-void BM_GridInterpPoses(benchmark::State& state) {
-  std::vector<Sophus::SE3f> poses_sweep(1024);
-  std::vector<Sophus::SE3f> poses_grid(64 + 1);
-  int gsize = state.range(0);
-
-  for (auto _ : state) {
-    InterpPosesImpl(poses_grid, 16, poses_sweep, gsize);
-    benchmark::DoNotOptimize(poses_sweep);
-  }
-}
-BENCHMARK(BM_GridInterpPoses)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
-
 }  // namespace
 }  // namespace sv

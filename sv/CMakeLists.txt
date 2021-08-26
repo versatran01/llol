@@ -90,7 +90,7 @@ cc_bench(
 cc_library(
   NAME llol_sweep
   SRCS "llol/sweep.cpp"
-  DEPS sv_llol_scan Sophus::Sophus)
+  DEPS sv_llol_scan sv_tbb Sophus::Sophus)
 cc_test(
   NAME llol_sweep_test
   SRCS "llol/sweep_test.cpp"
@@ -125,7 +125,7 @@ cc_bench(
 cc_library(
   NAME llol_grid
   SRCS "llol/grid.cpp"
-  DEPS sv_tbb sv_llol_match sv_llol_sweep)
+  DEPS sv_tbb sv_llol_match sv_llol_scan)
 cc_test(
   NAME llol_grid_test
   SRCS "llol/grid_test.cpp"

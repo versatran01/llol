@@ -2,7 +2,7 @@
 
 #include <fmt/core.h>
 #include <glog/logging.h>
-#include <tbb/parallel_for.h>
+#include <tbb/blocked_range.h>
 #include <tbb/parallel_reduce.h>
 
 #include <sophus/interpolate.hpp>
@@ -23,7 +23,7 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
   CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
   CHECK_EQ(cell_size.height * score.rows, sweep_size.height);
 
-  tfs.resize(score.cols + 1);  // one more to cover both ends
+  tfs.resize(score.cols);
   matches.resize(total());
 }
 
@@ -149,28 +149,6 @@ bool SweepGrid::IsCellGood(const cv::Point& px) const {
   return true;
 }
 
-Sophus::SE3f SweepGrid::CellTfAt(int c) const {
-  const auto& Tc0 = tfs.at(c);
-  const auto& Tc1 = tfs.at(c + 1);
-  //  return Sophus::interpolate(tf0, tf1, 0.5);
-  Sophus::SE3f Tc;
-  Tc.so3() = Sophus::interpolate(Tc0.so3(), Tc1.so3(), 0.5);
-  Tc.translation() = (Tc0.translation() + Tc1.translation()) / 2;
-  return Tc;
-}
-
-cv::Point SweepGrid::Sweep2Grid(const cv::Point& px_sweep) const {
-  return {px_sweep.x / cell_size.width, px_sweep.y / cell_size.height};
-}
-
-cv::Point SweepGrid::Grid2Sweep(const cv::Point& px_grid) const {
-  return {px_grid.x * cell_size.width, px_grid.y * cell_size.height};
-}
-
-int SweepGrid::Px2Ind(const cv::Point& px_grid) const {
-  return px_grid.y * score.cols + px_grid.x;
-}
-
 cv::Mat SweepGrid::DrawFilter() const {
   static cv::Mat disp;
   if (disp.empty()) disp.create(size(), CV_32FC1);
@@ -199,42 +177,16 @@ cv::Mat SweepGrid::DrawMatch() const {
   return disp;
 }
 
-void SweepGrid::InterpSweep(LidarSweep& sweep, int gsize) const {
-  InterpPosesImpl(tfs, cell_size.width, sweep.tfs, gsize);
-}
+void SweepGrid::Interp(const std::vector<Sophus::SE3f>& traj) {
+  CHECK_EQ(tfs.size() + 1, traj.size());
 
-void InterpPosesImpl(const std::vector<Sophus::SE3f>& tf_grid,
-                     int cell_width,
-                     std::vector<Sophus::SE3f>& tf_sweep,
-                     int gsize) {
-  CHECK_EQ((tf_grid.size() - 1) * cell_width, tf_sweep.size());
-
-  const int ncells = tf_grid.size() - 1;
-  gsize = gsize <= 0 ? ncells : gsize;
-
-  tbb::parallel_for(
-      tbb::blocked_range<int>(0, ncells, gsize), [&](const auto& blk) {
-        for (int i = blk.begin(); i < blk.end(); ++i) {
-          // interpolate rotation and translation separately
-          const auto& T0 = tf_grid.at(i);
-          const auto& T1 = tf_grid.at(i + 1);
-          const auto& R0 = T0.so3();
-          const auto& R1 = T1.so3();
-          const auto dR = (R0.inverse() * R1).log();
-
-          const auto& t0 = T0.translation();
-          const auto& t1 = T1.translation();
-          const Eigen::Vector3f dt = t1 - t0;
-
-          for (int j = 0; j < cell_width; ++j) {
-            // which column
-            const int col = i * cell_width + j;
-            const float s = static_cast<float>(j) / cell_width;
-            tf_sweep.at(col).so3() = R0 * Sophus::SO3f::exp(s * dR);
-            tf_sweep.at(col).translation() = t0 + s * dt;
-          }
-        }
-      });
+  for (int c = 0; c < tfs.size(); ++c) {
+    const auto& tf0 = traj.at(c);
+    const auto& tf1 = traj.at(c + 1);
+    auto& tf = TfAt(c);
+    tf.so3() = Sophus::interpolate(tf0.so3(), tf1.so3(), 0.5);
+    tf.translation() = (tf0.translation() + tf1.translation()) / 2;
+  }
 }
 
 }  // namespace sv

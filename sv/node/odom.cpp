@@ -143,6 +143,8 @@ void OdomNode::InitLidar(const sensor_msgs::CameraInfo& cinfo_msg) {
   grid_ = MakeGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
+  imu_.traj.resize(grid_.size().width + 1);
+
   gicp_ = MakeGicp({pnh_, "gicp"});
   ROS_INFO_STREAM(gicp_);
 }
@@ -246,7 +248,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Imu.Integrate");
     const auto t0 = scan.time;
     const auto dt = scan.dt * grid_.cell_size.width;
-    n_imus = imu_.Predict(t0, dt, grid_.tfs);
+    n_imus = imu_.Predict(t0, dt);
   }
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
 
@@ -275,6 +277,8 @@ void OdomNode::Register() {
     ROS_INFO_STREAM("Icp iteration: " << i);
 
     t_match.Resume();
+    // Need to update cell tfs before match
+    grid_.Interp(imu_.traj);
     const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
     t_match.Stop(false);
 
@@ -303,12 +307,12 @@ void OdomNode::Register() {
     // TODO: maybe try interp in SE3?
     ROS_INFO_STREAM("norm1: " << x.norm());
 
-    // Update
-    auto& tfs_g = grid_.tfs;
+    // Update traj
+    auto& traj = imu_.traj;
     Sophus::SE3f dT;
     dT.so3() = Sophus::SO3f::exp(x.head<3>().cast<float>());
     dT.translation() = x.tail<3>().cast<float>();
-    for (auto& tf : tfs_g) {
+    for (auto& tf : traj) {
       tf = tf * dT;
     }
 
@@ -343,13 +347,13 @@ void OdomNode::PostProcess(const LidarScan& scan) {
                               sweep_.total(),
                               100.0 * n_points / sweep_.total()));
 
-  {  // Update sweep poses
-    auto _ = tm_.Scoped("Grid.Interp");
-    grid_.InterpSweep(sweep_, tbb_);
+  {  // Update sweep tfs
+    auto _ = tm_.Scoped("Sweep.Interp");
+    sweep_.Interp(imu_.traj, tbb_);
   }
 
-  // TODO (chao): update first pose of grid for next round of imu integration
-  grid_.tfs.front() = grid_.tfs.back();
+  // TODO (chao): update first pose of traj for next round of imu integration
+  imu_.traj.front() = imu_.traj.back();
 
   if (vis_) {
     const double max_range = 32.0;

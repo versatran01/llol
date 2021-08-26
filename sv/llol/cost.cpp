@@ -13,12 +13,6 @@ GicpCostBase::GicpCostBase(const SweepGrid& grid, int gsize)
       matches.push_back(match);
     }
   }
-
-  // Get poses of each grid col
-  tfs_g.reserve(grid.size().width);
-  for (int c = 0; c < grid.size().width; ++c) {
-    tfs_g.push_back(grid.CellTfAt(c).cast<double>());
-  }
 }
 
 }  // namespace sv

@@ -56,6 +56,7 @@ NavState IntegrateMidpoint(const NavState& s0,
 
 using ImuBuffer = boost::circular_buffer<ImuData>;
 
+/// @brief Get the index of the imu right after time t
 int FindNextImu(const ImuBuffer& buf, double t);
 
 /// @brief Accumulates imu data and integrate
@@ -64,13 +65,14 @@ struct ImuModel {
   ImuBuffer buf{16};
   ImuBias bias{};
   Sophus::SE3d T_imu_lidar{};
+  std::vector<Sophus::SE3f> traj;
 
   /// @brief Add imu data into buffer
   void Add(const ImuData& imu) { buf.push_back(imu.DeBiased(bias)); }
 
   /// @brief Given the first pose in poses, predict using imu
   /// @return Number of imus used
-  int Predict(double t0, double dt, std::vector<Sophus::SE3f>& poses) const;
+  int Predict(double t0, double dt);
 };
 
 }  // namespace sv

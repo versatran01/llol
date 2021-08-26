@@ -3,7 +3,7 @@
 #include <sophus/se3.hpp>
 
 #include "sv/llol/match.h"
-#include "sv/llol/sweep.h"
+#include "sv/llol/scan.h"
 
 namespace sv {
 
@@ -24,8 +24,8 @@ struct SweepGrid {
   /// Data
   cv::Mat score;                    // smoothness score, smaller is smoother
   cv::Range col_rg{};               // working range in this grid
-  std::vector<Sophus::SE3f> tfs;    // transforms from edge of cell to pano
   std::vector<PointMatch> matches;  // all matches
+  std::vector<Sophus::SE3f> tfs;    // transforms of each column
 
   SweepGrid() = default;
   explicit SweepGrid(const cv::Size& sweep_size, const GridParams& params = {});
@@ -53,18 +53,23 @@ struct SweepGrid {
   bool IsCellGood(const cv::Point& px) const;
 
   /// @brief At
+  Sophus::SE3f& TfAt(int c) { return tfs.at(c); }
+  const Sophus::SE3f& TfAt(int c) const { return tfs.at(c); }
   float& ScoreAt(const cv::Point& px) { return score.at<float>(px); }
   float ScoreAt(const cv::Point& px) const { return score.at<float>(px); }
   PointMatch& MatchAt(const cv::Point& px) { return matches.at(Px2Ind(px)); }
   const PointMatch& MatchAt(const cv::Point& px) const {
     return matches.at(Px2Ind(px));
   }
-  Sophus::SE3f CellTfAt(int c) const;
 
   /// @brief Pxiel coordinates conversion (sweep <-> grid)
-  cv::Point Sweep2Grid(const cv::Point& px_sweep) const;
-  cv::Point Grid2Sweep(const cv::Point& px_grid) const;
-  int Px2Ind(const cv::Point& px_grid) const;
+  cv::Point Sweep2Grid(const cv::Point& px) const {
+    return {px.x / cell_size.width, px.y / cell_size.height};
+  }
+  cv::Point Grid2Sweep(const cv::Point& px) const {
+    return {px.x * cell_size.width, px.y * cell_size.height};
+  }
+  int Px2Ind(const cv::Point& px) const { return px.y * score.cols + px.x; }
 
   /// @brief Info
   int total() const { return score.total(); }
@@ -75,13 +80,8 @@ struct SweepGrid {
   cv::Mat DrawFilter() const;
   cv::Mat DrawMatch() const;
 
-  // TODO (chao): this should be part of traj
-  void InterpSweep(LidarSweep& sweep, int gsize = 0) const;
+  /// @brief Interpolate poses of each cell
+  void Interp(const std::vector<Sophus::SE3f>& traj);
 };
-
-void InterpPosesImpl(const std::vector<Sophus::SE3f>& tf_cell,
-                     int cell_width,
-                     std::vector<Sophus::SE3f>& tf_col,
-                     int gsize = 0);
 
 }  // namespace sv
