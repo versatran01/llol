@@ -1,4 +1,4 @@
-#include "sv/llol/scan.h"
+#include "sv/llol/sweep.h"
 
 #include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
@@ -10,7 +10,6 @@ TEST(ScanTest, TestDefault) {
   LidarSweep ls;
   std::cout << ls << "\n";
 
-  EXPECT_EQ(ls.width(), 0);
   EXPECT_EQ(ls.full(), true);
   EXPECT_EQ(ls.time, 0);
   EXPECT_EQ(ls.dt, 0);
@@ -21,7 +20,6 @@ TEST(ScanTest, TestCtor) {
   LidarSweep ls({8, 4});
   std::cout << ls << "\n";
 
-  EXPECT_EQ(ls.width(), 0);
   EXPECT_EQ(ls.full(), false);
 
   EXPECT_EQ(ls.xyzr.rows, 4);

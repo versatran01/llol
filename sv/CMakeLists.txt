@@ -72,15 +72,20 @@ cc_test(
 cc_library(
   NAME llol_scan
   SRCS "llol/scan.cpp"
-  DEPS sv_util_math sv_util_ocv Sophus::Sophus)
+  DEPS sv_util_math sv_util_ocv)
+
+cc_library(
+  NAME llol_sweep
+  SRCS "llol/sweep.cpp"
+  DEPS sv_llol_scan Sophus::Sophus)
 cc_test(
-  NAME llol_scan_test
-  SRCS "llol/scan_test.cpp"
-  DEPS sv_llol_scan benchmark::benchmark)
+  NAME llol_sweep_test
+  SRCS "llol/sweep_test.cpp"
+  DEPS sv_llol_sweep benchmark::benchmark)
 cc_bench(
-  NAME llol_scan_bench
-  SRCS "llol/scan_test.cpp"
-  DEPS sv_llol_scan GTest::GTest)
+  NAME llol_sweep_bench
+  SRCS "llol/sweep_test.cpp"
+  DEPS sv_llol_sweep GTest::GTest)
 
 cc_library(
   NAME llol_match
@@ -94,7 +99,7 @@ cc_test(
 cc_library(
   NAME llol_pano
   SRCS "llol/pano.cpp"
-  DEPS sv_llol_lidar sv_llol_scan sv_tbb)
+  DEPS sv_llol_lidar sv_llol_sweep sv_tbb)
 cc_test(
   NAME llol_pano_test
   SRCS "llol/pano_test.cpp"
@@ -107,7 +112,7 @@ cc_bench(
 cc_library(
   NAME llol_grid
   SRCS "llol/grid.cpp"
-  DEPS sv_llol_match sv_llol_scan sv_llol_pano)
+  DEPS sv_llol_match sv_llol_sweep sv_llol_pano)
 cc_test(
   NAME llol_grid_test
   SRCS "llol/grid_test.cpp"
@@ -146,7 +151,7 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_library(
     NAME node_conv
     SRCS "node/conv.cpp"
-    DEPS sv_ros1 sv_llol_scan sv_llol_grid sv_llol_match sv_llol_pano
+    DEPS sv_ros1 sv_llol_sweep sv_llol_grid sv_llol_match sv_llol_pano
          sv_llol_imu)
 
   cc_library(

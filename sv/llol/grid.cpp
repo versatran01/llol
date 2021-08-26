@@ -60,7 +60,7 @@ void SweepGrid::Check(const LidarScan& scan) const {
   // scans row must match grid rows
   CHECK_EQ(scan.xyzr.rows, score.rows * cell_size.height);
   // scan start must match current end
-  CHECK_EQ(scan.col_rg.start, full() ? 0 : width() * cell_size.width);
+  CHECK_EQ(scan.col_rg.start, full() ? 0 : col_rg.end * cell_size.width);
   // scan end must not excced grid cols
   CHECK_LE(scan.col_rg.end, score.cols * cell_size.width);
 }

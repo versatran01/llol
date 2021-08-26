@@ -1,8 +1,10 @@
 #pragma once
 
-#include "sv/llol/match.h"  // GicpMatch
-#include "sv/llol/pano.h"   // DepthPano
-#include "sv/llol/scan.h"   // LidarScan
+#include <sophus/se3.hpp>
+
+#include "sv/llol/match.h"
+#include "sv/llol/pano.h"
+#include "sv/llol/sweep.h"
 
 namespace sv {
 
@@ -79,8 +81,7 @@ struct SweepGrid {
   /// @brief Info
   int total() const { return score.total(); }
   bool empty() const { return score.empty(); }
-  int width() const noexcept { return col_rg.end; }
-  bool full() const noexcept { return width() == score.cols; }
+  bool full() const noexcept { return col_rg.end == score.cols; }
   cv::Size size() const noexcept { return {score.cols, score.rows}; }
 
   /// @brief Draw

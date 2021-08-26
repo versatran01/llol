@@ -1,7 +1,7 @@
 #pragma once
 
 #include "sv/llol/lidar.h"
-#include "sv/llol/scan.h"
+#include "sv/llol/sweep.h"
 
 namespace sv {
 
