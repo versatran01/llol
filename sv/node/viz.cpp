@@ -54,10 +54,10 @@ void Grid2Markers(const SweepGrid& grid,
   // TODO (chao): also need to remove bad match
   for (int r = 0; r < grid.size().height; ++r) {
     for (int c = 0; c < grid.size().width; ++c) {
-      const auto i = grid.Grid2Ind({c, r});
+      const auto i = grid.Px2Ind({c, r});
       const auto& match = grid.MatchAt({c, r});
 
-      auto& marker = markers.at(grid.Grid2Ind({c, r}));
+      auto& marker = markers.at(grid.Px2Ind({c, r}));
       marker = pano_mk;
       marker.id = i;
 

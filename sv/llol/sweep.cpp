@@ -34,7 +34,7 @@ void LidarSweep::Check(const LidarScan& scan) const {
   CHECK_LE(scan.xyzr.cols, xyzr.cols);
   CHECK_LE(scan.col_rg.end, xyzr.cols);
   // Check that the new scan start right after
-  CHECK_EQ(scan.col_rg.start, full() ? 0 : col_rg.end);
+  CHECK_EQ(scan.col_rg.start, col_rg.end % xyzr.cols);
 
   // Check dt is consistent, assume it stays the same
   CHECK_EQ(dt, scan.dt);

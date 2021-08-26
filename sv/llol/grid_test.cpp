@@ -9,13 +9,10 @@ namespace {
 TEST(GridTest, TestCtor) {
   const SweepGrid grid({1024, 64});
   EXPECT_EQ(grid.total(), 2048);
-  EXPECT_EQ(grid.full(), false);
   EXPECT_EQ(grid.size().width, 64);
   EXPECT_EQ(grid.size().height, 32);
   EXPECT_EQ(grid.col_rg.start, 0);
   EXPECT_EQ(grid.col_rg.end, 0);
-  EXPECT_EQ(grid.pano_win_size.height, 5);
-  EXPECT_EQ(grid.pano_win_size.width, 9);
   std::cout << grid << std::endl;
 }
 
@@ -52,33 +49,6 @@ TEST(GridTest, TestScore) {
   EXPECT_EQ(grid.col_rg.end, 32);
   std::cout << grid << std::endl;
 }
-
-TEST(GridTest, TestMatch) {
-  const auto scan = MakeTestScan({1024, 64});
-  auto grid = SweepGrid(scan.size());
-  grid.Add(scan);
-
-  DepthPano pano({1024, 256});
-  pano.dbuf.setTo(DepthPixel::kScale);
-
-  const int n = grid.Match(pano);
-  EXPECT_EQ(n, 1984);  // probably miss top and bottom
-}
-
-void BM_GridMatch(benchmark::State& state) {
-  const auto scan = MakeTestScan({1024, 64});
-  auto grid = SweepGrid(scan.size());
-  grid.Add(scan);
-
-  DepthPano pano({1024, 256});
-  pano.dbuf.setTo(DepthPixel::kScale);
-
-  const int gsize = state.range(0);
-  for (auto _ : state) {
-    grid.Match(pano, gsize);
-  }
-}
-BENCHMARK(BM_GridMatch)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
 
 void BM_GridScore(benchmark::State& state) {
   const auto scan = MakeTestScan({1024, 64});

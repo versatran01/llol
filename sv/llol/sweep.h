@@ -27,9 +27,6 @@ struct LidarSweep final : public LidarScan {
   int Add(const LidarScan& scan);
   void Check(const LidarScan& scan) const;
 
-  /// @brief Info
-  bool full() const noexcept { return col_rg.end == xyzr.cols; }
-
   /// @brief Draw
   cv::Mat DispRange() const;
 };

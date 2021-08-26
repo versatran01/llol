@@ -3,11 +3,11 @@ grid:
   cell_cols: 16
   nms: True
   max_score: 0.01
-  half_rows: 2
-  cov_lambda: 1e-6
-icp:
+gicp:
   outer: 1
   inner: 3
+  half_rows: 2
+  cov_lambda: 1e-6
 pano:
   rows: 256
   cols: 1024

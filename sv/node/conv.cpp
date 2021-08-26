@@ -35,8 +35,6 @@ SweepGrid MakeGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size) {
   gp.cell_cols = pnh.param<int>("cell_cols", gp.cell_cols);
   gp.max_score = pnh.param<double>("max_score", gp.max_score);
   gp.nms = pnh.param<bool>("nms", gp.nms);
-  gp.half_rows = pnh.param<int>("half_rows", gp.half_rows);
-  gp.cov_lambda = pnh.param<double>("cov_lambda", gp.cov_lambda);
   return SweepGrid{sweep_size, gp};
 }
 
@@ -49,6 +47,15 @@ DepthPano MakePano(const ros::NodeHandle& pnh) {
   pp.min_range = pnh.param<double>("min_range", pp.min_range);
   pp.range_ratio = pnh.param<double>("range_ratio", pp.range_ratio);
   return DepthPano({pano_cols, pano_rows}, pp);
+}
+
+GicpSolver MakeGicp(const ros::NodeHandle& pnh) {
+  GicpParams gp;
+  gp.outer = pnh.param<int>("outer", gp.outer);
+  gp.inner = pnh.param<int>("inner", gp.inner);
+  gp.half_rows = pnh.param<int>("half_rows", gp.half_rows);
+  gp.cov_lambda = pnh.param<double>("cov_lambda", gp.cov_lambda);
+  return GicpSolver{gp};
 }
 
 ImuData MakeImu(const sensor_msgs::Imu& imu_msg) {

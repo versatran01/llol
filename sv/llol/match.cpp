@@ -6,12 +6,12 @@
 namespace sv {
 
 void GicpMatch::ResetGrid() {
-  px_g = {kBad, kBad};
+  px_g = {kBadPx, kBadPx};
   mc_g.Reset();
 }
 
 void GicpMatch::ResetPano() {
-  px_p = {kBad, kBad};
+  px_p = {kBadPx, kBadPx};
   mc_p.Reset();
 }
 

@@ -1,8 +1,6 @@
 #pragma once
 
-#include <Eigen/Geometry>
 #include <boost/circular_buffer.hpp>
-#include <opencv2/core/types.hpp>
 #include <sophus/se3.hpp>
 
 namespace sv {

@@ -75,6 +75,19 @@ cc_library(
   DEPS sv_util_math sv_util_ocv)
 
 cc_library(
+  NAME llol_imu
+  SRCS "llol/imu.cpp"
+  DEPS sv_base sv_log Sophus::Sophus Boost::boost)
+cc_test(
+  NAME llol_imu_test
+  SRCS "llol/imu_test.cpp"
+  DEPS sv_llol_imu benchmark::benchmark)
+cc_bench(
+  NAME llol_imu_bench
+  SRCS "llol/imu_test.cpp"
+  DEPS sv_llol_imu GTest::GTest)
+
+cc_library(
   NAME llol_sweep
   SRCS "llol/sweep.cpp"
   DEPS sv_llol_scan Sophus::Sophus)
@@ -112,7 +125,7 @@ cc_bench(
 cc_library(
   NAME llol_grid
   SRCS "llol/grid.cpp"
-  DEPS sv_llol_match sv_llol_sweep sv_llol_pano)
+  DEPS sv_tbb sv_llol_match sv_llol_sweep)
 cc_test(
   NAME llol_grid_test
   SRCS "llol/grid_test.cpp"
@@ -125,20 +138,15 @@ cc_bench(
 cc_library(
   NAME llol_gicp
   SRCS "llol/gicp.cpp"
-  DEPS sv_llol_grid sv_util_solver sv_tbb Ceres::ceres)
-
-cc_library(
-  NAME llol_imu
-  SRCS "llol/imu.cpp"
-  DEPS sv_base sv_log sv_util_ocv Sophus::Sophus Eigen3::Eigen Boost::boost)
+  DEPS sv_llol_grid sv_llol_pano sv_util_ocv sv_tbb Ceres::ceres)
 cc_test(
-  NAME llol_imu_test
-  SRCS "llol/imu_test.cpp"
-  DEPS sv_llol_imu benchmark::benchmark)
+  NAME llol_gicp_test
+  SRCS "llol/gicp_test.cpp"
+  DEPS sv_llol_gicp benchmark::benchmark)
 cc_bench(
-  NAME llol_imu_bench
-  SRCS "llol/imu_test.cpp"
-  DEPS sv_llol_imu GTest::GTest)
+  NAME llol_gicp_bench
+  SRCS "llol/gicp_test.cpp"
+  DEPS sv_llol_gicp GTest::GTest)
 
 # node =========================================================================
 if(catkin_FOUND AND BUILD_NODE)
@@ -151,8 +159,12 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_library(
     NAME node_conv
     SRCS "node/conv.cpp"
-    DEPS sv_ros1 sv_llol_sweep sv_llol_grid sv_llol_match sv_llol_pano
-         sv_llol_imu)
+    DEPS sv_ros1
+         sv_llol_sweep
+         sv_llol_grid
+         sv_llol_pano
+         sv_llol_imu
+         sv_llol_gicp)
 
   cc_library(
     NAME node_viz
@@ -162,7 +174,7 @@ if(catkin_FOUND AND BUILD_NODE)
   cc_binary(
     NAME node_odom
     SRCS "node/odom.cpp"
-    DEPS sv_node_conv sv_node_viz sv_llol_imu sv_llol_gicp sv_util_manager)
+    DEPS sv_node_conv sv_node_viz sv_util_manager sv_util_solver)
 endif()
 
 # sim ==========================================================================

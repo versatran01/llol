@@ -62,8 +62,8 @@ NavState IntegrateMidpoint(const NavState& s0,
 }
 
 int ImuModel::Predict(double t0,
-                           double dt,
-                           std::vector<Sophus::SE3f>& poses) const {
+                      double dt,
+                      std::vector<Sophus::SE3f>& poses) const {
   int ibuf = FindNextImu(buf, t0);
   if (ibuf < 0) return 0;  // no valid imu found
 

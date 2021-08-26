@@ -11,8 +11,6 @@
 #include <tf2_ros/transform_listener.h>
 
 // sv
-#include "sv/llol/gicp.h"
-#include "sv/llol/imu.h"
 #include "sv/node/conv.h"
 #include "sv/node/viz.h"
 #include "sv/util/manager.h"
@@ -61,6 +59,7 @@ struct OdomNode {
   LidarSweep sweep_;
   SweepGrid grid_;
   DepthPano pano_;
+  GicpSolver gicp_;
 
   std::pair<int, int> icp_iters_;
 
@@ -143,6 +142,9 @@ void OdomNode::InitLidar(const sensor_msgs::CameraInfo& cinfo_msg) {
 
   grid_ = MakeGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
+
+  gicp_ = MakeGicp({pnh_, "gicp"});
+  ROS_INFO_STREAM(gicp_);
 }
 
 void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
@@ -275,7 +277,7 @@ void OdomNode::Register() {
     ROS_INFO_STREAM("Icp iteration: " << i);
 
     t_match.Resume();
-    const auto n_matches = grid_.Match(pano_, tbb_);
+    const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
     t_match.Stop(false);
 
     ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
@@ -316,7 +318,7 @@ void OdomNode::Register() {
       // display good match
       Imshow("match",
              ApplyCmap(grid_.DispMatch(),
-                       1.0 / grid_.pano_win_size.area(),
+                       1.0 / gicp_.pano_win.area(),
                        cv::COLORMAP_VIRIDIS));
     }
   }

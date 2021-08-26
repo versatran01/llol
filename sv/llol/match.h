@@ -8,13 +8,13 @@ namespace sv {
 
 /// @struct Match
 struct GicpMatch {
-  static constexpr int kBad = -100;
+  static constexpr int kBadPx = -100;
 
-  cv::Point px_g{kBad, kBad};  // 8 grid pixel coord
-  MeanCovar3f mc_g{};          // 52 grid mean covar
-  cv::Point px_p{kBad, kBad};  // 8 pano pixel coord
-  MeanCovar3f mc_p{};          // 52 pano mean covar
-  Eigen::Matrix3f U{};         // 36 sqrt of info
+  cv::Point px_g{kBadPx, kBadPx};  // 8 grid pixel coord
+  MeanCovar3f mc_g{};              // 52 grid mean covar
+  cv::Point px_p{kBadPx, kBadPx};  // 8 pano pixel coord
+  MeanCovar3f mc_p{};              // 52 pano mean covar
+  Eigen::Matrix3f U{};             // 36 sqrt of info
 
   /// @brief Whether this match is good
   bool Ok() const noexcept { return GridOk() && PanoOk(); }

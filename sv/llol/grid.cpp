@@ -19,7 +19,6 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
     : cell_size{params.cell_cols, params.cell_rows},
       max_score{params.max_score},
       nms{params.nms},
-      cov_lambda{params.cov_lambda},
       score{sweep_size / cell_size, CV_32FC1, kNaNF} {
   CHECK_GT(max_score, 0);
   CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
@@ -27,24 +26,13 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
 
   tfs.resize(score.cols + 1);  // one more to cover both ends
   matches.resize(total());
-
-  pano_win_size.height = params.half_rows * 2 + 1;
-  pano_win_size.width = params.half_rows * 4 + 1;
-  min_pts = (params.half_rows + 1) * pano_win_size.width;
-  max_dist_size = pano_win_size / 4;
 }
 
 std::string SweepGrid::Repr() const {
-  return fmt::format(
-      "SweepGrid(cell_size={}, max_score={}, nms={}, cov_lambda={}, "
-      "min_pts={}, pano_win_size={}, max_dist_size={})",
-      sv::Repr(cell_size),
-      max_score,
-      nms,
-      cov_lambda,
-      min_pts,
-      sv::Repr(pano_win_size),
-      sv::Repr(max_dist_size));
+  return fmt::format("SweepGrid(cell_size={}, max_score={}, nms={})",
+                     sv::Repr(cell_size),
+                     max_score,
+                     nms);
 }
 
 std::pair<int, int> SweepGrid::Add(const LidarScan& scan, int gsize) {
@@ -60,7 +48,7 @@ void SweepGrid::Check(const LidarScan& scan) const {
   // scans row must match grid rows
   CHECK_EQ(scan.xyzr.rows, score.rows * cell_size.height);
   // scan start must match current end
-  CHECK_EQ(scan.col_rg.start, full() ? 0 : col_rg.end * cell_size.width);
+  CHECK_EQ(scan.col_rg.start, (col_rg.end * cell_size.width) % score.cols);
   // scan end must not excced grid cols
   CHECK_LE(scan.col_rg.end, score.cols * cell_size.width);
 }
@@ -137,9 +125,6 @@ int SweepGrid::FilterRow(const LidarScan& scan, int r) {
       // scan starts from 0 so use {c, r}
       scan.MeanCovarAt(Grid2Sweep({c, r}), cell_size.width, match.mc_g);
       match.px_g = px_g;
-      // Set px_s to sweep px, so use px_g
-      //      match.px_g = Grid2Sweep(px_g);
-      //      match.px_g.x += cell_size.width / 2;
       ++n;
     } else {
       match.Reset();
@@ -164,70 +149,6 @@ bool SweepGrid::IsCellGood(const cv::Point& px) const {
   return true;
 }
 
-int SweepGrid::Match(const DepthPano& pano, int gsize) {
-  const auto rows = score.rows;
-  gsize = gsize <= 0 ? rows : gsize;
-  CHECK_GE(gsize, 1);
-
-  return tbb::parallel_reduce(
-      tbb::blocked_range<int>(0, rows, gsize),
-      0,
-      [&](const auto& blk, int n) {
-        for (int gr = blk.begin(); gr < blk.end(); ++gr) {
-          n += MatchRow(pano, gr);
-        }
-        return n;
-      },
-      std::plus<>{});
-}
-
-int SweepGrid::MatchRow(const DepthPano& pano, int gr) {
-  int n = 0;
-  // TODO (chao): for now we assume full sweep and match everying
-  for (int gc = 0; gc < score.cols; ++gc) {
-    n += MatchCell(pano, {gc, gr});
-  }
-  return n;
-}
-
-int SweepGrid::MatchCell(const DepthPano& pano, const cv::Point& px_g) {
-  auto& match = MatchAt(px_g);
-  if (!match.GridOk()) return 0;
-
-  // Transform to pano frame
-  const Eigen::Vector3f pt_p = CellTfAt(px_g.x) * match.mc_g.mean;
-  const float rg_p = pt_p.norm();
-
-  // Project to pano
-  const auto px_p = pano.model.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
-  if (px_p.x < 0) {
-    // Bad projection, reset and return
-    match.ResetPano();
-    return 0;
-  }
-
-  // Check distance between new pix and old pix
-  if (PointInSize(px_p - match.px_p, max_dist_size) && match.PanoOk()) {
-    //  if (px_p == match.px_p && match.PanoOk()) {
-    // If new and old are close and pano match is ok
-    // we reuse this match and there is no need to recompute
-    return 1;
-  }
-
-  // Compute mean covar around pano point
-  match.px_p = px_p;
-  pano.MeanCovarAt(px_p, pano_win_size, rg_p, match.mc_p);
-
-  // if we don't have enough points also reset and return
-  if (match.mc_p.n < min_pts) {
-    match.ResetPano();
-    return 0;
-  }
-  // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
-  match.SqrtInfo(cov_lambda);
-  return 1;
-}
-
 Sophus::SE3f SweepGrid::CellTfAt(int c) const {
   const auto& Tc0 = tfs.at(c);
   const auto& Tc1 = tfs.at(c + 1);
@@ -246,7 +167,7 @@ cv::Point SweepGrid::Grid2Sweep(const cv::Point& px_grid) const {
   return {px_grid.x * cell_size.width, px_grid.y * cell_size.height};
 }
 
-int SweepGrid::Grid2Ind(const cv::Point& px_grid) const {
+int SweepGrid::Px2Ind(const cv::Point& px_grid) const {
   return px_grid.y * score.cols + px_grid.x;
 }
 

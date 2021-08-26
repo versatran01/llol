@@ -8,25 +8,9 @@
 #include <sophus/se3.hpp>
 
 #include "sv/llol/grid.h"
+#include "sv/llol/pano.h"
 
 namespace sv {
-
-// Taken from Sophus github
-class LocalParamSE3 final : public ceres::LocalParameterization {
- public:
-  // SE3 plus operation for Ceres
-  //  T * exp(x)
-  bool Plus(double const* _T,
-            double const* _x,
-            double* _T_plus_x) const override;
-
-  // Jacobian of SE3 plus operation for Ceres
-  // Dx T * exp(x)  with  x=0
-  bool ComputeJacobian(double const* _T, double* _J) const override;
-
-  int GlobalSize() const override { return Sophus::SE3d::num_parameters; }
-  int LocalSize() const override { return Sophus::SE3d::DoF; }
-};
 
 struct GicpCostBase {
   static constexpr int kNumParams = 6;
@@ -78,64 +62,11 @@ struct GicpCostSingle final : public GicpCostBase {
   }
 };
 
-struct GicpCostSingle2 {
-  static constexpr int kTotalParams = 6;
-
-  GicpCostSingle2(const SweepGrid& grid, int gsize = 0);
-
-  int NumResiduals() const { return pmatches.size() * 3; }
-
-  template <typename T>
-  bool operator()(const T* const _x, T* _r) const {
-    using Vec6 = Eigen::Matrix<T, 6, 1>;
-    using Vec3 = Eigen::Matrix<T, 3, 1>;
-    using SE3 = Sophus::SE3<T>;
-    using SO3 = Sophus::SO3<T>;
-
-    Eigen::Map<const Vec6> x(_x);
-    const SE3 dT{SO3::exp(x.template head<3>()), x.template tail<3>()};
-
-    tbb::parallel_for(
-        tbb::blocked_range<int>(0, pmatches.size(), gsize * 2),
-        [&](const auto& blk) {
-          for (int i = blk.begin(); i < blk.end(); ++i) {
-            const auto* pmatch = pmatches.at(i);
-            CHECK_NOTNULL(pmatch);
-            const auto& match = *pmatch;
-
-            Eigen::Map<Vec3> r(_r + 3 * i);
-            if (!match.Ok()) {
-              r.setZero();
-              continue;
-            }
-
-            const int c = match.px_g.x;
-            const Eigen::Matrix3d U = match.U.cast<double>();
-            const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-            const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
-
-            r = U * (pt_p - tfs_g.at(c) * dT * pt_g);
-          }
-        });
-
-    return true;
-  }
-
-  const SweepGrid* pgrid;
-  int gsize{};
-  std::vector<Sophus::SE3d> tfs_g;
-  std::vector<const GicpMatch*> pmatches;
-};
-
 struct GicpCostLinear final : public GicpCostBase {
   static constexpr int kNumPoses = 2;
   static constexpr int kTotalParams = kNumPoses * kNumParams;
 
   using GicpCostBase::GicpCostBase;
-
-  //  int NumResiduals() const override {
-  //    return (matches.size() + 1) * kNumResiduals;
-  //  }
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
@@ -173,9 +104,6 @@ struct GicpCostLinear final : public GicpCostBase {
       r = U * (pt_p - tfs_g.at(c) * tfs_e.at(c) * pt_g);
     }
 
-    //    Eigen::Map<Vec3> rp(_r + kNumResiduals * matches.size());
-    //    rp = dx.template tail<3>() * 10000.0;
-
     return true;
   }
 };
@@ -185,12 +113,35 @@ using AdCost =
     ceres::TinySolverAutoDiffFunction<T, Eigen::Dynamic, T::kTotalParams>;
 
 using AdGicpCostSingle = AdCost<GicpCostSingle>;
-using AdGicpCostSingle2 = AdCost<GicpCostSingle2>;
 using AdGicpCostLinear = AdCost<GicpCostLinear>;
 
 struct GicpParams {
-  int n_outer{2};
-  int n_inner{2};
+  int outer{2};
+  int inner{2};
+  int half_rows{2};
+  float cov_lambda{1e-6F};
+};
+
+struct GicpSolver {
+  explicit GicpSolver(const GicpParams& params = {});
+
+  std::pair<int, int> iters;  // (outer, inner) iterations
+  float cov_lambda{};         // lambda added to diagonal of covar
+  cv::Size pano_win;          // win size in pano used to compute mean covar
+  cv::Size max_dist;          // max dist size to resue pano mc
+  int pano_min_pts{};         // min pts in pano win for a valid match
+
+  /// @brief Repr / <<
+  std::string Repr() const;
+  friend std::ostream& operator<<(std::ostream& os, const GicpSolver& rhs) {
+    return os << rhs.Repr();
+  }
+
+  /// @brief Match features in sweep to pano using mask
+  /// @return Number of final matches
+  int Match(SweepGrid& grid, const DepthPano& pano, int gsize = 0);
+  int MatchRow(SweepGrid& grid, const DepthPano& pano, int gr);
+  int MatchCell(SweepGrid& grid, const DepthPano& pano, const cv::Point& px_g);
 };
 
 }  // namespace sv

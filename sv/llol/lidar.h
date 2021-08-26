@@ -11,6 +11,12 @@ struct LidarModel {
   LidarModel() = default;
   explicit LidarModel(const cv::Size& size_in, float hfov = 0.0F);
 
+  /// @brief Repr / <<
+  std::string Repr() const;
+  friend std::ostream& operator<<(std::ostream& os, const LidarModel& rhs) {
+    return os << rhs.Repr();
+  }
+
   /// @brief xyzr to pixel, bad result is {-1, -1}
   cv::Point2i Forward(float x, float y, float z, float r) const;
   /// @brief pixel to xyz
@@ -24,11 +30,7 @@ struct LidarModel {
   bool RowInside(int r) const noexcept { return 0 <= r && r < size.height; }
   bool ColInside(int c) const noexcept { return 0 <= c && c < size.width; }
 
-  std::string Repr() const;
-  friend std::ostream& operator<<(std::ostream& os, const LidarModel& rhs) {
-    return os << rhs.Repr();
-  }
-
+  /// Data
   cv::Size size{};
   float elev_max{};
   float elev_delta{};
