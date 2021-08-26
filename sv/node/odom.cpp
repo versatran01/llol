@@ -251,12 +251,10 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
 
   if (vis_) {
-    //    Imshow("sweep",
-    //           ApplyCmap(sweep_.DispRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
     Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
-               grid_.DispFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
+               grid_.DrawFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
   }
 }
 
@@ -317,7 +315,7 @@ void OdomNode::Register() {
     if (vis_) {
       // display good match
       Imshow("match",
-             ApplyCmap(grid_.DispMatch(),
+             ApplyCmap(grid_.DrawMatch(),
                        1.0 / gicp_.pano_win.area(),
                        cv::COLORMAP_VIRIDIS));
     }
@@ -354,8 +352,14 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   grid_.tfs.front() = grid_.tfs.back();
 
   if (vis_) {
-    const auto& disps = pano_.DispRangeCount();
-    Imshow("pano", ApplyCmap(disps[0], 1.0 / DepthPixel::kScale / 30.0));
+    const double max_range = 32.0;
+    Imshow("sweep",
+           ApplyCmap(sweep_.DrawRange(), 1 / max_range, cv::COLORMAP_PINK, 0));
+    const auto& disps = pano_.DrawRangeCount();
+    Imshow(
+        "pano",
+        ApplyCmap(
+            disps[0], 1.0 / DepthPixel::kScale / max_range, cv::COLORMAP_PINK));
     Imshow("count",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
   }

@@ -4,7 +4,7 @@ namespace sv {
 
 using SE3d = Sophus::SE3d;
 
-GicpFactor::GicpFactor(const GicpMatch& match) {
+GicpFactor::GicpFactor(const PointMatch& match) {
   pt_s_ = match.mc_g.mean.cast<double>();
   pt_p_ = match.mc_p.mean.cast<double>();
   U_ = match.U.cast<double>();

@@ -28,7 +28,7 @@ struct LidarSweep final : public LidarScan {
   void Check(const LidarScan& scan) const;
 
   /// @brief Draw
-  cv::Mat DispRange() const;
+  cv::Mat DrawRange() const;
 };
 
 LidarSweep MakeTestSweep(const cv::Size& size);

@@ -37,8 +37,9 @@ float LidarScan::CurveAt(const cv::Point& px, int width) const {
   float sum = 0.0F;
 
   const int half = width / 2;
-  const auto mid =
-      std::min(RangeAt({px.x + half - 1, px.y}), RangeAt({px.x + half, px.y}));
+  const auto left = RangeAt({px.x + half - 1, px.y});
+  const auto right = RangeAt({px.x + half, px.y});
+  const auto mid = std::min(left, right);
   if (std::isnan(mid)) return kNaNF;
 
   for (int c = 0; c < width; ++c) {

@@ -20,7 +20,6 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
       max_score{params.max_score},
       nms{params.nms},
       score{sweep_size / cell_size, CV_32FC1, kNaNF} {
-  CHECK_GT(max_score, 0);
   CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
   CHECK_EQ(cell_size.height * score.rows, sweep_size.height);
 
@@ -29,7 +28,8 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
 }
 
 std::string SweepGrid::Repr() const {
-  return fmt::format("SweepGrid(cell_size={}, max_score={}, nms={})",
+  return fmt::format("SweepGrid(size={}, cell_size={}, max_score={}, nms={})",
+                     sv::Repr(size()),
                      sv::Repr(cell_size),
                      max_score,
                      nms);
@@ -91,9 +91,9 @@ int SweepGrid::ScoreRow(const LidarScan& scan, int r) {
 int SweepGrid::Filter(const LidarScan& scan, int gsize) {
   // Check scan col_rg matches stored col_rg, this makes sure that Reduce() is
   // called after Score()
-  const auto g_rg = scan.col_rg / cell_size.width;
-  CHECK_EQ(g_rg.start, col_rg.start);
-  CHECK_EQ(g_rg.end, col_rg.end);
+  const auto new_rg = scan.col_rg / cell_size.width;
+  CHECK_EQ(new_rg.start, col_rg.start);
+  CHECK_EQ(new_rg.end, col_rg.end);
   gsize = gsize <= 0 ? score.rows : gsize;
 
   return tbb::parallel_reduce(
@@ -171,9 +171,10 @@ int SweepGrid::Px2Ind(const cv::Point& px_grid) const {
   return px_grid.y * score.cols + px_grid.x;
 }
 
-cv::Mat SweepGrid::DispFilter() const {
+cv::Mat SweepGrid::DrawFilter() const {
   static cv::Mat disp;
   if (disp.empty()) disp.create(size(), CV_32FC1);
+
   for (int r = 0; r < disp.rows; ++r) {
     for (int c = 0; c < disp.cols; ++c) {
       const cv::Point px_g{c, r};
@@ -184,7 +185,7 @@ cv::Mat SweepGrid::DispFilter() const {
   return disp;
 }
 
-cv::Mat SweepGrid::DispMatch() const {
+cv::Mat SweepGrid::DrawMatch() const {
   static cv::Mat disp;
   if (disp.empty()) disp.create(size(), CV_32FC1);
 

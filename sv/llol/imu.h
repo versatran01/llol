@@ -5,23 +5,25 @@
 
 namespace sv {
 
+static const Eigen::Vector3d kZero3d = Eigen::Vector3d::Zero();
+
 struct NavState {
   double time{};
   Sophus::SO3d rot{};
-  Eigen::Vector3d pos{Eigen::Vector3d::Zero()};
-  Eigen::Vector3d vel{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d pos{kZero3d};
+  Eigen::Vector3d vel{kZero3d};
 };
 
 struct ImuBias {
-  Eigen::Vector3d acc{Eigen::Vector3d::Zero()};
-  Eigen::Vector3d gyr{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d acc{kZero3d};
+  Eigen::Vector3d gyr{kZero3d};
 };
 
 /// @brief Time-stamped Imu data
 struct ImuData {
   double time{};
-  Eigen::Vector3d acc{Eigen::Vector3d::Zero()};
-  Eigen::Vector3d gyr{Eigen::Vector3d::Zero()};
+  Eigen::Vector3d acc{kZero3d};
+  Eigen::Vector3d gyr{kZero3d};
 
   void Debias(const ImuBias& bias) {
     acc -= bias.acc;

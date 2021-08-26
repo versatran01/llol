@@ -22,10 +22,10 @@ struct SweepGrid {
   bool nms{};
 
   /// Data
-  cv::Mat score;                   // smoothness score, smaller is smoother
-  cv::Range col_rg{};              // working range in this grid
-  std::vector<Sophus::SE3f> tfs;   // transforms from edge of cell to pano
-  std::vector<GicpMatch> matches;  // all matches
+  cv::Mat score;                    // smoothness score, smaller is smoother
+  cv::Range col_rg{};               // working range in this grid
+  std::vector<Sophus::SE3f> tfs;    // transforms from edge of cell to pano
+  std::vector<PointMatch> matches;  // all matches
 
   SweepGrid() = default;
   explicit SweepGrid(const cv::Size& sweep_size, const GridParams& params = {});
@@ -55,8 +55,8 @@ struct SweepGrid {
   /// @brief At
   float& ScoreAt(const cv::Point& px) { return score.at<float>(px); }
   float ScoreAt(const cv::Point& px) const { return score.at<float>(px); }
-  GicpMatch& MatchAt(const cv::Point& px) { return matches.at(Px2Ind(px)); }
-  const GicpMatch& MatchAt(const cv::Point& px) const {
+  PointMatch& MatchAt(const cv::Point& px) { return matches.at(Px2Ind(px)); }
+  const PointMatch& MatchAt(const cv::Point& px) const {
     return matches.at(Px2Ind(px));
   }
   Sophus::SE3f CellTfAt(int c) const;
@@ -72,9 +72,10 @@ struct SweepGrid {
   cv::Size size() const noexcept { return {score.cols, score.rows}; }
 
   /// @brief Draw
-  cv::Mat DispFilter() const;
-  cv::Mat DispMatch() const;
+  cv::Mat DrawFilter() const;
+  cv::Mat DrawMatch() const;
 
+  // TODO (chao): this should be part of traj
   void InterpSweep(LidarSweep& sweep, int gsize = 0) const;
 };
 

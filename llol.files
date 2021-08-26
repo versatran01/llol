@@ -14,6 +14,8 @@ package.xml
 sv/CMakeLists.txt
 sv/cov_viz.cpp
 sv/llol/CMakeLists.txt
+sv/llol/cost.cpp
+sv/llol/cost.h
 sv/llol/gicp.cpp
 sv/llol/gicp.h
 sv/llol/gicp_test.cpp
@@ -41,7 +43,6 @@ sv/llol/scan.h
 sv/llol/sweep.cpp
 sv/llol/sweep.h
 sv/llol/sweep_test.cpp
-sv/llol/traj.h
 sv/llol/viz.cpp
 sv/llol/viz.h
 sv/node.cpp

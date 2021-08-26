@@ -15,7 +15,7 @@ struct IcpFactorBase {
 };
 
 struct GicpFactor final : public IcpFactorBase {
-  GicpFactor(const GicpMatch& match);
+  GicpFactor(const PointMatch& match);
 
   template <typename T>
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
@@ -31,7 +31,7 @@ struct GicpFactor final : public IcpFactorBase {
 };
 
 struct GicpFactor2 final : public IcpFactorBase {
-  GicpFactor2(const GicpMatch& match) : pmatch{&match} {}
+  GicpFactor2(const PointMatch& match) : pmatch{&match} {}
 
   template <typename T>
   bool operator()(const T* const _T_p_s, T* _r) const noexcept {
@@ -47,7 +47,7 @@ struct GicpFactor2 final : public IcpFactorBase {
     return true;
   }
 
-  const GicpMatch* pmatch{nullptr};
+  const PointMatch* pmatch{nullptr};
 };
 
 struct GicpFactor3 final : public IcpFactorBase {
@@ -71,7 +71,7 @@ struct GicpFactor3 final : public IcpFactorBase {
   }
 
   const SweepGrid* pgrid;
-  std::vector<GicpMatch> matches;
+  std::vector<PointMatch> matches;
   int size_{};
   int gsize_{};
 };
@@ -104,7 +104,7 @@ struct TinyGicpFactor final : public IcpFactorBase {
 
   int size_{};
   Sophus::SE3d T0_;
-  std::vector<GicpMatch> matches;
+  std::vector<PointMatch> matches;
 };
 
 }  // namespace sv

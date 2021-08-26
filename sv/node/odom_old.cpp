@@ -179,11 +179,11 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 
   if (vis_) {
     Imshow("sweep",
-           ApplyCmap(sweep_.DispRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
+           ApplyCmap(sweep_.DrawRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
     Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
-               grid_.DispFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
+               grid_.DrawFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
   }
 
   IntegrateImu();
@@ -402,7 +402,7 @@ void OdomNode::Postprocess() {
   //                                   pano_.total());
 
   if (vis_) {
-    const auto& disps = pano_.DispRangeCount();
+    const auto& disps = pano_.DrawRangeCount();
     Imshow("buf", ApplyCmap(disps[0], 1.0 / DepthPixel::kScale / 30.0));
     Imshow("cnt",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));

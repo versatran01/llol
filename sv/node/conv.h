@@ -8,6 +8,7 @@
 #include <sensor_msgs/Imu.h>
 #include <tf2_eigen/tf2_eigen.h>
 
+#include "sv/llol/cost.h"
 #include "sv/llol/gicp.h"
 #include "sv/llol/grid.h"
 #include "sv/llol/imu.h"

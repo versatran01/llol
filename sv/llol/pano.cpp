@@ -176,7 +176,7 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg) {
   return false;
 }
 
-const std::vector<cv::Mat>& DepthPano::DispRangeCount() {
+const std::vector<cv::Mat>& DepthPano::DrawRangeCount() {
   static std::vector<cv::Mat> disp;
   cv::split(dbuf, disp);
   return disp;

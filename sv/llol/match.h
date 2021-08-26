@@ -7,7 +7,7 @@
 namespace sv {
 
 /// @struct Match
-struct GicpMatch {
+struct PointMatch {
   static constexpr int kBadPx = -100;
 
   cv::Point px_g{kBadPx, kBadPx};  // 8 grid pixel coord

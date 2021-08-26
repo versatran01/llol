@@ -41,7 +41,7 @@ void LidarSweep::Check(const LidarScan& scan) const {
   CHECK_GT(dt, 0);
 }
 
-cv::Mat LidarSweep::DispRange() const {
+cv::Mat LidarSweep::DrawRange() const {
   static cv::Mat disp;
   cv::extractChannel(xyzr, disp, 3);
   return disp;
