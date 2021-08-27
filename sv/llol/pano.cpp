@@ -56,7 +56,7 @@ int DepthPano::Add(const LidarSweep& sweep, int gsize) {
 int DepthPano::AddRow(const LidarSweep& sweep, int sr) {
   int n = 0;
 
-  const int sweep_cols = sweep.xyzr.cols;
+  const int sweep_cols = sweep.mat.cols;
   for (int sc = 0; sc < sweep_cols; ++sc) {
     const auto& xyzr = sweep.XyzrAt({sc, sr});
     const float rg_s = xyzr[3];  // precomputed range

@@ -10,39 +10,39 @@ TEST(ScanTest, TestDefault) {
   LidarSweep ls;
   std::cout << ls << "\n";
 
-  EXPECT_EQ(ls.time, 0);
+  EXPECT_EQ(ls.t0, 0);
   EXPECT_EQ(ls.dt, 0);
-  EXPECT_EQ(ls.xyzr.empty(), true);
+  EXPECT_EQ(ls.mat.empty(), true);
 }
 
 TEST(ScanTest, TestCtor) {
   LidarSweep ls({8, 4});
   std::cout << ls << "\n";
 
-  EXPECT_EQ(ls.xyzr.rows, 4);
-  EXPECT_EQ(ls.xyzr.cols, 8);
-  EXPECT_EQ(ls.xyzr.channels(), 4);
+  EXPECT_EQ(ls.mat.rows, 4);
+  EXPECT_EQ(ls.mat.cols, 8);
+  EXPECT_EQ(ls.mat.channels(), 4);
 }
 
 TEST(ScanTest, TestAdd) {
   LidarSweep ls({8, 4});
   LidarScan scan = MakeTestScan({4, 4});
-  scan.col_rg = {0, 4};
+  scan.curr = {0, 4};
 
   ls.Add(scan);
 
-  EXPECT_EQ(ls.col_rg.start, 0);
-  EXPECT_EQ(ls.col_rg.end, 4);
+  EXPECT_EQ(ls.curr.start, 0);
+  EXPECT_EQ(ls.curr.end, 4);
 
-  scan.col_rg = {4, 8};
+  scan.curr = {4, 8};
   ls.Add(scan);
-  EXPECT_EQ(ls.col_rg.start, 4);
-  EXPECT_EQ(ls.col_rg.end, 8);
+  EXPECT_EQ(ls.curr.start, 4);
+  EXPECT_EQ(ls.curr.end, 8);
 
-  scan.col_rg = {0, 4};
+  scan.curr = {0, 4};
   ls.Add(scan);
-  EXPECT_EQ(ls.col_rg.start, 0);
-  EXPECT_EQ(ls.col_rg.end, 4);
+  EXPECT_EQ(ls.curr.start, 0);
+  EXPECT_EQ(ls.curr.end, 4);
 
   std::cout << ls << "\n";
 }

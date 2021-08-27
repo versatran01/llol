@@ -7,7 +7,6 @@
 namespace sv {
 
 /// @struct Lidar Sweep is a Lidar Scan that covers 360 degree hfov
-/// TODO (chao): refactor LidarScan to some common base class
 struct LidarSweep final : public LidarScan {
   /// Data
   std::vector<Sophus::SE3f> tfs;  // transforms of each columns to some frame
@@ -19,10 +18,6 @@ struct LidarSweep final : public LidarScan {
   friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs) {
     return os << rhs.Repr();
   }
-
-  /// @brief At
-  Sophus::SE3f& TfAt(int c) { return tfs.at(c); }
-  const Sophus::SE3f& TfAt(int c) const { return tfs.at(c); }
 
   /// @brief Add a scan to this sweep
   /// @return Number of points added

@@ -16,14 +16,16 @@ bool PointInSize(const cv::Point& p, const cv::Size& size) {
 }
 
 SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
-    : cell_size{params.cell_cols, params.cell_rows},
+    : ScanBase{sweep_size / cv::Size{params.cell_cols, params.cell_rows},
+               CV_32FC1},
+      cell_size{params.cell_cols, params.cell_rows},
       max_score{params.max_score},
-      nms{params.nms},
-      score{sweep_size / cell_size, CV_32FC1, kNaNF} {
-  CHECK_EQ(cell_size.width * score.cols, sweep_size.width);
-  CHECK_EQ(cell_size.height * score.rows, sweep_size.height);
+      nms{params.nms} {
+  CHECK_EQ(cell_size.width * mat.cols, sweep_size.width);
+  CHECK_EQ(cell_size.height * mat.rows, sweep_size.height);
 
-  tfs.resize(score.cols);
+  mat.setTo(kNaNF);
+  tfs.resize(mat.cols);
   matches.resize(total());
 }
 
@@ -35,7 +37,7 @@ std::string SweepGrid::Repr() const {
                      nms);
 }
 
-std::pair<int, int> SweepGrid::Add(const LidarScan& scan, int gsize) {
+cv::Vec2i SweepGrid::Add(const LidarScan& scan, int gsize) {
   Check(scan);
 
   // Reset matches at start of sweep
@@ -46,21 +48,21 @@ std::pair<int, int> SweepGrid::Add(const LidarScan& scan, int gsize) {
 
 void SweepGrid::Check(const LidarScan& scan) const {
   // scans row must match grid rows
-  CHECK_EQ(scan.xyzr.rows, score.rows * cell_size.height);
+  CHECK_EQ(scan.mat.rows, mat.rows * cell_size.height);
   // scan start must match current end
-  CHECK_EQ(scan.col_rg.start, (col_rg.end * cell_size.width) % score.cols);
+  CHECK_EQ(scan.curr.start, (curr.end * cell_size.width) % mat.cols);
   // scan end must not excced grid cols
-  CHECK_LE(scan.col_rg.end, score.cols * cell_size.width);
+  CHECK_LE(scan.curr.end, mat.cols * cell_size.width);
 }
 
 int SweepGrid::Score(const LidarScan& scan, int gsize) {
-  gsize = gsize <= 0 ? score.rows : gsize;
+  gsize = gsize <= 0 ? mat.rows : gsize;
 
   // update col_rg
-  col_rg = scan.col_rg / cell_size.width;
+  curr = scan.curr / cell_size.width;
 
   return tbb::parallel_reduce(
-      tbb::blocked_range<int>(0, score.rows, gsize),
+      tbb::blocked_range<int>(0, mat.rows, gsize),
       0,
       [&](const auto& block, int n) {
         for (int r = block.begin(); r < block.end(); ++r) {
@@ -75,14 +77,14 @@ int SweepGrid::ScoreRow(const LidarScan& scan, int r) {
   int n = 0;
 
   // Note that scan is not sweep, so we need to start from 0
-  for (int c = 0; c < col_rg.size(); ++c) {
+  for (int c = 0; c < curr.size(); ++c) {
     // this is in scan so c start from 0
     const auto px_s = Grid2Sweep({c, r});
     // Note that we only take the first row regardless of row size
     // this is because ouster lidar image is staggered.
     // Maybe we will handle it later
     const auto curve = scan.CurveAt(px_s, cell_size.width);
-    ScoreAt({c + col_rg.start, r}) = curve;
+    ScoreAt({c + curr.start, r}) = curve;
     n += static_cast<int>(!std::isnan(curve));
   }
   return n;
@@ -91,13 +93,13 @@ int SweepGrid::ScoreRow(const LidarScan& scan, int r) {
 int SweepGrid::Filter(const LidarScan& scan, int gsize) {
   // Check scan col_rg matches stored col_rg, this makes sure that Reduce() is
   // called after Score()
-  const auto new_rg = scan.col_rg / cell_size.width;
-  CHECK_EQ(new_rg.start, col_rg.start);
-  CHECK_EQ(new_rg.end, col_rg.end);
-  gsize = gsize <= 0 ? score.rows : gsize;
+  const auto new_rg = scan.curr / cell_size.width;
+  CHECK_EQ(new_rg.start, curr.start);
+  CHECK_EQ(new_rg.end, curr.end);
+  gsize = gsize <= 0 ? mat.rows : gsize;
 
   return tbb::parallel_reduce(
-      tbb::blocked_range<int>(0, score.rows, gsize),
+      tbb::blocked_range<int>(0, mat.rows, gsize),
       0,
       [&](const auto& blk, int n) {
         for (int r = blk.begin(); r < blk.end(); ++r) {
@@ -115,13 +117,13 @@ int SweepGrid::FilterRow(const LidarScan& scan, int r) {
   // nms will look at left and right neighbor so need to skip first and last
   const int pad = static_cast<int>(nms);
 
-  for (int c = 0; c < col_rg.size(); ++c) {
+  for (int c = 0; c < curr.size(); ++c) {
     // px_g is for grid, so offset by col_rg
-    const cv::Point px_g{c + col_rg.start, r};
+    const cv::Point px_g{c + curr.start, r};
     auto& match = MatchAt(px_g);
 
     // Handle pad for nms
-    if (pad <= c && c < col_rg.size() - pad && IsCellGood(px_g)) {
+    if (pad <= c && c < curr.size() - pad && IsCellGood(px_g)) {
       // scan starts from 0 so use {c, r}
       scan.MeanCovarAt(Grid2Sweep({c, r}), cell_size.width, match.mc_g);
       match.px_g = px_g;
@@ -183,7 +185,7 @@ void SweepGrid::Interp(const std::vector<Sophus::SE3f>& traj) {
   for (int c = 0; c < tfs.size(); ++c) {
     const auto& tf0 = traj.at(c);
     const auto& tf1 = traj.at(c + 1);
-    auto& tf = TfAt(c);
+    auto& tf = tfs.at(c);
     tf.so3() = Sophus::interpolate(tf0.so3(), tf1.so3(), 0.5);
     tf.translation() = (tf0.translation() + tf1.translation()) / 2;
   }

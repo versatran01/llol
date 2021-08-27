@@ -8,17 +8,17 @@
 namespace sv {
 
 /// LidarModel =================================================================
-LidarModel::LidarModel(const cv::Size& size_in, float hfov) : size{size_in} {
-  if (hfov <= 0) {
-    hfov = kTauF / size.aspectRatio();
+LidarModel::LidarModel(const cv::Size& size_in, float vfov) : size{size_in} {
+  if (vfov <= 0) {
+    vfov = kTauF / size.aspectRatio();
   }
 
   CHECK_GT(size.width, 0);
   CHECK_GT(size.height, 0);
-  CHECK_LE(hfov, Deg2Rad(120.0));
+  CHECK_LE(vfov, Deg2Rad(120.0));
 
-  elev_max = hfov / 2.0F;
-  elev_delta = hfov / (size.height - 1);
+  elev_max = vfov / 2.0F;
+  elev_delta = vfov / (size.height - 1);
   azim_delta = kTauF / size.width;
 
   elevs.resize(size.height);

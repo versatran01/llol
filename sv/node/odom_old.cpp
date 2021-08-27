@@ -180,7 +180,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   if (vis_) {
     Imshow("sweep",
            ApplyCmap(sweep_.DrawRange(), 1 / 32.0, cv::COLORMAP_PINK, 0));
-    Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
+    Imshow("score", ApplyCmap(grid_.mat, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
                grid_.DrawFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
@@ -386,7 +386,7 @@ void OdomNode::Postprocess() {
     num_added = pano_.Add(sweep_, tbb_);
   }
   ROS_INFO_STREAM("Num added: " << num_added
-                                << ", sweep total: " << sweep_.xyzr.total());
+                                << ", sweep total: " << sweep_.mat.total());
   if (!pano_init_) {
     pano_init_ = true;
     ROS_INFO_STREAM("Add 1 sweep to pano");

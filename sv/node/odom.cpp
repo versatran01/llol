@@ -61,8 +61,6 @@ struct OdomNode {
   DepthPano pano_;
   GicpSolver gicp_;
 
-  std::pair<int, int> icp_iters_;
-
   TimerManager tm_{"llol"};
 
   /// Methods
@@ -92,12 +90,6 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
-
-  ros::NodeHandle icp_nh{pnh_, "icp"};
-  icp_iters_.first = icp_nh.param<int>("outer", 2);
-  icp_iters_.second = icp_nh.param<int>("inner", 2);
-  ROS_INFO_STREAM("Icp outer: " << icp_iters_.first
-                                << " inner: " << icp_iters_.second);
 
   pano_ = MakePano({pnh_, "pano"});
   ROS_INFO_STREAM(pano_);
@@ -225,7 +217,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {
-  std::pair<int, int> n_cells{};
+  cv::Vec2i n_cells{};
   {  // Reduce scan to grid and Filter
     auto _ = tm_.Scoped("Grid.Add");
     n_cells = grid_.Add(scan, tbb_);
@@ -236,24 +228,24 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   ROS_INFO_STREAM(
       fmt::format("[Grid.Add]: valid cells: {} / {} / {:02.2f}%, "
                   "filtered cells: {} / {} / {:02.2f}%",
-                  n_cells.first,
+                  n_cells[0],
                   grid_total,
-                  100.0 * n_cells.first / grid_total,
-                  n_cells.second,
+                  100.0 * n_cells[0] / grid_total,
+                  n_cells[1],
                   grid_total,
-                  100.0 * n_cells.second / grid_total));
+                  100.0 * n_cells[1] / grid_total));
 
   int n_imus{};
   {  // Integarte imu to fill nominal traj
     auto _ = tm_.Scoped("Imu.Integrate");
-    const auto t0 = scan.time;
+    const auto t0 = scan.t0;
     const auto dt = scan.dt * grid_.cell_size.width;
     n_imus = imu_.Predict(t0, dt);
   }
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
 
   if (vis_) {
-    Imshow("score", ApplyCmap(grid_.score, 1 / 0.2, cv::COLORMAP_VIRIDIS));
+    Imshow("score", ApplyCmap(grid_.mat, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
                grid_.DrawFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
@@ -270,9 +262,9 @@ void OdomNode::Register() {
 
   Eigen::Matrix<double, 6, 1> x;
   TinySolver<AdCost<Cost>> solver;
-  solver.options.max_num_iterations = icp_iters_.second;
+  solver.options.max_num_iterations = gicp_.iters.second;
 
-  for (int i = 0; i < icp_iters_.first; ++i) {
+  for (int i = 0; i < gicp_.iters.first; ++i) {
     x.setZero();
     ROS_INFO_STREAM("Icp iteration: " << i);
 

@@ -9,7 +9,7 @@ namespace sv {
 /// @struct LidarModel
 struct LidarModel {
   LidarModel() = default;
-  explicit LidarModel(const cv::Size& size_in, float hfov = 0.0F);
+  explicit LidarModel(const cv::Size& size_in, float vfov = 0.0F);
 
   /// @brief Repr / <<
   std::string Repr() const;

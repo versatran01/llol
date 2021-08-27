@@ -65,7 +65,7 @@ int GicpSolver::MatchCell(SweepGrid& grid,
 
   // Transform to pano frame
   // TODO (chao): move this transform somewhere else
-  const Eigen::Vector3f pt_p = grid.TfAt(px_g.x) * match.mc_g.mean;
+  const Eigen::Vector3f pt_p = grid.tfs.at(px_g.x) * match.mc_g.mean;
   const float rg_p = pt_p.norm();
 
   // Project to pano

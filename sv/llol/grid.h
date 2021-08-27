@@ -15,17 +15,15 @@ struct GridParams {
 };
 
 /// @struct Sweep Grid summarizes sweep into reduced-sized grid
-struct SweepGrid {
+struct SweepGrid final : public ScanBase {
   /// Params
   cv::Size cell_size;
   float max_score{};
   bool nms{};
 
   /// Data
-  cv::Mat score;                    // smoothness score, smaller is smoother
-  cv::Range col_rg{};               // working range in this grid
-  std::vector<PointMatch> matches;  // all matches
   std::vector<Sophus::SE3f> tfs;    // transforms of each column
+  std::vector<PointMatch> matches;  // all matches
 
   SweepGrid() = default;
   explicit SweepGrid(const cv::Size& sweep_size, const GridParams& params = {});
@@ -37,7 +35,7 @@ struct SweepGrid {
   }
 
   /// @brief Score, Filter and Reduce
-  std::pair<int, int> Add(const LidarScan& scan, int gsize = 0);
+  cv::Vec2i Add(const LidarScan& scan, int gsize = 0);
   void Check(const LidarScan& scan) const;
 
   /// @brief Score each cell of the incoming scan
@@ -53,10 +51,8 @@ struct SweepGrid {
   bool IsCellGood(const cv::Point& px) const;
 
   /// @brief At
-  Sophus::SE3f& TfAt(int c) { return tfs.at(c); }
-  const Sophus::SE3f& TfAt(int c) const { return tfs.at(c); }
-  float& ScoreAt(const cv::Point& px) { return score.at<float>(px); }
-  float ScoreAt(const cv::Point& px) const { return score.at<float>(px); }
+  float& ScoreAt(const cv::Point& px) { return mat.at<float>(px); }
+  float ScoreAt(const cv::Point& px) const { return mat.at<float>(px); }
   PointMatch& MatchAt(const cv::Point& px) { return matches.at(Px2Ind(px)); }
   const PointMatch& MatchAt(const cv::Point& px) const {
     return matches.at(Px2Ind(px));
@@ -69,19 +65,14 @@ struct SweepGrid {
   cv::Point Grid2Sweep(const cv::Point& px) const {
     return {px.x * cell_size.width, px.y * cell_size.height};
   }
-  int Px2Ind(const cv::Point& px) const { return px.y * score.cols + px.x; }
+  int Px2Ind(const cv::Point& px) const { return px.y * cols() + px.x; }
 
-  /// @brief Info
-  int total() const { return score.total(); }
-  bool empty() const { return score.empty(); }
-  cv::Size size() const noexcept { return {score.cols, score.rows}; }
+  /// @brief Interpolate poses of each col (cell)
+  void Interp(const std::vector<Sophus::SE3f>& traj);
 
   /// @brief Draw
   cv::Mat DrawFilter() const;
   cv::Mat DrawMatch() const;
-
-  /// @brief Interpolate poses of each cell
-  void Interp(const std::vector<Sophus::SE3f>& traj);
 };
 
 }  // namespace sv

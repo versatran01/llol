@@ -143,7 +143,7 @@ void Sweep2Cloud(const LidarSweep& sweep,
                     [&](const auto& blk) {
                       for (int r = blk.begin(); r < blk.end(); ++r) {
                         for (int c = 0; c < size.width; ++c) {
-                          const auto& tf = sweep.TfAt(c);
+                          const auto& tf = sweep.tfs.at(c);
                           const auto& xyzr = sweep.XyzrAt({c, r});
                           auto& pc = cloud.at(c, r);
                           if (std::isnan(xyzr[0])) {

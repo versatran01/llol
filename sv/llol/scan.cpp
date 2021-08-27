@@ -8,12 +8,12 @@ namespace sv {
 LidarScan::LidarScan(double t0,
                      double dt,
                      const cv::Mat& xyzr,
-                     const cv::Range& col_range)
-    : time{t0}, dt{dt}, xyzr{xyzr}, col_rg{col_range} {
-  CHECK_GE(t0, 0);
-  CHECK_GT(dt, 0);
-  CHECK_EQ(xyzr.type(), kDtype);
-  CHECK_EQ(xyzr.cols, col_range.size());
+                     const cv::Range& curr)
+    : ScanBase{xyzr, curr}, t0{t0}, dt{dt} {
+  CHECK_GE(t0, 0) << "Time cannot be negative";
+  CHECK_GT(dt, 0) << "Delta time must be positive";
+  CHECK_EQ(xyzr.type(), kDtype) << "Data type mismatch";
+  CHECK_EQ(xyzr.cols, curr.size()) << "Data width mismatch";
 }
 
 void LidarScan::MeanCovarAt(const cv::Point& px,

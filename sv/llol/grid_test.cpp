@@ -11,8 +11,8 @@ TEST(GridTest, TestCtor) {
   EXPECT_EQ(grid.total(), 2048);
   EXPECT_EQ(grid.size().width, 64);
   EXPECT_EQ(grid.size().height, 32);
-  EXPECT_EQ(grid.col_rg.start, 0);
-  EXPECT_EQ(grid.col_rg.end, 0);
+  EXPECT_EQ(grid.curr.start, 0);
+  EXPECT_EQ(grid.curr.end, 0);
   std::cout << grid << std::endl;
 }
 
@@ -28,25 +28,25 @@ TEST(GridTest, TestScore) {
   SweepGrid grid({1024, 64});
 
   auto scan = MakeTestScan({512, 64});
-  scan.col_rg = {0, 512};
+  scan.curr = {0, 512};
   const auto n1 = grid.Score(scan);
   EXPECT_EQ(n1, 1024);
-  EXPECT_EQ(grid.col_rg.end, 32);
+  EXPECT_EQ(grid.curr.end, 32);
   EXPECT_TRUE(std::isnan(grid.ScoreAt({32, 0})));
   EXPECT_EQ(grid.ScoreAt({0, 0}), 0);
   EXPECT_EQ(grid.ScoreAt({31, 0}), 0);
   std::cout << grid << std::endl;
 
-  scan.col_rg = {512, 1024};
+  scan.curr = {512, 1024};
   const auto n2 = grid.Score(scan);
   EXPECT_EQ(n2, 1024);
-  EXPECT_EQ(grid.col_rg.end, 64);
+  EXPECT_EQ(grid.curr.end, 64);
   std::cout << grid << std::endl;
 
-  scan.col_rg = {0, 512};
+  scan.curr = {0, 512};
   const auto n3 = grid.Score(scan);
   EXPECT_EQ(n3, 1024);
-  EXPECT_EQ(grid.col_rg.end, 32);
+  EXPECT_EQ(grid.curr.end, 32);
   std::cout << grid << std::endl;
 }
 

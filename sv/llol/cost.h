@@ -46,7 +46,7 @@ struct GicpCostSingle final : public GicpCostBase {
             const Eigen::Matrix3d U = match.U.cast<double>();
             const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
             const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
-            const auto tf_g = pgrid->TfAt(c).cast<double>();
+            const auto tf_g = pgrid->tfs.at(c).cast<double>();
 
             Eigen::Map<Vec3> r(_r + kNumResiduals * i);
             r = U * (pt_p - tf_g * dT * pt_g);
