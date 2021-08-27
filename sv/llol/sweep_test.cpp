@@ -67,7 +67,7 @@ BENCHMARK(BM_SweepAdd);
 
 void BM_SweepInterp(benchmark::State& state) {
   LidarSweep sweep({1024, 64});
-  std::vector<Sophus::SE3f> traj(64 + 1);
+  std::vector<Sophus::SE3d> traj(64 + 1);
   int gsize = state.range(0);
 
   for (auto _ : state) {

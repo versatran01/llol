@@ -95,7 +95,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
-  pano_ = MakePano({pnh_, "pano"});
+  pano_ = InitPano({pnh_, "pano"});
   ROS_INFO_STREAM(pano_);
 }
 
@@ -133,10 +133,10 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 }
 
 void OdomNode::InitLidar(const sensor_msgs::CameraInfo& cinfo_msg) {
-  sweep_ = MakeSweep(cinfo_msg);
+  sweep_ = InitSweep(cinfo_msg);
   ROS_INFO_STREAM(sweep_);
 
-  grid_ = MakeGrid({pnh_, "grid"}, sweep_.size());
+  grid_ = InitGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
   matcher_ = MakeMatcher({pnh_, "match"});

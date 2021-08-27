@@ -30,7 +30,6 @@ sv/llol/lidar.h
 sv/llol/lidar_test.cpp
 sv/llol/match.cpp
 sv/llol/match.h
-sv/llol/match_test.cpp
 sv/llol/odom.cpp
 sv/llol/odom.h
 sv/llol/odom_bench.cpp
@@ -82,6 +81,8 @@ sv/temp/ceres_bench.cpp
 sv/temp/curve_fitting.cpp
 sv/temp/factor.cpp
 sv/temp/factor.h
+sv/temp/imu_factor.h
+sv/temp/vins_imu.h
 sv/util/CMakeLists.txt
 sv/util/angle.h
 sv/util/manager.cpp

@@ -3,6 +3,8 @@
 #include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
 
+#include <sophus/interpolate.hpp>
+
 namespace sv {
 
 TEST(MathTest, TestAngleConversion) {
@@ -17,6 +19,14 @@ TEST(MathTest, TestAngleConversion) {
   EXPECT_DOUBLE_EQ(Rad2Deg(M_PI), 180.0);
   EXPECT_DOUBLE_EQ(Rad2Deg(M_PI * 2), 360.0);
   EXPECT_DOUBLE_EQ(Rad2Deg(-M_PI), -180.0);
+}
+
+TEST(LinalgTest, TestMatrixSqrtUtU) {
+  Eigen::Matrix3Xf X = Eigen::Matrix3Xf::Random(3, 100);
+  const Eigen::Matrix3f A = X * X.transpose();
+  const Eigen::Matrix3f U = MatrixSqrtUtU(A);
+  const Eigen::Matrix3f UtU = U.transpose() * U;
+  EXPECT_TRUE(A.isApprox(UtU));
 }
 
 TEST(MathTest, TestMeanCovar) {

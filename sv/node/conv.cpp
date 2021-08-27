@@ -25,11 +25,11 @@ LidarScan MakeScan(const sensor_msgs::Image& image_msg,
                     cinfo_msg.roi.x_offset + cinfo_msg.roi.width)};
 }
 
-LidarSweep MakeSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
+LidarSweep InitSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
   return LidarSweep{cv::Size(cinfo_msg.width, cinfo_msg.height)};
 }
 
-SweepGrid MakeGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size) {
+SweepGrid InitGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size) {
   GridParams gp;
   gp.cell_rows = pnh.param<int>("cell_rows", gp.cell_rows);
   gp.cell_cols = pnh.param<int>("cell_cols", gp.cell_cols);
@@ -38,7 +38,7 @@ SweepGrid MakeGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size) {
   return SweepGrid{sweep_size, gp};
 }
 
-DepthPano MakePano(const ros::NodeHandle& pnh) {
+DepthPano InitPano(const ros::NodeHandle& pnh) {
   PanoParams pp;
   const auto pano_rows = pnh.param<int>("rows", 256);
   const auto pano_cols = pnh.param<int>("cols", 1024);
@@ -49,7 +49,7 @@ DepthPano MakePano(const ros::NodeHandle& pnh) {
   return DepthPano({pano_cols, pano_rows}, pp);
 }
 
-GicpSolver MakeGicp(const ros::NodeHandle& pnh) {
+GicpSolver InitGicp(const ros::NodeHandle& pnh) {
   GicpParams gp;
   gp.outer = pnh.param<int>("outer", gp.outer);
   gp.inner = pnh.param<int>("inner", gp.inner);
@@ -58,7 +58,7 @@ GicpSolver MakeGicp(const ros::NodeHandle& pnh) {
   return GicpSolver{gp};
 }
 
-ImuData MakeImu(const sensor_msgs::Imu& imu_msg) {
+ImuData MakeImuData(const sensor_msgs::Imu& imu_msg) {
   ImuData imu;
   imu.time = imu_msg.header.stamp.toSec();
   const auto& a = imu_msg.linear_acceleration;
@@ -66,6 +66,15 @@ ImuData MakeImu(const sensor_msgs::Imu& imu_msg) {
   imu.acc = {a.x, a.y, a.z};
   imu.gyr = {w.x, w.y, w.z};
   return imu;
+}
+
+ImuNoise InitImuNoise(const ros::NodeHandle& pnh) {
+  const auto dt = 1.0 / pnh.param<double>("rate", 100.0);
+  const auto acc_noise = pnh.param<double>("acc_noise", 1e-3);
+  const auto gyr_noise = pnh.param<double>("gyr_noise", 1e-4);
+  const auto acc_bias_noise = pnh.param<double>("acc_bias_noise", 1e-4);
+  const auto gyr_bias_noise = pnh.param<double>("gyr_bias_noise", 1e-5);
+  return {dt, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
 }
 
 void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,

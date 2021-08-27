@@ -18,4 +18,12 @@ void MakeRightHanded(Eigen::Vector3f& eigvals, Eigen::Matrix3f& eigvecs) {
   }
 }
 
+Eigen::Matrix3f MatrixSqrtUtU(const Eigen::Matrix3f& A) {
+  return A.selfadjointView<Eigen::Upper>().llt().matrixU();
+}
+
+Eigen::Matrix3d MatrixSqrtUtU(const Eigen::Matrix3d& A) {
+  return A.selfadjointView<Eigen::Upper>().llt().matrixU();
+}
+
 }  // namespace sv

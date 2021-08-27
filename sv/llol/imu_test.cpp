@@ -8,7 +8,17 @@
 namespace sv {
 namespace {
 
-TEST(ImuTest, TestExtractImus) {
+TEST(ImuTest, TestImuNoise) {
+  ImuNoise noise(0.1, 1, 2, 3, 4);
+  std::cout << noise << std::endl;
+
+  EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::NA), 10);
+  EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::NW), 40);
+  EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::BA), 0.9);
+  EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::BW), 1.6);
+}
+
+TEST(ImuTest, TestFindNextImu) {
   ImuBuffer buffer(10);
   for (int i = 0; i < 5; ++i) {
     ImuData d;

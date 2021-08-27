@@ -35,7 +35,7 @@ cc_library(
 cc_library(
   NAME util_math
   SRCS "util/math.cpp"
-  DEPS sv_base Eigen3::Eigen)
+  DEPS sv_base sv_log Eigen3::Eigen)
 cc_test(
   NAME util_math_test
   SRCS "util/math_test.cpp"
@@ -81,7 +81,7 @@ cc_test(
 cc_library(
   NAME llol_imu
   SRCS "llol/imu.cpp"
-  DEPS sv_base sv_log Sophus::Sophus Boost::boost)
+  DEPS sv_base sv_log sv_util_math Boost::boost)
 cc_test(
   NAME llol_imu_test
   SRCS "llol/imu_test.cpp"
@@ -108,10 +108,6 @@ cc_library(
   NAME llol_match
   SRCS "llol/match.cpp"
   DEPS sv_base sv_util_math opencv_core)
-cc_test(
-  NAME llol_match_test
-  SRCS "llol/match_test.cpp"
-  DEPS sv_llol_match)
 
 cc_library(
   NAME llol_pano

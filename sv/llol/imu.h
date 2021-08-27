@@ -56,17 +56,60 @@ NavState IntegrateMidpoint(const NavState& s0,
 
 using ImuBuffer = boost::circular_buffer<ImuData>;
 
+/// @brief Discrete time IMU noise
+struct ImuNoise {
+  using Vector12d = Eigen::Matrix<double, 12, 1>;
+  enum Index { NA = 0, NW = 3, BA = 6, BW = 9 };
+
+  ImuNoise() = default;
+  ImuNoise(double dt,
+           double acc_noise,
+           double gyr_noise,
+           double acc_bias_noise,
+           double gyr_bias_noise);
+
+  std::string Repr() const;
+  friend std::ostream& operator<<(std::ostream& os, const ImuNoise& rhs) {
+    return os << rhs.Repr();
+  }
+
+  Vector12d sigma2{Vector12d::Zero()};  // discrete time noise covar
+};
+
+/// @brief Imu preintegration
+struct ImuPreintegration {
+  static constexpr int kDim = 15;
+  using Matrix15d = Eigen::Matrix<double, kDim, kDim>;
+  enum Index { ALPHA = 0, BETA = 3, THETA = 6, BA = 9, BW = 12 };
+
+  void Reset();
+  void Integrate(double dt, const ImuData& imu, const ImuNoise& noise);
+  void SqrtInfo();
+
+  /// Data
+  int n{0};  // number of imus used
+  Eigen::Vector3d alpha{kZero3d};
+  Eigen::Vector3d beta{kZero3d};
+  Sophus::SO3d gamma{};
+  Matrix15d F{Matrix15d::Identity()};  // State transition matrix
+  Matrix15d P{Matrix15d::Zero()};      // Covariance matrix
+  Matrix15d U{Matrix15d::Zero()};      // Square root information matrix
+};
+
 /// @brief Get the index of the imu right after time t
 int FindNextImu(const ImuBuffer& buf, double t);
 
 /// @brief Accumulates imu data and integrate
 /// @todo for now only integrate gyro for rotation
-struct ImuTraj {
+struct ImuTrajectory {
   ImuBuffer buf{16};
-  ImuBias bias{};
+  ImuBias bias;
+  ImuNoise noise;
+  ImuPreintegration preint;
+
+  Eigen::Vector3d g;
   Sophus::SE3d T_imu_lidar{};
-  std::vector<Sophus::SE3f> traj;
-  Eigen::Matrix<double, 12, 1> sigma2;
+  std::vector<Sophus::SE3d> traj;
 
   /// @brief Add imu data into buffer
   void Add(const ImuData& imu) { buf.push_back(imu); }

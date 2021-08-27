@@ -166,15 +166,17 @@ cv::Mat SweepGrid::DrawMatch() const {
   return disp;
 }
 
-void SweepGrid::Interp(const std::vector<Sophus::SE3f>& traj) {
+void SweepGrid::Interp(const std::vector<Sophus::SE3d>& traj) {
   CHECK_EQ(tfs.size() + 1, traj.size());
 
   for (int c = 0; c < tfs.size(); ++c) {
     const auto& tf0 = traj.at(c);
     const auto& tf1 = traj.at(c + 1);
-    auto& tf = tfs.at(c);
+    // TODO (chao): make my own interp function
+    Sophus::SE3d tf;
     tf.so3() = Sophus::interpolate(tf0.so3(), tf1.so3(), 0.5);
     tf.translation() = (tf0.translation() + tf1.translation()) / 2;
+    tfs.at(c) = tf.cast<float>();
   }
 }
 

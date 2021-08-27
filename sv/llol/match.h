@@ -28,7 +28,4 @@ struct PointMatch {
   void SqrtInfo(float lambda = 0.0F);
 };
 
-/// @brief Computes matrix square root using Cholesky
-Eigen::Matrix3f MatrixSqrtUtU(const Eigen::Matrix3f& A);
-
 }  // namespace sv

@@ -55,7 +55,7 @@ struct OdomNode {
   std::string odom_frame_{"odom"};
 
   /// odom
-  ImuTraj imu_;
+  ImuTrajectory imu_;
   LidarSweep sweep_;
   SweepGrid grid_;
   DepthPano pano_;
@@ -69,7 +69,7 @@ struct OdomNode {
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
   void Preprocess(const LidarScan& scan);
-  void InitLidar(const sensor_msgs::CameraInfo& cinfo_msg);
+  void Init(const sensor_msgs::CameraInfo& cinfo_msg);
   void Register();
   void PostProcess(const LidarScan& scan);
 };
@@ -91,13 +91,13 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
-  pano_ = MakePano({pnh_, "pano"});
+  pano_ = InitPano({pnh_, "pano"});
   ROS_INFO_STREAM(pano_);
 }
 
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   // Add imu data to buffer
-  const auto imu = MakeImu(imu_msg);
+  const auto imu = MakeImuData(imu_msg);
   imu_.Add(imu);
 
   if (tf_init_) return;
@@ -127,17 +127,19 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   }
 }
 
-void OdomNode::InitLidar(const sensor_msgs::CameraInfo& cinfo_msg) {
-  ROS_INFO_STREAM("+++ Initializing lidar");
-  sweep_ = MakeSweep(cinfo_msg);
+void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
+  ROS_INFO_STREAM("+++ Initializing");
+  sweep_ = InitSweep(cinfo_msg);
   ROS_INFO_STREAM(sweep_);
 
-  grid_ = MakeGrid({pnh_, "grid"}, sweep_.size());
+  grid_ = InitGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
   imu_.traj.resize(grid_.size().width + 1);
+  imu_.noise = InitImuNoise({pnh_, "imu"});
+  ROS_INFO_STREAM(imu_.noise);
 
-  gicp_ = MakeGicp({pnh_, "gicp"});
+  gicp_ = InitGicp({pnh_, "gicp"});
   ROS_INFO_STREAM(gicp_);
 }
 
@@ -158,7 +160,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 
   // Allocate storage for sweep, grid and matcher
   if (!lidar_init_) {
-    InitLidar(*cinfo_msg);
+    Init(*cinfo_msg);
     lidar_init_ = true;
     ROS_INFO_STREAM("Sweep storage initialized!");
   }
@@ -298,9 +300,9 @@ void OdomNode::Register() {
 
     // Update traj
     auto& traj = imu_.traj;
-    Sophus::SE3f dT;
-    dT.so3() = Sophus::SO3f::exp(x.head<3>().cast<float>());
-    dT.translation() = x.tail<3>().cast<float>();
+    Sophus::SE3d dT;
+    dT.so3() = Sophus::SO3d::exp(x.head<3>());
+    dT.translation() = x.tail<3>();
     for (auto& tf : traj) {
       tf = tf * dT;
     }

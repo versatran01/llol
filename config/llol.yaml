@@ -1,8 +1,9 @@
 imu:
+  rate: 100
   acc_noise: 0.001249
-  acc_rand_walk: 0.000106
+  acc_bias_noise: 0.000106
   gyr_noise: 0.000208
-  gyr_rand_walk: 0.000004
+  gyr_bias_noise: 0.000004
 grid:
   cell_rows: 2
   cell_cols: 16

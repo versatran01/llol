@@ -12,6 +12,17 @@ static constexpr auto kTauF = static_cast<float>(M_PI * 2);
 static constexpr auto kPiD = static_cast<double>(M_PI);
 static constexpr auto kTauD = static_cast<double>(M_PI * 2);
 
+// clang-format off
+/// @brief Make skew symmetric matrix
+inline Eigen::Matrix3d Hat3(const Eigen::Vector3d& w) {
+  Eigen::Matrix3d S;
+  S << 0.0,     -w(2),  w(1),
+       w(2),    0.0,    -w(0),
+       -w(1),   w(0),   0.0;
+  return S;
+}
+// clang-format on
+
 template <typename T>
 T Deg2Rad(T deg) {
   static_assert(std::is_floating_point_v<T>, "T must be floating point");
@@ -111,4 +122,7 @@ Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);
 /// https://docs.ros.org/en/noetic/api/rviz/html/c++/covariance__visual_8cpp_source.html
 void MakeRightHanded(Eigen::Vector3f& eigvals, Eigen::Matrix3f& eigvecs);
 
+/// @brief Computes matrix square root using Cholesky
+Eigen::Matrix3f MatrixSqrtUtU(const Eigen::Matrix3f& A);
+Eigen::Matrix3d MatrixSqrtUtU(const Eigen::Matrix3d& A);
 }  // namespace sv

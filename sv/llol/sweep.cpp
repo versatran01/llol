@@ -23,7 +23,7 @@ int LidarSweep::Add(const LidarScan& scan) {
   return scan.total();
 }
 
-void LidarSweep::Interp(const std::vector<Sophus::SE3f>& traj, int gsize) {
+void LidarSweep::Interp(const std::vector<Sophus::SE3d>& traj, int gsize) {
   const int num_cells = traj.size() - 1;
   const int cell_width = cols() / num_cells;
   gsize = gsize <= 0 ? num_cells : gsize;
@@ -46,9 +46,10 @@ void LidarSweep::Interp(const std::vector<Sophus::SE3f>& traj, int gsize) {
                           // which column
                           const int col = i * cell_width + j;
                           const float s = static_cast<float>(j) / cell_width;
-                          auto& tf = tfs.at(col);
-                          tf.so3() = R0 * Sophus::SO3f::exp(s * dR);
+                          Sophus::SE3d tf;
+                          tf.so3() = R0 * Sophus::SO3d::exp(s * dR);
                           tf.translation() = t0 + s * dt;
+                          tfs.at(col) = tf.cast<float>();
                         }
                       }
                     });

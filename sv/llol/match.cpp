@@ -1,6 +1,5 @@
 #include "sv/llol/match.h"
 
-#include <Eigen/Cholesky>  // llt
 #include <Eigen/Geometry>  // inverse
 
 namespace sv {
@@ -27,10 +26,6 @@ void PointMatch::SqrtInfo(float lambda) {
     cov.diagonal().array() += lambda;
   }
   U = MatrixSqrtUtU(cov.inverse().eval());
-}
-
-Eigen::Matrix3f MatrixSqrtUtU(const Eigen::Matrix3f& A) {
-  return A.selfadjointView<Eigen::Upper>().llt().matrixU();
 }
 
 }  // namespace sv

@@ -4,6 +4,7 @@
 #include <tbb/parallel_for.h>
 
 #include "sv/llol/grid.h"
+#include "sv/llol/imu.h"
 
 namespace sv {
 
@@ -52,6 +53,26 @@ struct GicpCostSingle final : public GicpCostBase {
             r = U * (pt_p - tf_g * dT * pt_g);
           }
         });
+
+    return true;
+  }
+};
+
+struct GicpImuCost {
+  const SweepGrid* const pgrid{nullptr};
+  std::vector<PointMatch> matches;
+  int gsize{};
+
+  virtual int NumResiduals() const {
+    return matches.size() * 3 + ImuPreintegration::kDim;
+  }
+
+  template <typename T>
+  bool operator()(const T* const _x, T* _r) const {
+    using Vec6 = Eigen::Matrix<T, 6, 1>;
+    using Vec3 = Eigen::Matrix<T, 3, 1>;
+    using SE3 = Sophus::SE3<T>;
+    using SO3 = Sophus::SO3<T>;
 
     return true;
   }
