@@ -9,8 +9,8 @@ namespace {
 TEST(GridTest, TestCtor) {
   const SweepGrid grid({1024, 64});
   EXPECT_EQ(grid.total(), 2048);
-  EXPECT_EQ(grid.size().width, 64);
-  EXPECT_EQ(grid.size().height, 32);
+  EXPECT_EQ(grid.cols(), 64);
+  EXPECT_EQ(grid.rows(), 32);
   EXPECT_EQ(grid.curr.start, 0);
   EXPECT_EQ(grid.curr.end, 0);
   std::cout << grid << std::endl;

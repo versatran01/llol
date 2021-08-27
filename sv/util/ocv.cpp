@@ -44,6 +44,7 @@ std::string CvTypeStr(int type) {
 
   return r;
 }
+
 std::string Repr(const cv::Mat& mat) {
   return fmt::format("(hwc=({},{},{}), depth={})",
                      mat.rows,

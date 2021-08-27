@@ -5,15 +5,57 @@
 
 namespace sv {
 
+/// ScanBase ===================================================================
+ScanBase::ScanBase(const cv::Size& size, int dtype) : mat{size, dtype} {
+  tfs.resize(size.width);
+}
+
+ScanBase::ScanBase(double t0,
+                   double dt,
+                   const cv::Mat& mat,
+                   const cv::Range& curr)
+    : t0{t0}, dt{dt}, mat{mat}, curr{curr} {
+  CHECK_GE(t0, 0) << "Time cannot be negative";
+  CHECK_GT(dt, 0) << "Delta time must be positive";
+  CHECK_EQ(cols(), curr.size()) << "Mat width mismatch";
+}
+
+void ScanBase::UpdateTime(double new_t0, double new_dt) {
+  CHECK_LE(t0, new_t0);
+  t0 = new_t0;
+  t0 = new_t0;
+  if (dt == 0) {
+    dt = new_dt;
+  } else {
+    CHECK_EQ(dt, new_dt);
+  }
+}
+
+void ScanBase::UpdateView(const cv::Range& new_curr) {
+  const int width = new_curr.size();
+  CHECK_EQ(new_curr.start, curr.end % cols());
+  CHECK_LE(width, cols());
+
+  // Update curr
+  curr = new_curr;
+  if (full()) {
+    // If span full increment both
+    span.start += width;
+    span.end += width;
+  } else {
+    // If span not full, only increment end
+    span.end += width;
+  }
+  CHECK_LE(span.size(), cols());
+}
+
+/// LidarScan ==================================================================
 LidarScan::LidarScan(double t0,
                      double dt,
                      const cv::Mat& xyzr,
                      const cv::Range& curr)
-    : ScanBase{xyzr, curr}, t0{t0}, dt{dt} {
-  CHECK_GE(t0, 0) << "Time cannot be negative";
-  CHECK_GT(dt, 0) << "Delta time must be positive";
-  CHECK_EQ(xyzr.type(), kDtype) << "Data type mismatch";
-  CHECK_EQ(xyzr.cols, curr.size()) << "Data width mismatch";
+    : ScanBase{t0, dt, xyzr, curr} {
+  CHECK_EQ(xyzr.type(), kDtype) << "Mat type mismatch";
 }
 
 void LidarScan::MeanCovarAt(const cv::Point& px,

@@ -1,18 +1,13 @@
 #pragma once
 
-#include <sophus/se3.hpp>
-
 #include "sv/llol/scan.h"
 
 namespace sv {
 
 /// @struct Lidar Sweep is a Lidar Scan that covers 360 degree hfov
 struct LidarSweep final : public LidarScan {
-  /// Data
-  std::vector<Sophus::SE3f> tfs;  // transforms of each columns to some frame
-
   LidarSweep() = default;
-  explicit LidarSweep(const cv::Size& size);
+  explicit LidarSweep(const cv::Size& size) : LidarScan{size} {}
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const LidarSweep& rhs) {
@@ -22,7 +17,6 @@ struct LidarSweep final : public LidarScan {
   /// @brief Add a scan to this sweep
   /// @return Number of points added
   int Add(const LidarScan& scan);
-  void Check(const LidarScan& scan) const;
 
   /// @brief Interpolate pose of each column
   void Interp(const std::vector<Sophus::SE3f>& traj, int gsize = 0);

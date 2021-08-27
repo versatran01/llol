@@ -10,45 +10,22 @@
 namespace sv {
 
 int LidarSweep::Add(const LidarScan& scan) {
-  if (dt == 0) dt = scan.dt;
-  Check(scan);
+  CHECK_EQ(scan.type(), type());
+  CHECK_EQ(scan.rows(), rows());
+  CHECK_LE(scan.cols(), cols());
 
-  // Increment id when we got a new sweep (indicated by the starting col of the
-  // incoming scan being 0)
-  if (scan.curr.start == 0) {
-    t0 = scan.t0;  // update time
-  }
+  UpdateTime(scan.t0, scan.dt);
+  UpdateView(scan.curr);
 
-  // Save range and copy to storage
-  curr = scan.curr;
+  // copy to storage
   scan.mat.copyTo(mat.colRange(curr));  // x,y,w,h
   // TODO (chao): return number of valid points?
-  return scan.mat.total();
-}
-
-void LidarSweep::Check(const LidarScan& scan) const {
-  // Check scan type compatible
-  CHECK_EQ(scan.mat.type(), mat.type());
-  // Check rows match between scan and mat
-  CHECK_EQ(scan.mat.rows, mat.rows);
-  // Check scan width is not bigger than sweep
-  CHECK_LE(scan.mat.cols, mat.cols);
-  CHECK_LE(scan.curr.end, mat.cols);
-  // Check that the new scan start right after
-  CHECK_EQ(scan.curr.start, curr.end % mat.cols);
-
-  // Check dt is consistent, assume it stays the same
-  CHECK_EQ(dt, scan.dt);
-  CHECK_GT(dt, 0);
+  return scan.total();
 }
 
 void LidarSweep::Interp(const std::vector<Sophus::SE3f>& traj, int gsize) {
   const int num_cells = traj.size() - 1;
-  const int cell_width = mat.cols / num_cells;
-  // TODO (chao): hack check
-  CHECK_EQ(num_cells, 64);
-  CHECK_EQ(cell_width, 16);
-
+  const int cell_width = cols() / num_cells;
   gsize = gsize <= 0 ? num_cells : gsize;
 
   tbb::parallel_for(tbb::blocked_range<int>(0, num_cells, gsize),
@@ -81,10 +58,6 @@ cv::Mat LidarSweep::DrawRange() const {
   static cv::Mat disp;
   cv::extractChannel(mat, disp, 3);
   return disp;
-}
-
-LidarSweep::LidarSweep(const cv::Size& size) : LidarScan{size} {
-  tfs.resize(size.width);
 }
 
 std::string LidarSweep::Repr() const {

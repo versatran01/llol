@@ -61,7 +61,7 @@ NavState IntegrateMidpoint(const NavState& s0,
   return s1;
 }
 
-int ImuModel::Predict(double t0, double dt) {
+int ImuTraj::Predict(double t0, double dt) {
   int ibuf = FindNextImu(buf, t0);
   if (ibuf < 0) return 0;  // no valid imu found
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <sophus/se3.hpp>
-
 #include "sv/llol/match.h"
 #include "sv/llol/scan.h"
 
@@ -10,19 +8,18 @@ namespace sv {
 struct GridParams {
   int cell_rows{2};
   int cell_cols{16};
-  float max_score{0.01F};  // score > max_score will be discarded
   bool nms{true};          // non-minimum suppression in Filter()
+  float max_score{0.01F};  // score > max_score will be discarded
 };
 
 /// @struct Sweep Grid summarizes sweep into reduced-sized grid
 struct SweepGrid final : public ScanBase {
   /// Params
-  cv::Size cell_size;
-  float max_score{};
   bool nms{};
+  float max_score{};
+  cv::Size cell_size;
 
   /// Data
-  std::vector<Sophus::SE3f> tfs;    // transforms of each column
   std::vector<PointMatch> matches;  // all matches
 
   SweepGrid() = default;
@@ -36,7 +33,6 @@ struct SweepGrid final : public ScanBase {
 
   /// @brief Score, Filter and Reduce
   cv::Vec2i Add(const LidarScan& scan, int gsize = 0);
-  void Check(const LidarScan& scan) const;
 
   /// @brief Score each cell of the incoming scan
   /// @param gsize is number of rows per task, <=0 means single thread

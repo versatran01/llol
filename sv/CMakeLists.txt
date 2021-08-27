@@ -72,7 +72,11 @@ cc_test(
 cc_library(
   NAME llol_scan
   SRCS "llol/scan.cpp"
-  DEPS sv_util_math sv_util_ocv)
+  DEPS sv_util_math sv_util_ocv Sophus::Sophus)
+cc_test(
+  NAME llol_scan_test
+  SRCS "llol/scan_test.cpp"
+  DEPS sv_llol_scan)
 
 cc_library(
   NAME llol_imu
@@ -90,7 +94,7 @@ cc_bench(
 cc_library(
   NAME llol_sweep
   SRCS "llol/sweep.cpp"
-  DEPS sv_llol_scan sv_tbb Sophus::Sophus)
+  DEPS sv_llol_scan sv_tbb)
 cc_test(
   NAME llol_sweep_test
   SRCS "llol/sweep_test.cpp"

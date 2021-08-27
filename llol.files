@@ -40,6 +40,7 @@ sv/llol/pano.h
 sv/llol/pano_test.cpp
 sv/llol/scan.cpp
 sv/llol/scan.h
+sv/llol/scan_test.cpp
 sv/llol/sweep.cpp
 sv/llol/sweep.h
 sv/llol/sweep_test.cpp

@@ -55,7 +55,7 @@ struct OdomNode {
   std::string odom_frame_{"odom"};
 
   /// odom
-  ImuModel imu_;
+  ImuTraj imu_;
   LidarSweep sweep_;
   SweepGrid grid_;
   DepthPano pano_;
@@ -294,10 +294,7 @@ void OdomNode::Register() {
     t_solve.Resume();
     solver.Solve(adcost, &x);
     t_solve.Stop(false);
-    ROS_INFO_STREAM("1: " << solver.summary.Report());
-
-    // TODO: maybe try interp in SE3?
-    ROS_INFO_STREAM("norm1: " << x.norm());
+    ROS_INFO_STREAM(solver.summary.Report());
 
     // Update traj
     auto& traj = imu_.traj;

@@ -61,14 +61,15 @@ int FindNextImu(const ImuBuffer& buf, double t);
 
 /// @brief Accumulates imu data and integrate
 /// @todo for now only integrate gyro for rotation
-struct ImuModel {
+struct ImuTraj {
   ImuBuffer buf{16};
   ImuBias bias{};
   Sophus::SE3d T_imu_lidar{};
   std::vector<Sophus::SE3f> traj;
+  Eigen::Matrix<double, 12, 1> sigma2;
 
   /// @brief Add imu data into buffer
-  void Add(const ImuData& imu) { buf.push_back(imu.DeBiased(bias)); }
+  void Add(const ImuData& imu) { buf.push_back(imu); }
 
   /// @brief Given the first pose in poses, predict using imu
   /// @return Number of imus used
