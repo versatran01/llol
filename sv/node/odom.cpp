@@ -118,8 +118,13 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const Eigen::Quaterniond q_imu_lidar{q.w, q.x, q.y, q.z};
     imu_.T_imu_lidar = Sophus::SE3d{q_imu_lidar, t_imu_lidar};
 
-    ROS_INFO_STREAM("Transform from lidar to imu\n"
+    ROS_INFO_STREAM("Transform from lidar to imu:\n"
                     << imu_.T_imu_lidar.matrix());
+
+    imu_.InitGravity();
+    ROS_INFO_STREAM("Gravity vector: " << imu_.gravity.transpose());
+    ROS_INFO_STREAM("Rotation from pano to odom:\n"
+                    << imu_.R_odom_pano.matrix());
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {
     ROS_WARN_STREAM(ex.what());
@@ -150,14 +155,6 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     ROS_INFO_STREAM("Lidar frame: " << lidar_frame_);
   }
 
-  // Transform from pano to odom
-  TransformStamped tf_o_p;
-  tf_o_p.header.frame_id = odom_frame_;
-  tf_o_p.header.stamp = cinfo_msg->header.stamp;
-  tf_o_p.child_frame_id = pano_frame_;
-  tf_o_p.transform.rotation.w = 1.0;
-  tf_broadcaster_.sendTransform(tf_o_p);
-
   // Allocate storage for sweep, grid and matcher
   if (!lidar_init_) {
     Init(*cinfo_msg);
@@ -175,6 +172,14 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     ROS_WARN_STREAM("Transform not initialized");
     return;
   }
+
+  // Transform from pano to odom
+  TransformStamped tf_o_p;
+  tf_o_p.header.frame_id = odom_frame_;
+  tf_o_p.header.stamp = cinfo_msg->header.stamp;
+  tf_o_p.child_frame_id = pano_frame_;
+  tf_o_p.transform.rotation = tf2::toMsg(imu_.R_odom_pano.unit_quaternion());
+  tf_broadcaster_.sendTransform(tf_o_p);
 
   // We can always process incoming scan no matter what
   const auto scan = MakeScan(*image_msg, *cinfo_msg);

@@ -64,6 +64,14 @@ NavState IntegrateMidpoint(const NavState& s0,
   return s1;
 }
 
+void ImuTrajectory::InitGravity() {
+  CHECK(!buf.empty());
+  // TODO (chao): set gravity magnitude from ouster decoder
+  gravity = buf[0].acc.normalized() * 9.80184;
+  R_odom_pano.setQuaternion(
+      Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(), gravity));
+}
+
 int ImuTrajectory::Predict(double t0, double dt) {
   int ibuf = FindNextImu(buf, t0);
   if (ibuf < 0) return 0;  // no valid imu found

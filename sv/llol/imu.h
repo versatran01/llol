@@ -107,9 +107,13 @@ struct ImuTrajectory {
   ImuNoise noise;
   ImuPreintegration preint;
 
-  Eigen::Vector3d g;
+  Eigen::Vector3d gravity;
+  Sophus::SO3d R_odom_pano{};
   Sophus::SE3d T_imu_lidar{};
+  std::vector<NavState> traj_imu;
   std::vector<Sophus::SE3d> traj;
+
+  void InitGravity();
 
   /// @brief Add imu data into buffer
   void Add(const ImuData& imu) { buf.push_back(imu); }
