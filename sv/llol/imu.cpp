@@ -111,10 +111,6 @@ int FindNextImu(const ImuBuffer& buf, double t) {
   return ibuf;
 }
 
-namespace {
-constexpr double Sq(double x) noexcept { return x * x; }
-}  // namespace
-
 ImuNoise::ImuNoise(double dt,
                    double acc_noise,
                    double gyr_noise,
@@ -143,26 +139,67 @@ void ImuPreintegration::Integrate(double dt,
                                   const ImuData& imu,
                                   const ImuNoise& noise) {
   const auto dt2 = Sq(dt);
-  const auto Rmat = gamma.matrix();
 
   const Vector3d& a = imu.acc;
   const Vector3d& w = imu.gyr;
+  const Vector3d ga = gamma * a;
 
   // vins-mono eq 7
-  const auto dalpha = beta * dt + gamma * a * dt2 * 0.5;
-  const auto dbeta = gamma * a * dt;
   const auto dgamma = Sophus::SO3d::exp(w * dt);
+  const auto dbeta = ga * dt;
+  const auto dalpha = beta * dt + ga * dt2 * 0.5;
 
   // vins-mono eq 9
   // [0  I        0    0   0]
   // [0  0  -R*[a]x   -R   0]
   // [0  0    -[w]x    0  -I]
   // last two rows are all zeros
-  F.block<3, 3>(Index::ALPHA, Index::BETA).setIdentity();
+  const auto Rmat = gamma.matrix();
+  F.block<3, 3>(Index::ALPHA, Index::BETA) = kIdent3;
   F.block<3, 3>(Index::BETA, Index::THETA) = -Rmat * Hat3(a);
   F.block<3, 3>(Index::BETA, Index::BA) = -Rmat;
   F.block<3, 3>(Index::THETA, Index::THETA) = -Hat3(w);
-  F.block<3, 3>(Index::THETA, Index::BW).setIdentity();
+  F.block<3, 3>(Index::THETA, Index::BW) = -kIdent3;
+
+  // vins-mono eq 10
+  // Update covariance
+  P = F * P * F.transpose() * dt2;
+  P.diagonal().tail<12>() += noise.sigma2;
+
+  // Update measurement
+  alpha += dalpha;
+  beta += dbeta;
+  gamma *= dgamma;
+  ++n;
+}
+
+void ImuPreintegration::Integrate(double dt,
+                                  const ImuData& imu0,
+                                  const ImuData& imu1,
+                                  const ImuNoise& noise) {
+  const auto dt2 = Sq(dt);
+
+  const Vector3d w = (imu0.gyr + imu1.gyr) / 2.0;
+  const auto dgamma = Sophus::SO3d::exp(w * dt);
+  const auto gamma1 = gamma * dgamma;
+
+  const auto& a0 = imu0.acc;
+  const Vector3d ga = (gamma * imu0.acc + gamma1 * imu1.acc) / 2.0;
+
+  const auto dbeta = ga * dt;
+  const auto dalpha = beta * dt + ga * dt2 * 0.5;
+
+  // vins-mono eq 9
+  // [0  I        0    0   0]
+  // [0  0  -R*[a]x   -R   0]
+  // [0  0    -[w]x    0  -I]
+  // last two rows are all zeros
+  const auto Rmat = gamma.matrix();
+  F.block<3, 3>(Index::ALPHA, Index::BETA) = kIdent3;
+  F.block<3, 3>(Index::BETA, Index::THETA) = -Rmat * Hat3(a0);
+  F.block<3, 3>(Index::BETA, Index::BA) = -Rmat;
+  F.block<3, 3>(Index::THETA, Index::THETA) = -Hat3(w);
+  F.block<3, 3>(Index::THETA, Index::BW) = -kIdent3;
 
   // vins-mono eq 10
   // Update covariance

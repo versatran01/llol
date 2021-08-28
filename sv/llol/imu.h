@@ -6,6 +6,7 @@
 namespace sv {
 
 static const Eigen::Vector3d kZero3d = Eigen::Vector3d::Zero();
+static const Eigen::Matrix3d kIdent3 = Eigen::Matrix3d::Identity();
 
 struct NavState {
   double time{};
@@ -76,26 +77,6 @@ struct ImuNoise {
   Vector12d sigma2{Vector12d::Zero()};  // discrete time noise covar
 };
 
-/// @brief Imu preintegration
-struct ImuPreintegration {
-  static constexpr int kDim = 15;
-  using Matrix15d = Eigen::Matrix<double, kDim, kDim>;
-  enum Index { ALPHA = 0, BETA = 3, THETA = 6, BA = 9, BW = 12 };
-
-  void Reset();
-  void Integrate(double dt, const ImuData& imu, const ImuNoise& noise);
-  void SqrtInfo();
-
-  /// Data
-  int n{0};  // number of imus used
-  Eigen::Vector3d alpha{kZero3d};
-  Eigen::Vector3d beta{kZero3d};
-  Sophus::SO3d gamma{};
-  Matrix15d F{Matrix15d::Identity()};  // State transition matrix
-  Matrix15d P{Matrix15d::Zero()};      // Covariance matrix
-  Matrix15d U{Matrix15d::Zero()};      // Square root information matrix
-};
-
 /// @brief Get the index of the imu right after time t
 int FindNextImu(const ImuBuffer& buf, double t);
 
@@ -105,12 +86,11 @@ struct ImuTrajectory {
   ImuBuffer buf{16};
   ImuBias bias;
   ImuNoise noise;
-  ImuPreintegration preint;
 
-  Eigen::Vector3d gravity;
-  Sophus::SO3d R_odom_pano{};
+  Eigen::Vector3d gravity;     // gravity vector in pano frame
+  Sophus::SO3d R_odom_pano{};  // make first pano frame gravity aligned
   Sophus::SE3d T_imu_lidar{};
-  std::vector<NavState> traj_imu;
+  std::vector<NavState> states;
   std::vector<Sophus::SE3d> traj;
 
   void InitGravity();
@@ -121,6 +101,30 @@ struct ImuTrajectory {
   /// @brief Given the first pose in poses, predict using imu
   /// @return Number of imus used
   int Predict(double t0, double dt);
+};
+
+/// @brief Imu preintegration
+struct ImuPreintegration {
+  static constexpr int kDim = 15;
+  using Matrix15d = Eigen::Matrix<double, kDim, kDim>;
+  enum Index { ALPHA = 0, BETA = 3, THETA = 6, BA = 9, BW = 12 };
+
+  void Reset();
+  void Integrate(double dt, const ImuData& imu, const ImuNoise& noise);
+  void Integrate(double dt,
+                 const ImuData& imu0,
+                 const ImuData& imu1,
+                 const ImuNoise& noise);
+  void SqrtInfo();
+
+  /// Data
+  int n{0};  // number of imus used
+  Eigen::Vector3d alpha{kZero3d};
+  Eigen::Vector3d beta{kZero3d};
+  Sophus::SO3d gamma{};
+  Matrix15d F{Matrix15d::Identity()};  // State transition matrix
+  Matrix15d P{Matrix15d::Zero()};      // Covariance matrix
+  Matrix15d U{Matrix15d::Zero()};      // Square root information matrix
 };
 
 }  // namespace sv

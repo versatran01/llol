@@ -24,6 +24,11 @@ inline Eigen::Matrix3d Hat3(const Eigen::Vector3d& w) {
 // clang-format on
 
 template <typename T>
+constexpr T Sq(T x) noexcept {
+  return x * x;
+}
+
+template <typename T>
 T Deg2Rad(T deg) {
   static_assert(std::is_floating_point_v<T>, "T must be floating point");
   return deg / 180.0 * M_PI;
