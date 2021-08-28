@@ -52,8 +52,8 @@ void Grid2Markers(const SweepGrid& grid,
 
   // TODO (chao): only draw matches up to width?
   // TODO (chao): also need to remove bad match
-  for (int r = 0; r < grid.size().height; ++r) {
-    for (int c = 0; c < grid.size().width; ++c) {
+  for (int r = 0; r < grid.rows(); ++r) {
+    for (int c = 0; c < grid.cols(); ++c) {
       const auto i = grid.Px2Ind({c, r});
       const auto& match = grid.MatchAt({c, r});
 

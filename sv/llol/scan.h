@@ -13,11 +13,8 @@ struct ScanBase {
   double dt{};
 
   // Scan related data
-  cv::Mat mat;     // storage
-  cv::Range curr;  // current range
-
-  // Sweep related data
-  cv::Range span;                 // spanning range
+  cv::Mat mat;                    // storage
+  cv::Range curr;                 // current range
   std::vector<Sophus::SE3f> tfs;  // tfs of each col to some frame
 
   ScanBase() = default;
@@ -32,7 +29,6 @@ struct ScanBase {
   int total() const { return mat.total(); }
   bool empty() const { return mat.empty(); }
   int channels() const { return mat.channels(); }
-  int full() const { return span.size() == cols(); }
   cv::Size size() const { return {mat.cols, mat.rows}; }
 
   /// @brief Update view (curr and span) given new curr
@@ -48,7 +44,7 @@ struct LidarScan : public ScanBase {
 
   LidarScan() = default;
   /// @brief Ctor for allocating storage
-  explicit LidarScan(const cv::Size& size) : ScanBase{size, kDtype} {}
+  explicit LidarScan(const cv::Size& size);
   /// @brief Ctor for incoming lidar scan
   LidarScan(double t0, double dt, const cv::Mat& xyzr, const cv::Range& curr);
 

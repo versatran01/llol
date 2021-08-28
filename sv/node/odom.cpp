@@ -14,7 +14,7 @@
 #include "sv/node/conv.h"
 #include "sv/node/viz.h"
 #include "sv/util/manager.h"
-#include "sv/util/solver.h"
+#include "sv/util/solver2.h"
 
 // others
 #include <fmt/ostream.h>
@@ -103,28 +103,27 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   if (tf_init_) return;
 
   // tf stuff
-  if (lidar_frame_.empty()) {
-    ROS_WARN_STREAM("Lidar frame is empty");
+  if (!lidar_init_) {
+    ROS_WARN_STREAM("Lidar not initialized");
     return;
   }
 
   try {
-    const auto tf_imu_lidar = tf_buffer_.lookupTransform(
+    const auto tf_i_l = tf_buffer_.lookupTransform(
         imu_msg.header.frame_id, lidar_frame_, ros::Time(0));
 
-    const auto& t = tf_imu_lidar.transform.translation;
-    const auto& q = tf_imu_lidar.transform.rotation;
-    const Eigen::Vector3d t_imu_lidar{t.x, t.y, t.z};
-    const Eigen::Quaterniond q_imu_lidar{q.w, q.x, q.y, q.z};
-    imu_.T_imu_lidar = Sophus::SE3d{q_imu_lidar, t_imu_lidar};
-
+    const auto& t = tf_i_l.transform.translation;
+    const auto& q = tf_i_l.transform.rotation;
+    const Eigen::Vector3d t_i_l{t.x, t.y, t.z};
+    const Eigen::Quaterniond q_i_l{q.w, q.x, q.y, q.z};
+    imu_.InitExtrinsic({q_i_l, t_i_l});
     ROS_INFO_STREAM("Transform from lidar to imu:\n"
                     << imu_.T_imu_lidar.matrix());
 
-    imu_.InitGravity();
+    imu_.InitGravity(9.80184);
     ROS_INFO_STREAM("Gravity vector: " << imu_.gravity.transpose());
-    ROS_INFO_STREAM("Rotation from pano to odom:\n"
-                    << imu_.R_odom_pano.matrix());
+    ROS_INFO_STREAM("Transform from pano to odom:\n"
+                    << imu_.T_init_pano.matrix());
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {
     ROS_WARN_STREAM(ex.what());
@@ -140,7 +139,8 @@ void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
   grid_ = InitGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
-  imu_.traj.resize(grid_.size().width + 1);
+  imu_.states.resize(grid_.cols() + 1);
+  imu_.traj.resize(grid_.cols() + 1);
   imu_.noise = InitImuNoise({pnh_, "imu"});
   ROS_INFO_STREAM(imu_.noise);
 
@@ -159,7 +159,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   if (!lidar_init_) {
     Init(*cinfo_msg);
     lidar_init_ = true;
-    ROS_INFO_STREAM("Sweep storage initialized!");
+    ROS_INFO_STREAM("Lidar initialized!");
   }
 
   if (!imu_.buf.full()) {
@@ -178,7 +178,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   tf_o_p.header.frame_id = odom_frame_;
   tf_o_p.header.stamp = cinfo_msg->header.stamp;
   tf_o_p.child_frame_id = pano_frame_;
-  tf_o_p.transform.rotation = tf2::toMsg(imu_.R_odom_pano.unit_quaternion());
+  SE3d2Ros(imu_.T_init_pano, tf_o_p.transform);
   tf_broadcaster_.sendTransform(tf_o_p);
 
   // We can always process incoming scan no matter what
@@ -268,7 +268,7 @@ void OdomNode::Register() {
   using Cost = GicpCostSingle;
 
   Eigen::Matrix<double, 6, 1> x;
-  TinySolver<AdCost<Cost>> solver;
+  static TinySolver<AdCost<Cost>> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
 
   for (int i = 0; i < gicp_.iters.first; ++i) {

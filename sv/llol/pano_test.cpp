@@ -10,8 +10,8 @@ namespace {
 
 TEST(DepthPanoTest, TestCtor) {
   DepthPano dp{{1024, 256}};
-  EXPECT_EQ(dp.size().width, 1024);
-  EXPECT_EQ(dp.size().height, 256);
+  EXPECT_EQ(dp.cols(), 1024);
+  EXPECT_EQ(dp.rows(), 256);
   EXPECT_EQ(dp.dbuf.rows, 256);
   EXPECT_EQ(dp.dbuf.cols, 1024);
   std::cout << dp << std::endl;
@@ -50,10 +50,10 @@ BENCHMARK(BM_PanoAddSweep)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8)->Arg(16);
 void BM_PanoRender(benchmark::State& state) {
   DepthPano pano({1024, 256});
   pano.dbuf.setTo(1024);
-  const int tbb_rows = state.range(0);
+  const int gsize = state.range(0);
 
   for (auto _ : state) {
-    pano.Render({}, tbb_rows);
+    pano.Render({}, gsize);
     benchmark::DoNotOptimize(pano);
   }
 }

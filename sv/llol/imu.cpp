@@ -64,12 +64,23 @@ NavState IntegrateMidpoint(const NavState& s0,
   return s1;
 }
 
-void ImuTrajectory::InitGravity() {
+void ImuTrajectory::InitGravity(double gravity_norm) {
   CHECK(!buf.empty());
-  // TODO (chao): set gravity magnitude from ouster decoder
-  gravity = buf[0].acc.normalized() * 9.80184;
-  R_odom_pano.setQuaternion(
+  gravity = buf[0].acc.normalized() * gravity_norm;
+  T_init_pano.so3().setQuaternion(
       Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(), gravity));
+}
+
+void ImuTrajectory::InitExtrinsic(const Sophus::SE3d& T_i_l) {
+  T_imu_lidar = T_i_l;
+  // set all imu states to inverse of T_i_l because we want first sweep frame to
+  // be the same as pano
+  const auto T_l_i = T_i_l.inverse();
+  CHECK(!states.empty());
+  for (auto& s : states) {
+    s.rot = T_l_i.so3();
+    s.pos = T_l_i.translation();
+  }
 }
 
 int ImuTrajectory::Predict(double t0, double dt) {

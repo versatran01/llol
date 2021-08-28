@@ -95,5 +95,7 @@ sv/util/ocv.h
 sv/util/ocv_test.cpp
 sv/util/solver.cpp
 sv/util/solver.h
+sv/util/solver2.h
+sv/util/solver_test.cpp
 sv/util/stats.h
 sv/util/timer.h

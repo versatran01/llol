@@ -38,18 +38,22 @@ void ScanBase::UpdateView(const cv::Range& new_curr) {
 
   // Update curr
   curr = new_curr;
-  if (full()) {
-    // If span full increment both
-    span.start += width;
-    span.end += width;
-  } else {
-    // If span not full, only increment end
-    span.end += width;
-  }
-  CHECK_LE(span.size(), cols());
+  //  if (full()) {
+  //    // If span full increment both
+  //    span.start += width;
+  //    span.end += width;
+  //  } else {
+  //    // If span not full, only increment end
+  //    span.end += width;
+  //  }
+  //  CHECK_LE(span.size(), cols());
 }
 
 /// LidarScan ==================================================================
+LidarScan::LidarScan(const cv::Size& size) : ScanBase{size, kDtype} {
+  mat.setTo(kNaNF);
+}
+
 LidarScan::LidarScan(double t0,
                      double dt,
                      const cv::Mat& xyzr,

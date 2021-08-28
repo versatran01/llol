@@ -50,12 +50,12 @@
 
 #pragma once
 
-#include <glog/logging.h>
-
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <cassert>
 #include <cmath>
+
+#include "sv/util/solver.h"
 
 namespace sv {
 
@@ -126,44 +126,13 @@ namespace sv {
 //   int NumParameters() const;
 //
 
-/// Adapted from ceres to add simple report function
-
-enum class SolverStatus {
-  GRADIENT_TOO_SMALL,            // eps > max(J'*f(x))
-  RELATIVE_STEP_SIZE_TOO_SMALL,  // eps > ||dx|| / (||x|| + eps)
-  COST_TOO_SMALL,                // eps > ||f(x)||^2 / 2
-  HIT_MAX_ITERATIONS,
-
-  // TODO(sameeragarwal): Deal with numerical failures.
-};
-
-std::string Repr(SolverStatus status);
-
-struct SolverOptions {
-  double gradient_tolerance = 1e-10;  // eps > max(J'*f(x))
-  double parameter_tolerance = 1e-8;  // eps > ||dx|| / ||x||
-  double cost_threshold =
-      std::numeric_limits<double>::epsilon();  // eps > ||f(x)||
-  double initial_trust_region_radius = 1e4;
-  int max_num_iterations = 50;
-};
-
-struct SolverSummary {
-  double initial_cost = -1;       // 1/2 ||f(x)||^2
-  double final_cost = -1;         // 1/2 ||f(x)||^2
-  double gradient_max_norm = -1;  // max(J'f(x))
-  int iterations = -1;
-  SolverStatus status = SolverStatus::HIT_MAX_ITERATIONS;
-
-  std::string Report() const;
-};
-
+// This version preallocates everything and use Eigen::Map
 template <typename Function,
           typename LinearSolver =
               Eigen::LDLT<Eigen::Matrix<typename Function::Scalar,
                                         Function::NUM_PARAMETERS,
                                         Function::NUM_PARAMETERS>>>
-class TinySolver {
+class TinySolver2 {
  public:
   // This class needs to have an Eigen aligned operator new as it contains
   // fixed-size Eigen types.
@@ -175,6 +144,13 @@ class TinySolver {
   };
   using Scalar = typename Function::Scalar;
   using Parameters = Eigen::Matrix<Scalar, NUM_PARAMETERS, 1>;
+  using ParametersMap = Eigen::Map<Parameters>;
+  using Residuals = Eigen::Matrix<Scalar, NUM_RESIDUALS, 1>;
+  using ResidualsMap = Eigen::Map<Residuals>;
+  using Jacobian = Eigen::Matrix<Scalar, NUM_RESIDUALS, NUM_PARAMETERS>;
+  using JacobianMap = Eigen::Map<Jacobian>;
+  using Hessian = Eigen::Matrix<Scalar, NUM_PARAMETERS, NUM_PARAMETERS>;
+  using HessianMap = Eigen::Map<Hessian>;
 
   bool Update(const Function& function, const Parameters& x) {
     if (!function(x.data(), error_.data(), jacobian_.data())) {
@@ -199,8 +175,8 @@ class TinySolver {
     // TODO(sameeragarwal): Refactor this to allow for DenseQR
     // factorization.
     jacobian_ = jacobian_ * jacobi_scaling_.asDiagonal();
-    jtj_ = jacobian_.transpose() * jacobian_;
-    g_ = jacobian_.transpose() * error_;
+    jtj_.noalias() = jacobian_.transpose() * jacobian_;
+    g_.noalias() = jacobian_.transpose() * error_;
     summary.gradient_max_norm = g_.array().abs().maxCoeff();
     cost_ = error_.squaredNorm() / 2.0;
     return true;
@@ -208,7 +184,7 @@ class TinySolver {
 
   const SolverSummary& Solve(const Function& function, Parameters* x_and_min) {
     Initialize<NUM_RESIDUALS, NUM_PARAMETERS>(function);
-    assert(x_and_min);
+    CHECK_NOTNULL(x_and_min);
     Parameters& x = *x_and_min;
     summary = SolverSummary();
     summary.iterations = 0;
@@ -246,7 +222,7 @@ class TinySolver {
       // TODO(sameeragarwal): Check for failure and deal with it.
       linear_solver_.compute(jtj_regularized_);
       lm_step_ = linear_solver_.solve(g_);
-      dx_ = jacobi_scaling_.asDiagonal() * lm_step_;
+      dx_.noalias() = jacobi_scaling_.asDiagonal() * lm_step_;
 
       // Adding parameter_tolerance to x.norm() ensures that this
       // works if x is near zero.
@@ -314,10 +290,16 @@ class TinySolver {
   // linear system. This allows reusing the intermediate storage across solves.
   LinearSolver linear_solver_;
   Scalar cost_;
-  Parameters dx_, x_new_, g_, jacobi_scaling_, lm_diagonal_, lm_step_;
-  Eigen::Matrix<Scalar, NUM_RESIDUALS, 1> error_, f_x_new_;
-  Eigen::Matrix<Scalar, NUM_RESIDUALS, NUM_PARAMETERS> jacobian_;
-  Eigen::Matrix<Scalar, NUM_PARAMETERS, NUM_PARAMETERS> jtj_, jtj_regularized_;
+
+  ParametersMap dx_{nullptr, 0}, x_new_{nullptr, 0};
+  ParametersMap g_{nullptr, 0}, jacobi_scaling_{nullptr, 0};
+  ParametersMap lm_diagonal_{nullptr, 0}, lm_step_{nullptr, 0};
+
+  ResidualsMap error_{nullptr, 0}, f_x_new_{nullptr, 0};
+  JacobianMap jacobian_{nullptr, 0, 0};
+  HessianMap jtj_{nullptr, 0, 0}, jtj_regularized_{nullptr, 0, 0};
+
+  std::vector<Scalar> storage_;
 
   // The following definitions are needed for template metaprogramming.
   template <bool Condition, typename T>
@@ -354,20 +336,58 @@ class TinySolver {
   // The number of parameters and residuals are statically sized.
   template <int R, int P>
   typename enable_if<(R != Eigen::Dynamic && P != Eigen::Dynamic), void>::type
-  Initialize(const Function& /* function */) {}
+  Initialize(const Function& function) {
+    Initialize(R, P);
+  }
 
   void Initialize(int num_residuals, int num_parameters) {
-    dx_.resize(num_parameters);
-    x_new_.resize(num_parameters);
-    g_.resize(num_parameters);
-    jacobi_scaling_.resize(num_parameters);
-    lm_diagonal_.resize(num_parameters);
-    lm_step_.resize(num_parameters);
-    error_.resize(num_residuals);
-    f_x_new_.resize(num_residuals);
-    jacobian_.resize(num_residuals, num_parameters);
-    jtj_.resize(num_parameters, num_parameters);
-    jtj_regularized_.resize(num_parameters, num_parameters);
+    const int num_jacobian = num_residuals * num_parameters;
+    const int num_hessian = num_parameters * num_parameters;
+    const int total = num_parameters * 6 + num_residuals * 2 +
+                      num_jacobian * 1 + num_hessian * 2;
+    storage_.resize(total);
+    auto* s = storage_.data();
+
+    // https://eigen.tuxfamily.org/dox/group__TutorialMapClass.html#TutorialMapPlacementNew
+    //    dx_.resize(num_parameters);
+    //    x_new_.resize(num_parameters);
+    //    g_.resize(num_parameters);
+    //    jacobi_scaling_.resize(num_parameters);
+    //    lm_diagonal_.resize(num_parameters);
+    //    lm_step_.resize(num_parameters);
+
+    new (&dx_) ParametersMap(s, num_parameters);
+    s += num_parameters;
+    new (&x_new_) ParametersMap(s, num_parameters);
+    s += num_parameters;
+    new (&g_) ParametersMap(s, num_parameters);
+    s += num_parameters;
+    new (&jacobi_scaling_) ParametersMap(s, num_parameters);
+    s += num_parameters;
+    new (&lm_diagonal_) ParametersMap(s, num_parameters);
+    s += num_parameters;
+    new (&lm_step_) ParametersMap(s, num_parameters);
+    s += num_parameters;
+
+    //    error_.resize(num_residuals);
+    //    f_x_new_.resize(num_residuals);
+    new (&error_) ResidualsMap(s, num_residuals);
+    s += num_residuals;
+    new (&f_x_new_) ResidualsMap(s, num_residuals);
+    s += num_residuals;
+
+    //    jacobian_.resize(num_residuals, num_parameters);
+    new (&jacobian_) JacobianMap(s, num_residuals, num_parameters);
+    s += num_jacobian;
+
+    //    jtj_.resize(num_parameters, num_parameters);
+    //    jtj_regularized_.resize(num_parameters, num_parameters);
+    new (&jtj_) HessianMap(s, num_parameters, num_parameters);
+    s += num_hessian;
+    new (&jtj_regularized_) HessianMap(s, num_parameters, num_parameters);
+    s += num_hessian;
+
+    CHECK_EQ(s - storage_.data(), total);
   }
 };
 

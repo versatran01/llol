@@ -87,13 +87,14 @@ struct ImuTrajectory {
   ImuBias bias;
   ImuNoise noise;
 
-  Eigen::Vector3d gravity;     // gravity vector in pano frame
-  Sophus::SO3d R_odom_pano{};  // make first pano frame gravity aligned
-  Sophus::SE3d T_imu_lidar{};
-  std::vector<NavState> states;
+  Eigen::Vector3d gravity;       // gravity vector in pano frame
+  Sophus::SE3d T_init_pano{};    // tf from pano to init frame
+  Sophus::SE3d T_imu_lidar{};    // extrinsics lidar to imu
+  std::vector<NavState> states;  // imu state wrt current pano
   std::vector<Sophus::SE3d> traj;
 
-  void InitGravity();
+  void InitGravity(double gravity_norm);
+  void InitExtrinsic(const Sophus::SE3d& T_i_l);
 
   /// @brief Add imu data into buffer
   void Add(const ImuData& imu) { buf.push_back(imu); }

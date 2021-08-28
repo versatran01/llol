@@ -33,22 +33,22 @@ TEST(ScanTest, TestAdd) {
 
   EXPECT_EQ(ls.curr.start, 0);
   EXPECT_EQ(ls.curr.end, 4);
-  EXPECT_EQ(ls.span.start, 0);
-  EXPECT_EQ(ls.span.end, 4);
+  //  EXPECT_EQ(ls.span.start, 0);
+  //  EXPECT_EQ(ls.span.end, 4);
 
   scan.curr = {4, 8};
   ls.Add(scan);
   EXPECT_EQ(ls.curr.start, 4);
   EXPECT_EQ(ls.curr.end, 8);
-  EXPECT_EQ(ls.span.start, 0);
-  EXPECT_EQ(ls.span.end, 8);
+  //  EXPECT_EQ(ls.span.start, 0);
+  //  EXPECT_EQ(ls.span.end, 8);
 
   scan.curr = {0, 4};
   ls.Add(scan);
   EXPECT_EQ(ls.curr.start, 0);
   EXPECT_EQ(ls.curr.end, 4);
-  EXPECT_EQ(ls.span.start, 4);
-  EXPECT_EQ(ls.span.end, 12);
+  //  EXPECT_EQ(ls.span.start, 4);
+  //  EXPECT_EQ(ls.span.end, 12);
 
   std::cout << ls << "\n";
 }

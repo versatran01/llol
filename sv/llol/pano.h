@@ -74,6 +74,8 @@ struct DepthPano {
   bool UpdateBuffer(const cv::Point& px, float rg);
 
   /// @brief info
+  int rows() const { return dbuf.rows; }
+  int cols() const { return dbuf.cols; }
   bool empty() const { return dbuf.empty(); }
   size_t total() const { return dbuf.total(); }
   cv::Size size() const noexcept { return model.size; }

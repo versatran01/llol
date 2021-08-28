@@ -34,7 +34,7 @@ std::string GicpSolver::Repr() const {
 }
 
 int GicpSolver::Match(SweepGrid& grid, const DepthPano& pano, int gsize) {
-  const auto rows = grid.size().height;
+  const auto rows = grid.rows();
   gsize = gsize <= 0 ? rows : gsize;
 
   return tbb::parallel_reduce(
@@ -51,7 +51,7 @@ int GicpSolver::Match(SweepGrid& grid, const DepthPano& pano, int gsize) {
 
 int GicpSolver::MatchRow(SweepGrid& grid, const DepthPano& pano, int gr) {
   int n = 0;
-  for (int gc = 0; gc < grid.size().width; ++gc) {
+  for (int gc = 0; gc < grid.cols(); ++gc) {
     n += MatchCell(grid, pano, {gc, gr});
   }
   return n;
