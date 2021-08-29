@@ -94,7 +94,7 @@ int GicpSolver::MatchCell(SweepGrid& grid,
     return 0;
   }
   // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
-  match.SqrtInfo(cov_lambda);
+  match.CalcSqrtInfo(cov_lambda);
   return 1;
 }
 

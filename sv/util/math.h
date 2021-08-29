@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <cmath>
 #include <type_traits>
@@ -128,6 +129,9 @@ Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);
 void MakeRightHanded(Eigen::Vector3f& eigvals, Eigen::Matrix3f& eigvecs);
 
 /// @brief Computes matrix square root using Cholesky
-Eigen::Matrix3f MatrixSqrtUtU(const Eigen::Matrix3f& A);
-Eigen::Matrix3d MatrixSqrtUtU(const Eigen::Matrix3d& A);
+template <typename T, int N>
+Eigen::Matrix<T, N, N> MatrixSqrtUtU(const Eigen::Matrix<T, N, N>& A) {
+  return A.template selfadjointView<Eigen::Upper>().llt().matrixU();
+}
+
 }  // namespace sv

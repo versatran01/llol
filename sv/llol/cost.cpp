@@ -15,4 +15,9 @@ GicpCost::GicpCost(const SweepGrid& grid, int gsize)
   }
 }
 
+ImuPreintegrationCost::ImuPreintegrationCost(const ImuTrajectory& traj)
+    : ptraj{&traj} {
+  preint.Compute(traj);
+}
+
 }  // namespace sv

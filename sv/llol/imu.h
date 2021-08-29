@@ -59,7 +59,8 @@ using ImuBuffer = boost::circular_buffer<ImuData>;
 
 /// @brief Discrete time IMU noise
 struct ImuNoise {
-  using Vector12d = Eigen::Matrix<double, 12, 1>;
+  static constexpr int kDim = 12;
+  using Vector12d = Eigen::Matrix<double, kDim, 1>;
   enum Index { NA = 0, NW = 3, BA = 6, BW = 9 };
 
   ImuNoise() = default;
@@ -96,8 +97,9 @@ struct ImuTrajectory {
   std::vector<NavState> states;  // imu state wrt current pano
 
   int size() const { return states.size(); }
-  auto& StateAt(int i) { return states.at(i); }
-  const auto& StateAt(int i) const { return states.at(i); }
+  NavState& StateAt(int i) { return states.at(i); }
+  const NavState& StateAt(int i) const { return states.at(i); }
+  const ImuData& ImuAt(int i) const { return buf.at(i); }
 
   void InitGravity(double gravity_norm);
   void InitExtrinsic(const Sophus::SE3d& T_i_l);
@@ -107,6 +109,7 @@ struct ImuTrajectory {
 
   /// @brief Given the first pose in poses, predict using imu
   /// @return Number of imus used
+  /// @todo Need to handle partial sweep
   int Predict(double t0, double dt);
 };
 
@@ -116,15 +119,14 @@ struct ImuPreintegration {
   using Matrix15d = Eigen::Matrix<double, kDim, kDim>;
   enum Index { ALPHA = 0, BETA = 3, THETA = 6, BA = 9, BW = 12 };
 
+  /// @brief Compute measurement for imu trajectory
+  int Compute(const ImuTrajectory& traj);
   void Reset();
+
   void Integrate(double dt, const ImuData& imu, const ImuNoise& noise);
-  void Integrate(double dt,
-                 const ImuData& imu0,
-                 const ImuData& imu1,
-                 const ImuNoise& noise);
-  void SqrtInfo();
 
   /// Data
+  double duration{};
   int n{0};  // number of imus used
   Eigen::Vector3d alpha{kZero3d};
   Eigen::Vector3d beta{kZero3d};

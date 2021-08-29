@@ -35,16 +35,16 @@ void LidarSweep::Interp(const ImuTrajectory& traj, int gsize) {
                         const auto& T0 = traj.StateAt(i);
                         const auto& T1 = traj.StateAt(i + 1);
 
-                        const auto dR = (T0.rot.inverse() * T1.rot).log();
-                        const auto dt = (T0.pos - T1.pos).eval();
+                        const auto drot = (T0.rot.inverse() * T1.rot).log();
+                        const auto dtrans = (T0.pos - T1.pos).eval();
 
                         for (int j = 0; j < cell_width; ++j) {
                           // which column
                           const int col = i * cell_width + j;
                           const float s = static_cast<float>(j) / cell_width;
                           Sophus::SE3d tf;
-                          tf.so3() = T0.rot * Sophus::SO3d::exp(s * dR);
-                          tf.translation() = T0.pos + s * dt;
+                          tf.so3() = T0.rot * Sophus::SO3d::exp(s * drot);
+                          tf.translation() = T0.pos + s * dtrans;
                           tfs.at(col) = (tf * traj.T_imu_lidar).cast<float>();
                         }
                       }

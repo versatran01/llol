@@ -25,7 +25,7 @@ struct PointMatch {
   void ResetPano();
   void Reset();
 
-  void SqrtInfo(float lambda = 0.0F);
+  void CalcSqrtInfo(float lambda = 0.0F);
 };
 
 }  // namespace sv

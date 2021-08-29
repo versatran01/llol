@@ -31,6 +31,44 @@ TEST(ImuTest, TestFindNextImu) {
   EXPECT_EQ(FindNextImu(buffer, 0.5), 1);
 }
 
+TEST(ImuTest, TestImuTrajectoryPredict) {
+  ImuTrajectory traj(4);
+  for (int i = 0; i < 5; ++i) {
+    ImuData imu;
+    imu.time = i;
+    traj.Add(imu);
+  }
+
+  const int n = traj.Predict(0.5, 1);
+  EXPECT_EQ(n, 4);
+  EXPECT_EQ(traj.states.front().time, 0.5);
+  EXPECT_EQ(traj.states.back().time, 3.5);
+}
+
+TEST(ImuTest, TestImuPreintegration) {
+  ImuTrajectory traj(4);
+  for (int i = 0; i < 5; ++i) {
+    ImuData imu;
+    imu.time = i;
+    traj.Add(imu);
+  }
+
+  // Have imu that is later then end of traj
+  ImuPreintegration preint;
+  traj.states.front().time = 0.5;
+  traj.states.back().time = 3.5;
+  preint.Compute(traj);
+  EXPECT_EQ(preint.n, 4);
+  EXPECT_EQ(preint.duration, 3);
+
+  // Imu ends earlier in time
+  traj.states.back().time = 5.5;
+  preint.Reset();
+  preint.Compute(traj);
+  EXPECT_EQ(preint.n, 5);
+  EXPECT_EQ(preint.duration, 5);
+}
+
 void BM_IntegrateRot(benchmark::State& state) {
   const auto size = state.range(0);
   std::vector<Sophus::SO3d> Rs(size + 1);

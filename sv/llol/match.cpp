@@ -20,7 +20,7 @@ void PointMatch::Reset() {
   U.setZero();
 }
 
-void PointMatch::SqrtInfo(float lambda) {
+void PointMatch::CalcSqrtInfo(float lambda) {
   Eigen::Matrix3f cov = mc_p.Covar();
   if (lambda > 0) {
     cov.diagonal().array() += lambda;
