@@ -303,7 +303,7 @@ void OdomNode::Register() {
 
     // Update state
     auto& states = imu_.states;
-    //    Sophus::SE3d dT;
+    //    Sophus::SE3d dT{};
     //    dT.so3() = Sophus::SO3d::exp(x.head<3>());
     //    dT.translation() = x.tail<3>();
     //    for (auto& st : states) {
@@ -315,7 +315,7 @@ void OdomNode::Register() {
     const Sophus::SO3d dR = Sophus::SO3d::exp(x.head<3>());
     for (auto& st : states) {
       st.rot = dR * st.rot;
-      st.pos = x.tail<3>() + st.pos;
+      st.pos = dR * st.pos + x.tail<3>();
     }
 
     if (vis_) {

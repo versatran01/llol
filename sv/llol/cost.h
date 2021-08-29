@@ -34,11 +34,9 @@ struct GicpRigidCost final : public GicpCost {
     using SO3 = Sophus::SO3<T>;
 
     // We now assume left multiply delta
-    //    Eigen::Map<const Vec6> x(_x);
     Eigen::Map<const Vec3> dr(_x);
-    Eigen::Map<const Vec3> dt(_x + 3);
-    //    const SE3 dT{SO3::exp(x.template head<3>()), x.template tail<3>()};
-    const SO3 dR = SO3::exp(dr);
+    Eigen::Map<const Vec3> dp(_x + 3);
+    const SE3 dT{SO3::exp(dr), dp};
 
     tbb::parallel_for(
         tbb::blocked_range<int>(0, matches.size(), gsize * 2),
@@ -52,13 +50,7 @@ struct GicpRigidCost final : public GicpCost {
             const auto tf_g = pgrid->tfs.at(c).cast<double>();
 
             Eigen::Map<Vec3> r(_r + kNumResiduals * i);
-            // r = U * (pt_p - dT * tf_g * pt_g);
-            // SE3 tf;
-            // tf.so3() = dR * tf_g.so3();
-            // tf.translation() = dt + tf_g.translation();
-            const auto R = dR * tf_g.so3();
-            const Vec3 t = dt + tf_g.translation();
-            r = U * (pt_p - (R * pt_g + t));
+            r = U * (pt_p - dT * (tf_g * pt_g));
           }
         });
 
