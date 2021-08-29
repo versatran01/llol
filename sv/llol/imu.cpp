@@ -8,10 +8,9 @@
 namespace sv {
 
 using SO3d = Sophus::SO3d;
+using SE3d = Sophus::SE3d;
 using Vector3d = Eigen::Vector3d;
 using Quaterniond = Eigen::Quaterniond;
-
-static const double kEps = Sophus::Constants<double>::epsilon();
 
 std::string NavState::Repr() const {
   return fmt::format("NavState(t={}, rot=[{}], pos=[{}], vel=[{}]",
@@ -19,11 +18,6 @@ std::string NavState::Repr() const {
                      rot.unit_quaternion().coeffs().transpose(),
                      pos.transpose(),
                      vel.transpose());
-}
-
-Sophus::SO3d IntegrateRot(const SO3d& R0, const Vector3d& omg, double dt) {
-  CHECK_GT(dt, 0);
-  return R0 * Sophus::SO3d::exp(dt * omg);
 }
 
 void IntegrateEuler(const NavState& s0,
@@ -36,16 +30,11 @@ void IntegrateEuler(const NavState& s0,
   s1.time = s0.time + dt;
 
   // gyr
-  s1.rot = IntegrateRot(s0.rot, imu.gyr, dt);
+  s1.rot = s0.rot * SO3d::exp(dt * imu.gyr);
 
   // acc
   // transform to fixed frame acc and remove gravity
   const Vector3d a = s0.rot * imu.acc - g;
-  //  LOG(INFO) << "g: " << g.transpose();
-  //  LOG(INFO) << "acc: " << imu.acc.transpose();
-  //  LOG(INFO) << "a_b: " << (s0.rot * imu.acc).transpose();
-  //  LOG(INFO) << "a_b - g: " << a.transpose();
-  //  CHECK(false);
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt * dt;
 }
@@ -57,20 +46,21 @@ NavState IntegrateMidpoint(const NavState& s0,
   NavState s1 = s0;
   const auto dt = imu1.time - imu0.time;
   CHECK_GT(dt, 0);
+  const auto dt2 = dt * dt;
 
   // t
   s1.time = s0.time + dt;
 
   // gyro
   const auto omg_b = (imu0.gyr + imu1.gyr) * 0.5;
-  s1.rot = IntegrateRot(s0.rot, omg_b, dt);
+  s1.rot = s0.rot * SO3d::exp(omg_b * dt);
 
   // acc
   const Vector3d a0 = s0.rot * imu0.acc;
   const Vector3d a1 = s1.rot * imu1.acc;
   const Vector3d a = (a0 + a1) * 0.5 + g_w;
   s1.vel = s0.vel + a * dt;
-  s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt * dt;
+  s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt2;
 
   return s1;
 }
@@ -86,8 +76,7 @@ int FindNextImu(const ImuBuffer& buf, double t) {
   return ibuf;
 }
 
-void ImuTrajectory::InitExtrinsic(const Sophus::SE3d& T_i_l,
-                                  double gravity_norm) {
+void ImuTrajectory::InitExtrinsic(const SE3d& T_i_l, double gravity_norm) {
   CHECK(!states.empty());
   CHECK(!buf.empty());
 
@@ -100,19 +89,18 @@ void ImuTrajectory::InitExtrinsic(const Sophus::SE3d& T_i_l,
     s.pos = T_l_i.translation();
   }
 
-  // We want to initialized gravity vector with first imu measurement but in
-  // pano frame
-  const Vector3d a0_i = buf.front().acc;  // in imu frame
-  const Vector3d g_i = a0_i.normalized() * gravity_norm;
+  // We want to initialized gravity vector with first imu measurement but it
+  // should be in pano frame
+  const Vector3d a_i = buf.back().acc;  // in imu frame
+  const Vector3d g_i = a_i.normalized() * gravity_norm;
   gravity = T_imu_lidar.so3().inverse() * g_i;
-  T_init_pano.so3().setQuaternion(
+  T_odom_pano.so3().setQuaternion(
       Quaterniond::FromTwoVectors(Vector3d::UnitZ(), g_i));
 }
 
 int ImuTrajectory::Predict(double t0, double dt) {
   int ibuf = FindNextImu(buf, t0);
   CHECK_GE(ibuf, 0);
-  //  if (ibuf < 0) return 0;  // no valid imu found
 
   // Now try to fill in later poses by integrating gyro only
   const int ibuf0 = ibuf;
@@ -134,11 +122,11 @@ int ImuTrajectory::Predict(double t0, double dt) {
     // TODO (chao): for now assume translation stays the same
     const auto& prev = StateAt(i - 1);
     auto& curr = StateAt(i);
-    //    IntegrateEuler(prev, imu, gravity, dt, curr);
     //    LOG(INFO) << curr;
+    //    IntegrateEuler(prev, imu, gravity, dt, curr);
     curr.time = prev.time + dt;
     curr.pos = states[0].pos;
-    curr.rot = prev.rot * Sophus::SO3d::exp(imu.gyr * dt);
+    curr.rot = prev.rot * SO3d::exp(imu.gyr * dt);
   }
 
   return ibuf - ibuf0 + 1;
@@ -153,19 +141,19 @@ ImuNoise::ImuNoise(double dt,
 
   // Follows kalibr imu noise model
   // https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model
-  sigma2.segment<3>(NA).setConstant(Sq(acc_noise) / dt);
-  sigma2.segment<3>(NW).setConstant(Sq(gyr_noise) / dt);
-  sigma2.segment<3>(BA).setConstant(Sq(acc_bias_noise) * dt);
-  sigma2.segment<3>(BW).setConstant(Sq(gyr_bias_noise) * dt);
+  sigma2.segment<3>(kNa).setConstant(Sq(acc_noise) / dt);
+  sigma2.segment<3>(kNw).setConstant(Sq(gyr_noise) / dt);
+  sigma2.segment<3>(kBa).setConstant(Sq(acc_bias_noise) * dt);
+  sigma2.segment<3>(kBw).setConstant(Sq(gyr_bias_noise) * dt);
 }
 
 std::string ImuNoise::Repr() const {
   return fmt::format(
       "acc_cov=[{}], gyr_cov=[{}], acc_bias_cov=[{}], gyr_bias_cov=[{}]",
-      sigma2.segment<3>(NA).transpose(),
-      sigma2.segment<3>(NW).transpose(),
-      sigma2.segment<3>(BA).transpose(),
-      sigma2.segment<3>(BW).transpose());
+      sigma2.segment<3>(kNa).transpose(),
+      sigma2.segment<3>(kNw).transpose(),
+      sigma2.segment<3>(kBa).transpose(),
+      sigma2.segment<3>(kBw).transpose());
 }
 
 void ImuPreintegration::Integrate(double dt,
@@ -192,11 +180,11 @@ void ImuPreintegration::Integrate(double dt,
   // last two rows are all zeros
   // F = I + Ft * dt
   const auto Rmat = gamma.matrix();
-  F.block<3, 3>(Index::ALPHA, Index::BETA) = kIdent3 * dt;
-  F.block<3, 3>(Index::BETA, Index::THETA) = -Rmat * Hat3(a) * dt;
-  F.block<3, 3>(Index::BETA, Index::BA) = -Rmat * dt;
-  F.block<3, 3>(Index::THETA, Index::THETA) = kIdent3 - Hat3(w) * dt;
-  F.block<3, 3>(Index::THETA, Index::BW) = -kIdent3 * dt;
+  F.block<3, 3>(Index::kAlpha, Index::kBeta) = kIdent3 * dt;
+  F.block<3, 3>(Index::kBeta, Index::kTheta) = -Rmat * Hat3(a) * dt;
+  F.block<3, 3>(Index::kBeta, Index::kBa) = -Rmat * dt;
+  F.block<3, 3>(Index::kTheta, Index::kTheta) = kIdent3 - Hat3(w) * dt;
+  F.block<3, 3>(Index::kTheta, Index::kBw) = -kIdent3 * dt;
 
   // vins-mono eq 10
   // Update covariance

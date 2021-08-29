@@ -129,7 +129,7 @@ cc_bench(
 cc_library(
   NAME llol_grid
   SRCS "llol/grid.cpp"
-  DEPS sv_tbb sv_llol_match sv_llol_scan sv_llol_imu)
+  DEPS sv_llol_imu sv_llol_match sv_llol_scan sv_tbb)
 cc_test(
   NAME llol_grid_test
   SRCS "llol/grid_test.cpp"
@@ -188,27 +188,15 @@ if(catkin_FOUND AND BUILD_NODE)
 endif()
 
 # sim ==========================================================================
-# cc_library(
-#   NAME sim_rt
-#   SRCS "sim/transform.cpp"
-#   DEPS sv_base Eigen3::Eigen Sophus::Sophus)
+# cc_library( NAME sim_rt SRCS "sim/transform.cpp" DEPS sv_base Eigen3::Eigen
+# Sophus::Sophus)
 
-# cc_library(
-#   NAME doctest_main
-#   SRCS "sim/doctest_main.cpp"
-#   DEPS sv_base)
+# cc_library( NAME doctest_main SRCS "sim/doctest_main.cpp" DEPS sv_base)
 
-# cc_binary(
-#   NAME sim_test
-#   SRCS "sim/tuple_test.cpp" "sim/transform_test.cpp" "sim/ray_test.cpp"
-#   DEPS sv_sim_rt sv_doctest_main)
+# cc_binary( NAME sim_test SRCS "sim/tuple_test.cpp" "sim/transform_test.cpp"
+# "sim/ray_test.cpp" DEPS sv_sim_rt sv_doctest_main)
 
 # temp =========================================================================
-# cc_binary(
-#   NAME curve_fitting
-#   SRCS "temp/curve_fitting.cpp"
-#   DEPS sv_util_timer Ceres::ceres)
-# cc_bench(
-#   NAME ceres_bench
-#   SRCS "temp/ceres_bench.cpp"
-#   DEPS Ceres::ceres sv_tbb)
+# cc_binary( NAME curve_fitting SRCS "temp/curve_fitting.cpp" DEPS sv_util_timer
+# Ceres::ceres) cc_bench( NAME ceres_bench SRCS "temp/ceres_bench.cpp" DEPS
+# Ceres::ceres sv_tbb)

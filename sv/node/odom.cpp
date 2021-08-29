@@ -71,6 +71,7 @@ struct OdomNode {
   void Preprocess(const LidarScan& scan);
   void Init(const sensor_msgs::CameraInfo& cinfo_msg);
   void Register();
+  void Register2();
   void PostProcess(const LidarScan& scan);
 };
 
@@ -121,7 +122,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
                     << imu_.T_imu_lidar.matrix());
     ROS_INFO_STREAM("Gravity: " << imu_.gravity.transpose());
     ROS_INFO_STREAM("Transform from pano to odom:\n"
-                    << imu_.T_init_pano.matrix());
+                    << imu_.T_odom_pano.matrix());
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {
     ROS_WARN_STREAM(ex.what());
@@ -174,7 +175,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   tf_o_p.header.frame_id = odom_frame_;
   tf_o_p.header.stamp = cinfo_msg->header.stamp;
   tf_o_p.child_frame_id = pano_frame_;
-  SE3d2Ros(imu_.T_init_pano, tf_o_p.transform);
+  SE3d2Ros(imu_.T_odom_pano, tf_o_p.transform);
   tf_broadcaster_.sendTransform(tf_o_p);
 
   // We can always process incoming scan no matter what
@@ -284,7 +285,7 @@ void OdomNode::Register() {
 
     if (n_matches < 10) {
       ROS_WARN_STREAM("Not enough matches: " << n_matches);
-      continue;
+      break;
     }
 
     // Build
@@ -292,6 +293,7 @@ void OdomNode::Register() {
     Cost cost(grid_, tbb_);
     AdCost<Cost> adcost(cost);
     t_build.Stop(false);
+    ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
 
     // Solve
     t_solve.Resume();
@@ -301,20 +303,74 @@ void OdomNode::Register() {
 
     // Update state
     auto& states = imu_.states;
-    //    Sophus::SE3d dT{};
-    //    dT.so3() = Sophus::SO3d::exp(x.head<3>());
-    //    dT.translation() = x.tail<3>();
-    //    for (auto& st : states) {
-    //      Sophus::SE3d tf{st.rot, st.pos};
-    //      tf = dT * tf;
-    //      st.rot = tf.so3();
-    //      st.pos = tf.translation();
-    //    }
     const Sophus::SO3d dR = Sophus::SO3d::exp(x.head<3>());
     for (auto& st : states) {
       st.rot = dR * st.rot;
       st.pos = dR * st.pos + x.tail<3>();
     }
+
+    if (vis_) {
+      // display good match
+      Imshow("match",
+             ApplyCmap(grid_.DrawMatch(),
+                       1.0 / gicp_.pano_win.area(),
+                       cv::COLORMAP_VIRIDIS));
+    }
+  }
+}
+
+void OdomNode::Register2() {
+  // Outer icp iters
+  auto t_match = tm_.Manual("Grid.Match", false);
+  auto t_build = tm_.Manual("Icp.Build", false);
+  auto t_solve = tm_.Manual("Icp.Solve", false);
+
+  using Cost = GicpAndImuCost;
+
+  Eigen::Matrix<double, Cost::kNumParams, 1> x;
+  static TinySolver<AdCost<Cost>> solver;
+  solver.options.max_num_iterations = gicp_.iters.second;
+
+  for (int i = 0; i < gicp_.iters.first; ++i) {
+    x.setZero();
+    ROS_INFO_STREAM("Icp iteration: " << i);
+
+    t_match.Resume();
+    // Need to update cell tfs before match
+    grid_.Interp(imu_);
+    const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
+    t_match.Stop(false);
+
+    ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
+                                n_matches,
+                                grid_.total(),
+                                100.0 * n_matches / grid_.total()));
+
+    if (n_matches < 10) {
+      ROS_WARN_STREAM("Not enough matches: " << n_matches);
+      break;
+    }
+
+    // Build
+    t_build.Resume();
+    Cost cost(grid_, imu_, tbb_);
+    AdCost<Cost> adcost(cost);
+    t_build.Stop(false);
+    ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
+
+    // Solve
+    t_solve.Resume();
+    solver.Solve(adcost, &x);
+    t_solve.Stop(false);
+    ROS_INFO_STREAM(solver.summary.Report());
+
+    // Update state
+    //    auto& states = imu_.states;
+    //    const Sophus::SO3d dR = Sophus::SO3d::exp(x.head<3>());
+    //    for (auto& st : states) {
+    //      st.rot = dR * st.rot;
+    //      st.pos = dR * st.pos + x.tail<3>();
+    //    }
 
     if (vis_) {
       // display good match

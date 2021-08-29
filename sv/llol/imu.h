@@ -43,11 +43,6 @@ struct ImuData {
   }
 };
 
-/// Integrate rotation one step, assumes de-biased gyro data
-Sophus::SO3d IntegrateRot(const Sophus::SO3d& R0,
-                          const Eigen::Vector3d& omg,
-                          double dt);
-
 /// Integrate nav state one step, assume de-biased imu data
 /// @param s0 is current state, imu is imu data, g is gravity in fixed frame
 void IntegrateEuler(const NavState& s0,
@@ -67,7 +62,7 @@ using ImuBuffer = boost::circular_buffer<ImuData>;
 struct ImuNoise {
   static constexpr int kDim = 12;
   using Vector12d = Eigen::Matrix<double, kDim, 1>;
-  enum Index { NA = 0, NW = 3, BA = 6, BW = 9 };
+  enum Index { kNa = 0, kNw = 3, kBa = 6, kBw = 9 };
 
   ImuNoise() = default;
   ImuNoise(double dt,
@@ -98,7 +93,7 @@ struct ImuTrajectory {
   ImuNoise noise;
 
   Eigen::Vector3d gravity;       // gravity vector in pano frame
-  Sophus::SE3d T_init_pano{};    // tf from pano to init frame
+  Sophus::SE3d T_odom_pano{};    // tf from pano to odom frame
   Sophus::SE3d T_imu_lidar{};    // extrinsics lidar to imu
   std::vector<NavState> states;  // imu state wrt current pano
 
@@ -123,7 +118,7 @@ struct ImuTrajectory {
 struct ImuPreintegration {
   static constexpr int kDim = 15;
   using Matrix15d = Eigen::Matrix<double, kDim, kDim>;
-  enum Index { ALPHA = 0, BETA = 3, THETA = 6, BA = 9, BW = 12 };
+  enum Index { kAlpha = 0, kBeta = 3, kTheta = 6, kBa = 9, kBw = 12 };
 
   /// @brief Compute measurement for imu trajectory
   int Compute(const ImuTrajectory& traj);
