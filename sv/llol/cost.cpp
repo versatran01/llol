@@ -2,8 +2,8 @@
 
 namespace sv {
 
-GicpCostBase::GicpCostBase(const SweepGrid& grid, int gsize)
-    : pgrid{&grid}, gsize{gsize} {
+GicpCost::GicpCost(const SweepGrid& grid, int gsize)
+    : gsize{gsize}, pgrid{&grid} {
   // Collect all good matches
   matches.reserve(grid.total() / 4);
   for (int r = 0; r < grid.rows(); ++r) {

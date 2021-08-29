@@ -83,6 +83,9 @@ int FindNextImu(const ImuBuffer& buf, double t);
 /// @brief Accumulates imu data and integrate
 /// @todo for now only integrate gyro for rotation
 struct ImuTrajectory {
+  ImuTrajectory() = default;
+  explicit ImuTrajectory(int size) { states.resize(size); }
+
   ImuBuffer buf{16};
   ImuBias bias;
   ImuNoise noise;
@@ -91,7 +94,10 @@ struct ImuTrajectory {
   Sophus::SE3d T_init_pano{};    // tf from pano to init frame
   Sophus::SE3d T_imu_lidar{};    // extrinsics lidar to imu
   std::vector<NavState> states;  // imu state wrt current pano
-  std::vector<Sophus::SE3d> traj;
+
+  int size() const { return states.size(); }
+  auto& StateAt(int i) { return states.at(i); }
+  const auto& StateAt(int i) const { return states.at(i); }
 
   void InitGravity(double gravity_norm);
   void InitExtrinsic(const Sophus::SE3d& T_i_l);

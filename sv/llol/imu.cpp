@@ -85,11 +85,14 @@ void ImuTrajectory::InitExtrinsic(const Sophus::SE3d& T_i_l) {
 
 int ImuTrajectory::Predict(double t0, double dt) {
   int ibuf = FindNextImu(buf, t0);
-  if (ibuf < 0) return 0;  // no valid imu found
+  CHECK_GE(ibuf, 0);
+  //  if (ibuf < 0) return 0;  // no valid imu found
 
   // Now try to fill in later poses by integrating gyro only
   const int ibuf0 = ibuf;
-  for (int i = 1; i < traj.size(); ++i) {
+  states.at(0).time = t0;
+
+  for (int i = 1; i < states.size(); ++i) {
     const auto ti = t0 + dt * i;
     // increment ibuf if it is ealier than current cell time
     if (ti > buf[ibuf].time) {
@@ -99,13 +102,15 @@ int ImuTrajectory::Predict(double t0, double dt) {
     if (ibuf >= buf.size()) {
       ibuf = buf.size() - 1;
     }
-    const auto& imu = buf.at(ibuf);
-    // Transform gyr to lidar frame
-    const auto gyr_l = T_imu_lidar.so3().inverse() * imu.gyr;
-    const auto omg_l = dt * gyr_l;
+
+    const auto imu = buf.at(ibuf).DeBiased(bias);
+
     // TODO (chao): for now assume translation stays the same
-    traj.at(i).translation() = traj.at(0).translation();
-    traj.at(i).so3() = traj.at(i - 1).so3() * Sophus::SO3d::exp(omg_l);
+    const auto& prev = states.at(i - 1);
+    auto& curr = states.at(i);
+    curr.time = prev.time + dt;
+    curr.pos = states[0].pos;
+    curr.rot = prev.rot * Sophus::SO3d::exp(imu.gyr * dt);
   }
 
   return ibuf - ibuf0 + 1;

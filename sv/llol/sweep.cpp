@@ -23,7 +23,7 @@ int LidarSweep::Add(const LidarScan& scan) {
   return scan.total();
 }
 
-void LidarSweep::Interp(const std::vector<Sophus::SE3d>& traj, int gsize) {
+void LidarSweep::Interp(const ImuTrajectory& traj, int gsize) {
   const int num_cells = traj.size() - 1;
   const int cell_width = cols() / num_cells;
   gsize = gsize <= 0 ? num_cells : gsize;
@@ -32,24 +32,20 @@ void LidarSweep::Interp(const std::vector<Sophus::SE3d>& traj, int gsize) {
                     [&](const auto& blk) {
                       for (int i = blk.begin(); i < blk.end(); ++i) {
                         // interpolate rotation and translation separately
-                        const auto& T0 = traj.at(i);
-                        const auto& T1 = traj.at(i + 1);
-                        const auto& R0 = T0.so3();
-                        const auto& R1 = T1.so3();
-                        const auto dR = (R0.inverse() * R1).log();
+                        const auto& T0 = traj.StateAt(i);
+                        const auto& T1 = traj.StateAt(i + 1);
 
-                        const auto& t0 = T0.translation();
-                        const auto& t1 = T1.translation();
-                        const auto dt = (t1 - t0).eval();
+                        const auto dR = (T0.rot.inverse() * T1.rot).log();
+                        const auto dt = (T0.pos - T1.pos).eval();
 
                         for (int j = 0; j < cell_width; ++j) {
                           // which column
                           const int col = i * cell_width + j;
                           const float s = static_cast<float>(j) / cell_width;
                           Sophus::SE3d tf;
-                          tf.so3() = R0 * Sophus::SO3d::exp(s * dR);
-                          tf.translation() = t0 + s * dt;
-                          tfs.at(col) = tf.cast<float>();
+                          tf.so3() = T0.rot * Sophus::SO3d::exp(s * dR);
+                          tf.translation() = T0.pos + s * dt;
+                          tfs.at(col) = (tf * traj.T_imu_lidar).cast<float>();
                         }
                       }
                     });

@@ -48,7 +48,7 @@ void BM_GicpMatch(benchmark::State& state) {
     benchmark::DoNotOptimize(n);
   }
 }
-BENCHMARK(BM_GicpMatch)->Arg(0)->Arg(1)->Arg(2)->Arg(4)->Arg(8);
+BENCHMARK(BM_GicpMatch)->Arg(0)->Arg(1)->Arg(2)->Arg(4);
 
 }  // namespace
 }  // namespace sv

@@ -28,7 +28,7 @@ ImuData MakeImuData(const sensor_msgs::Imu& imu_msg);
 LidarScan MakeScan(const sensor_msgs::Image& image_msg,
                    const sensor_msgs::CameraInfo& cinfo_msg);
 
-ImuNoise InitImuNoise(const ros::NodeHandle& pnh);
+ImuTrajectory InitImu(const ros::NodeHandle& pnh, int grid_cols);
 LidarSweep InitSweep(const sensor_msgs::CameraInfo& cinfo_msg);
 SweepGrid InitGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size);
 DepthPano InitPano(const ros::NodeHandle& pnh);

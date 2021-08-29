@@ -8,25 +8,23 @@
 
 namespace sv {
 
-struct GicpCostBase {
-  static constexpr int kNumParams = 6;
+struct GicpCost {
   static constexpr int kNumResiduals = 3;
 
-  GicpCostBase(const SweepGrid& grid, int gsize = 0);
-  virtual ~GicpCostBase() noexcept = default;
+  GicpCost(const SweepGrid& grid, int gsize = 0);
+  virtual ~GicpCost() noexcept = default;
 
   virtual int NumResiduals() const { return matches.size() * kNumResiduals; }
 
-  const SweepGrid* const pgrid;
   int gsize{};
+  const SweepGrid* const pgrid;
   std::vector<PointMatch> matches;
 };
 
-struct GicpCostSingle final : public GicpCostBase {
-  static constexpr int kNumPoses = 1;
-  static constexpr int kTotalParams = kNumPoses * kNumParams;
+struct GicpRigidCost final : public GicpCost {
+  static constexpr int kNumParams = 6;
 
-  using GicpCostBase::GicpCostBase;
+  using GicpCost::GicpCost;
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
@@ -35,6 +33,7 @@ struct GicpCostSingle final : public GicpCostBase {
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
 
+    // We now assume left multiply delta
     Eigen::Map<const Vec6> x(_x);
     const SE3 dT{SO3::exp(x.template head<3>()), x.template tail<3>()};
 
@@ -50,7 +49,7 @@ struct GicpCostSingle final : public GicpCostBase {
             const auto tf_g = pgrid->tfs.at(c).cast<double>();
 
             Eigen::Map<Vec3> r(_r + kNumResiduals * i);
-            r = U * (pt_p - tf_g * dT * pt_g);
+            r = U * (pt_p - dT * tf_g * pt_g);
           }
         });
 
@@ -71,7 +70,6 @@ struct ImuPreintegrationCost {
 
 template <typename T>
 using AdCost =
-    ceres::TinySolverAutoDiffFunction<T, Eigen::Dynamic, T::kTotalParams>;
-using AdGicpCostSingle = AdCost<GicpCostSingle>;
+    ceres::TinySolverAutoDiffFunction<T, Eigen::Dynamic, T::kNumParams>;
 
 }  // namespace sv

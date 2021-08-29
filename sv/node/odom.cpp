@@ -139,9 +139,7 @@ void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
   grid_ = InitGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
-  imu_.states.resize(grid_.cols() + 1);
-  imu_.traj.resize(grid_.cols() + 1);
-  imu_.noise = InitImuNoise({pnh_, "imu"});
+  imu_ = InitImu({pnh_, "imu"}, grid_.cols());
   ROS_INFO_STREAM(imu_.noise);
 
   gicp_ = InitGicp({pnh_, "gicp"});
@@ -265,7 +263,7 @@ void OdomNode::Register() {
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
-  using Cost = GicpCostSingle;
+  using Cost = GicpRigidCost;
 
   Eigen::Matrix<double, 6, 1> x;
   static TinySolver<AdCost<Cost>> solver;
@@ -277,7 +275,7 @@ void OdomNode::Register() {
 
     t_match.Resume();
     // Need to update cell tfs before match
-    grid_.Interp(imu_.traj);
+    grid_.Interp(imu_);
     const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
     t_match.Stop(false);
 
@@ -303,13 +301,16 @@ void OdomNode::Register() {
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 
-    // Update traj
-    auto& traj = imu_.traj;
+    // Update state
+    auto& states = imu_.states;
     Sophus::SE3d dT;
     dT.so3() = Sophus::SO3d::exp(x.head<3>());
     dT.translation() = x.tail<3>();
-    for (auto& tf : traj) {
-      tf = tf * dT;
+    for (auto& st : states) {
+      Sophus::SE3d tf{st.rot, st.pos};
+      tf = dT * tf;
+      st.rot = tf.so3();
+      st.pos = tf.translation();
     }
 
     if (vis_) {
@@ -343,13 +344,13 @@ void OdomNode::PostProcess(const LidarScan& scan) {
                               sweep_.total(),
                               100.0 * n_points / sweep_.total()));
 
-  {  // Update sweep tfs
+  {  // Update sweep tfs for undistortion
     auto _ = tm_.Scoped("Sweep.Interp");
-    sweep_.Interp(imu_.traj, tbb_);
+    sweep_.Interp(imu_, tbb_);
   }
 
   // TODO (chao): update first pose of traj for next round of imu integration
-  imu_.traj.front() = imu_.traj.back();
+  imu_.states.front() = imu_.states.back();
 
   if (vis_) {
     const double max_range = 32.0;

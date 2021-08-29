@@ -1,5 +1,6 @@
 #pragma once
 
+#include "sv/llol/imu.h"
 #include "sv/llol/match.h"
 #include "sv/llol/scan.h"
 
@@ -64,7 +65,7 @@ struct SweepGrid final : public ScanBase {
   int Px2Ind(const cv::Point& px) const { return px.y * cols() + px.x; }
 
   /// @brief Interpolate poses of each col (cell)
-  void Interp(const std::vector<Sophus::SE3d>& traj);
+  void Interp(const ImuTrajectory& traj);
 
   /// @brief Draw
   cv::Mat DrawFilter() const;

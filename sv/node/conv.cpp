@@ -68,13 +68,15 @@ ImuData MakeImuData(const sensor_msgs::Imu& imu_msg) {
   return imu;
 }
 
-ImuNoise InitImuNoise(const ros::NodeHandle& pnh) {
+ImuTrajectory InitImu(const ros::NodeHandle& pnh, int grid_cols) {
+  ImuTrajectory imu(grid_cols + 1);
   const auto dt = 1.0 / pnh.param<double>("rate", 100.0);
   const auto acc_noise = pnh.param<double>("acc_noise", 1e-3);
   const auto gyr_noise = pnh.param<double>("gyr_noise", 1e-4);
   const auto acc_bias_noise = pnh.param<double>("acc_bias_noise", 1e-4);
   const auto gyr_bias_noise = pnh.param<double>("gyr_bias_noise", 1e-5);
-  return {dt, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
+  imu.noise = {dt, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
+  return imu;
 }
 
 void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,

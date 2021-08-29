@@ -166,17 +166,17 @@ cv::Mat SweepGrid::DrawMatch() const {
   return disp;
 }
 
-void SweepGrid::Interp(const std::vector<Sophus::SE3d>& traj) {
+void SweepGrid::Interp(const ImuTrajectory& traj) {
   CHECK_EQ(tfs.size() + 1, traj.size());
 
   for (int c = 0; c < tfs.size(); ++c) {
-    const auto& tf0 = traj.at(c);
-    const auto& tf1 = traj.at(c + 1);
+    const auto& st0 = traj.StateAt(c);
+    const auto& st1 = traj.StateAt(c + 1);
     // TODO (chao): make my own interp function
     Sophus::SE3d tf;
-    tf.so3() = Sophus::interpolate(tf0.so3(), tf1.so3(), 0.5);
-    tf.translation() = (tf0.translation() + tf1.translation()) / 2;
-    tfs.at(c) = tf.cast<float>();
+    tf.so3() = Sophus::interpolate(st0.rot, st1.rot, 0.5);
+    tf.translation() = (st0.pos + st1.pos) / 2;
+    tfs.at(c) = (tf * traj.T_imu_lidar).cast<float>();
   }
 }
 
