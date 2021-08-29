@@ -35,6 +35,7 @@ void IntegrateEuler(const NavState& s0,
   // acc
   // transform to fixed frame acc and remove gravity
   const Vector3d a = s0.rot * imu.acc - g;
+  //  LOG(INFO) << fmt::format("{} / {} / {}", s0.time, dt, a.transpose());
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt * dt;
 }
@@ -81,8 +82,7 @@ void ImuTrajectory::InitExtrinsic(const SE3d& T_i_l, double gravity_norm) {
   CHECK(!buf.empty());
 
   T_imu_lidar = T_i_l;
-  // set all imu states to inverse of T_i_l because we want first sweep frame to
-  // be the same as pano
+  // set all states to T_l_i since we want first sweep frame to align with pano
   const auto T_l_i = T_i_l.inverse();
   for (auto& s : states) {
     s.rot = T_l_i.so3();
@@ -122,7 +122,6 @@ int ImuTrajectory::Predict(double t0, double dt) {
     // TODO (chao): for now assume translation stays the same
     const auto& prev = StateAt(i - 1);
     auto& curr = StateAt(i);
-    //    LOG(INFO) << curr;
     //    IntegrateEuler(prev, imu, gravity, dt, curr);
     curr.time = prev.time + dt;
     curr.pos = states[0].pos;
@@ -282,11 +281,12 @@ int ImuPreintegration::Compute(const ImuTrajectory& traj) {
 void ImuPreintegration::Reset() {
   duration = 0;
   n = 0;
-  F.setIdentity();
-  P.setZero();
   alpha.setZero();
   beta.setZero();
   gamma = SO3d{};
+  F.setIdentity();
+  P.setZero();
+  U.setZero();
 }
 
 }  // namespace sv

@@ -172,11 +172,10 @@ void SweepGrid::Interp(const ImuTrajectory& traj) {
   for (int c = 0; c < tfs.size(); ++c) {
     const auto& st0 = traj.StateAt(c);
     const auto& st1 = traj.StateAt(c + 1);
-    // TODO (chao): make my own interp function
-    Sophus::SE3d tf;
-    tf.so3() = Sophus::interpolate(st0.rot, st1.rot, 0.5);
-    tf.translation() = (st0.pos + st1.pos) / 2;
-    tfs.at(c) = (tf * traj.T_imu_lidar).cast<float>();
+    Sophus::SE3d tf_p_i;
+    tf_p_i.so3() = Sophus::interpolate(st0.rot, st1.rot, 0.5);
+    tf_p_i.translation() = (st0.pos + st1.pos) / 2.0;
+    tfs.at(c) = (tf_p_i * traj.T_imu_lidar).cast<float>();
   }
 }
 

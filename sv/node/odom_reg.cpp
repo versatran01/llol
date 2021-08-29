@@ -22,7 +22,7 @@ void OdomNode::Register() {
 
     t_match.Resume();
     // Need to update cell tfs before match
-    grid_.Interp(imu_);
+    grid_.Interp(traj_);
     const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
     t_match.Stop(false);
 
@@ -52,7 +52,7 @@ void OdomNode::Register() {
     // Update state
     const ErrorState<double> es(x.data());
     const auto dR = Sophus::SO3d::exp(es.r0());
-    for (auto& st : imu_.states) {
+    for (auto& st : traj_.states) {
       st.rot = dR * st.rot;
       st.pos = dR * st.pos + es.p0();
     }
@@ -81,11 +81,11 @@ void OdomNode::Register2() {
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
     x.setZero();
-    ROS_INFO_STREAM("Icp iteration: " << i);
+    ROS_INFO_STREAM("Icp iter: " << i);
 
     t_match.Resume();
     // Need to update cell tfs before match
-    grid_.Interp(imu_);
+    grid_.Interp(traj_);
     const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
     t_match.Stop(false);
 
@@ -101,7 +101,7 @@ void OdomNode::Register2() {
 
     // Build
     t_build.Resume();
-    Cost cost(grid_, imu_, tbb_);
+    Cost cost(grid_, traj_, tbb_);
     AdCost<Cost> adcost(cost);
     t_build.Stop(false);
     ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
@@ -115,22 +115,29 @@ void OdomNode::Register2() {
     // Update state
     const ErrorState<double> es(x.data());
     // Update bias
-    imu_.bias.acc += es.ba();
-    imu_.bias.gyr += es.bw();
+    traj_.bias.acc += es.ba();
+    traj_.bias.gyr += es.bw();
     // Update velocity
-    imu_.states.front().vel += es.v0();
-    imu_.states.back().vel += es.v1();
+    traj_.states.front().vel += es.v0();
+    traj_.states.back().vel += es.v1();
 
     // Update pose
-    const auto der = (es.r1() - es.r0()).eval();
-    const auto dep = (es.p1() - es.p0()).eval();
-    for (int i = 0; i < imu_.states.size(); ++i) {
-      auto& st = imu_.StateAt(i);
-      const double s = i / (imu_.states.size() - 1.0);
-      const auto dR = Sophus::SO3d::exp(es.r0() + s * der);
-      const auto dp = es.p0() + s * dep;
+    //    const auto der = (es.r1() - es.r0()).eval();
+    //    const auto eR = Sophus::SO3d::exp(es.r0());
+    //    const auto dep = (es.p1() - es.p0()).eval();
+    //    for (int i = 0; i < imu_.states.size(); ++i) {
+    //      auto& st = imu_.StateAt(i);
+    //      const double s = i / (imu_.states.size() - 1.0);
+    //      //      const auto eR = Sophus::SO3d::exp(es.r0() + s * der);
+    //      const auto ep = es.p0() + s * dep;
+    //      st.rot = eR * st.rot;
+    //      st.pos = eR * st.pos + ep;
+    //    }
+
+    const auto dR = Sophus::SO3d::exp(es.r0());
+    for (auto& st : traj_.states) {
       st.rot = dR * st.rot;
-      st.pos = dR * st.pos + dp;
+      st.pos = dR * st.pos + es.p0();
     }
 
     if (vis_) {

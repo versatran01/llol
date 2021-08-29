@@ -39,7 +39,7 @@ struct OdomNode {
   std::string odom_frame_{"odom"};
 
   /// odom
-  ImuTrajectory imu_;
+  ImuTrajectory traj_;
   LidarSweep sweep_;
   SweepGrid grid_;
   DepthPano pano_;

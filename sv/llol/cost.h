@@ -48,7 +48,6 @@ struct GicpRigidCost final : public GicpCost {
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
-    using Vec6 = Eigen::Matrix<T, 6, 1>;
     using Vec3 = Eigen::Matrix<T, 3, 1>;
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
@@ -64,9 +63,9 @@ struct GicpRigidCost final : public GicpCost {
           for (int i = blk.begin(); i < blk.end(); ++i) {
             const auto& match = matches.at(i);
             const int c = match.px_g.x;
-            const Eigen::Matrix3d U = match.U.cast<double>();
-            const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-            const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
+            const auto U = match.U.cast<double>().eval();
+            const auto pt_p = match.mc_p.mean.cast<double>().eval();
+            const auto pt_g = match.mc_g.mean.cast<double>().eval();
             const auto tf_g = pgrid->tfs.at(c).cast<double>();
 
             Eigen::Map<Vec3> r(_r + kNumResiduals * i);
@@ -84,7 +83,6 @@ struct GicpLinearCost final : public GicpCost {
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
-    using Vec6 = Eigen::Matrix<T, 6, 1>;
     using Vec3 = Eigen::Matrix<T, 3, 1>;
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
@@ -92,30 +90,37 @@ struct GicpLinearCost final : public GicpCost {
 
     // We now assume left multiply delta
     const ES es(_x);
-    std::vector<SE3> eTs(pgrid->cols());
-    const Vec3 der = es.r1() - es.r0();
+    //    std::vector<SE3> eTs(pgrid->cols());
+    std::vector<Vec3> eps(pgrid->cols());
+    //    const Vec3 der = es.r1() - es.r0();
     const Vec3 dep = es.p1() - es.p0();
+    const SO3 eR = SO3::exp(es.r0());
+    for (int i = 0; i < eps.size(); ++i) {
+      const double s = (i + 0.5) / eps.size();
+      eps.at(i) = es.p0() + s * dep;
+    }
 
     // Precompute interpolated error state fom lidar to odom
-    for (int i = 0; i < eTs.size(); ++i) {
-      const double s = (i + 0.5) / eTs.size();
-      eTs[i].so3() = SO3::exp(es.r0() + s * der);
-      eTs[i].translation() = es.p0() + s * dep;
-    }
+    //    for (int i = 0; i < eTs.size(); ++i) {
+    //      const double s = (i + 0.5) / eTs.size();
+    //      eTs[i].so3() = SO3::exp(es.r0() + s * der);
+    //      eTs[i].translation() = es.p0() + s * dep;
+    //    }
 
     tbb::parallel_for(
         tbb::blocked_range<int>(0, matches.size(), gsize_),
         [&](const auto& blk) {
           for (int i = blk.begin(); i < blk.end(); ++i) {
             const auto& match = matches.at(i);
-            const int c = match.px_g.x;
+            const auto c = match.px_g.x;
             const auto U = match.U.cast<double>();
             const auto pt_p = match.mc_p.mean.cast<double>().eval();
             const auto pt_g = match.mc_g.mean.cast<double>().eval();
             const auto tf_g = pgrid->tfs.at(c).cast<double>();
 
             Eigen::Map<Vec3> r(_r + kNumResiduals * i);
-            r = U * (pt_p - eTs.at(c) * (tf_g * pt_g));
+            // r = U * (pt_p - eTs.at(c) * (tf_g * pt_g));
+            r = U * (pt_p - (eR * (tf_g * pt_g) + eps.at(c)));
           }
         });
 
@@ -168,7 +173,9 @@ struct ImuCost {
 
     // Debug print
     if constexpr (std::is_same_v<T, double>) {
+      std::cout << preint.F << std::endl;
       std::cout << r.transpose() << std::endl;
+      std::cout << "norm: " << r.squaredNorm() << std::endl;
     }
 
     return true;
@@ -191,12 +198,13 @@ struct GicpAndImuCost {
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
-    gicp_cost(_x, _r);
-    imu_cost(_x, _r + gicp_cost.NumResiduals());
-    return true;
+    bool ok = true;
+    ok &= gicp_cost(_x, _r);
+    ok &= imu_cost(_x, _r + gicp_cost.NumResiduals());
+    return ok;
   }
 
-  GicpLinearCost gicp_cost;
+  GicpRigidCost gicp_cost;
   ImuCost imu_cost;
 };
 

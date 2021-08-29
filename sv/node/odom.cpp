@@ -43,7 +43,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   // Add imu data to buffer
   const auto imu = MakeImuData(imu_msg);
-  imu_.Add(imu);
+  traj_.Add(imu);
 
   if (tf_init_) return;
 
@@ -61,12 +61,12 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const auto& q = tf_i_l.transform.rotation;
     const Eigen::Vector3d t_i_l{t.x, t.y, t.z};
     const Eigen::Quaterniond q_i_l{q.w, q.x, q.y, q.z};
-    imu_.InitExtrinsic({q_i_l, t_i_l}, 9.80184);
+    traj_.InitExtrinsic({q_i_l, t_i_l}, 9.80184);
     ROS_INFO_STREAM("Transform from lidar to imu:\n"
-                    << imu_.T_imu_lidar.matrix());
-    ROS_INFO_STREAM("Gravity: " << imu_.gravity.transpose());
+                    << traj_.T_imu_lidar.matrix());
+    ROS_INFO_STREAM("Gravity: " << traj_.gravity.transpose());
     ROS_INFO_STREAM("Transform from pano to odom:\n"
-                    << imu_.T_odom_pano.matrix());
+                    << traj_.T_odom_pano.matrix());
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {
     ROS_WARN_STREAM(ex.what());
@@ -82,8 +82,8 @@ void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
   grid_ = InitGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
-  imu_ = InitImu({pnh_, "imu"}, grid_.cols());
-  ROS_INFO_STREAM(imu_.noise);
+  traj_ = InitImu({pnh_, "imu"}, grid_.cols());
+  ROS_INFO_STREAM(traj_.noise);
 
   gicp_ = InitGicp({pnh_, "gicp"});
   ROS_INFO_STREAM(gicp_);
@@ -103,9 +103,9 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     ROS_INFO_STREAM("Lidar initialized!");
   }
 
-  if (!imu_.buf.full()) {
+  if (!traj_.buf.full()) {
     ROS_WARN_STREAM(fmt::format(
-        "Imu buffer not full: {}/{}", imu_.buf.size(), imu_.buf.capacity()));
+        "Imu buffer not full: {}/{}", traj_.buf.size(), traj_.buf.capacity()));
     return;
   }
 
@@ -119,7 +119,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   tf_o_p.header.frame_id = odom_frame_;
   tf_o_p.header.stamp = cinfo_msg->header.stamp;
   tf_o_p.child_frame_id = pano_frame_;
-  SE3d2Ros(imu_.T_odom_pano, tf_o_p.transform);
+  SE3d2Ros(traj_.T_odom_pano, tf_o_p.transform);
   tf_broadcaster_.sendTransform(tf_o_p);
 
   // We can always process incoming scan no matter what
@@ -161,7 +161,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   Pano2Cloud(pano_, pano_header, pano_cloud);
   pub_pano_.publish(pano_cloud);
 
-  ROS_DEBUG_STREAM_THROTTLE(1, tm_.ReportAll(true));
+  ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {
@@ -188,7 +188,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Imu.Integrate");
     const auto t0 = scan.t0;
     const auto dt = scan.dt * grid_.cell_size.width;
-    n_imus = imu_.Predict(t0, dt);
+    n_imus = traj_.Predict(t0, dt);
   }
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
 
@@ -223,11 +223,11 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
   {  // Update sweep tfs for undistortion
     auto _ = tm_.Scoped("Sweep.Interp");
-    sweep_.Interp(imu_, tbb_);
+    sweep_.Interp(traj_, tbb_);
   }
 
   // TODO (chao): update first pose of traj for next round of imu integration
-  imu_.states.front() = imu_.states.back();
+  traj_.states.front() = traj_.states.back();
 
   if (vis_) {
     const double max_range = 32.0;
