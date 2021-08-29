@@ -7,23 +7,31 @@
 
 namespace sv {
 
+using SO3d = Sophus::SO3d;
 using Vector3d = Eigen::Vector3d;
+using Quaterniond = Eigen::Quaterniond;
 
 static const double kEps = Sophus::Constants<double>::epsilon();
 
-Sophus::SO3d IntegrateRot(const Sophus::SO3d& R0,
-                          const Vector3d& omg,
-                          double dt) {
+std::string NavState::Repr() const {
+  return fmt::format("NavState(t={}, rot=[{}], pos=[{}], vel=[{}]",
+                     time,
+                     rot.unit_quaternion().coeffs().transpose(),
+                     pos.transpose(),
+                     vel.transpose());
+}
+
+Sophus::SO3d IntegrateRot(const SO3d& R0, const Vector3d& omg, double dt) {
   CHECK_GT(dt, 0);
   return R0 * Sophus::SO3d::exp(dt * omg);
 }
 
-NavState IntegrateEuler(const NavState& s0,
-                        const ImuData& imu,
-                        const Vector3d& g_w,
-                        double dt) {
+void IntegrateEuler(const NavState& s0,
+                    const ImuData& imu,
+                    const Vector3d& g,
+                    double dt,
+                    NavState& s1) {
   CHECK_GT(dt, 0);
-  NavState s1 = s0;
   // t
   s1.time = s0.time + dt;
 
@@ -31,12 +39,15 @@ NavState IntegrateEuler(const NavState& s0,
   s1.rot = IntegrateRot(s0.rot, imu.gyr, dt);
 
   // acc
-  // transform to worl frame
-  const Vector3d a = s0.rot * imu.acc + g_w;
+  // transform to fixed frame acc and remove gravity
+  const Vector3d a = s0.rot * imu.acc - g;
+  //  LOG(INFO) << "g: " << g.transpose();
+  //  LOG(INFO) << "acc: " << imu.acc.transpose();
+  //  LOG(INFO) << "a_b: " << (s0.rot * imu.acc).transpose();
+  //  LOG(INFO) << "a_b - g: " << a.transpose();
+  //  CHECK(false);
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt * dt;
-
-  return s1;
 }
 
 NavState IntegrateMidpoint(const NavState& s0,
@@ -75,23 +86,27 @@ int FindNextImu(const ImuBuffer& buf, double t) {
   return ibuf;
 }
 
-void ImuTrajectory::InitGravity(double gravity_norm) {
+void ImuTrajectory::InitExtrinsic(const Sophus::SE3d& T_i_l,
+                                  double gravity_norm) {
+  CHECK(!states.empty());
   CHECK(!buf.empty());
-  gravity = buf[0].acc.normalized() * gravity_norm;
-  T_init_pano.so3().setQuaternion(
-      Eigen::Quaterniond::FromTwoVectors(Eigen::Vector3d::UnitZ(), gravity));
-}
 
-void ImuTrajectory::InitExtrinsic(const Sophus::SE3d& T_i_l) {
   T_imu_lidar = T_i_l;
   // set all imu states to inverse of T_i_l because we want first sweep frame to
   // be the same as pano
   const auto T_l_i = T_i_l.inverse();
-  CHECK(!states.empty());
   for (auto& s : states) {
     s.rot = T_l_i.so3();
     s.pos = T_l_i.translation();
   }
+
+  // We want to initialized gravity vector with first imu measurement but in
+  // pano frame
+  const Vector3d a0_i = buf.front().acc;  // in imu frame
+  const Vector3d g_i = a0_i.normalized() * gravity_norm;
+  gravity = T_imu_lidar.so3().inverse() * g_i;
+  T_init_pano.so3().setQuaternion(
+      Quaterniond::FromTwoVectors(Vector3d::UnitZ(), g_i));
 }
 
 int ImuTrajectory::Predict(double t0, double dt) {
@@ -101,7 +116,7 @@ int ImuTrajectory::Predict(double t0, double dt) {
 
   // Now try to fill in later poses by integrating gyro only
   const int ibuf0 = ibuf;
-  states.at(0).time = t0;
+  StateAt(0).time = t0;
 
   for (int i = 1; i < states.size(); ++i) {
     const auto ti = t0 + dt * i;
@@ -117,8 +132,10 @@ int ImuTrajectory::Predict(double t0, double dt) {
     const auto imu = ImuAt(ibuf).DeBiased(bias);
 
     // TODO (chao): for now assume translation stays the same
-    const auto& prev = states.at(i - 1);
-    auto& curr = states.at(i);
+    const auto& prev = StateAt(i - 1);
+    auto& curr = StateAt(i);
+    //    IntegrateEuler(prev, imu, gravity, dt, curr);
+    //    LOG(INFO) << curr;
     curr.time = prev.time + dt;
     curr.pos = states[0].pos;
     curr.rot = prev.rot * Sophus::SO3d::exp(imu.gyr * dt);
@@ -154,33 +171,37 @@ std::string ImuNoise::Repr() const {
 void ImuPreintegration::Integrate(double dt,
                                   const ImuData& imu,
                                   const ImuNoise& noise) {
+  // Assumes imu is already debiased
   CHECK_GT(dt, 0);
-  const auto dt2 = Sq(dt);
+  const auto dt2 = dt * dt;
 
-  const Vector3d& a = imu.acc;
-  const Vector3d& w = imu.gyr;
+  const auto& a = imu.acc;
+  const auto& w = imu.gyr;
   const Vector3d ga = gamma * a;
 
   // vins-mono eq 7
-  const auto dgamma = Sophus::SO3d::exp(w * dt);
-  const auto dbeta = ga * dt;
-  const auto dalpha = beta * dt + ga * dt2 * 0.5;
+  const auto dgamma = SO3d::exp(w * dt);
+  const Vector3d dbeta = ga * dt;
+  const Vector3d dalpha = beta * dt + ga * dt2 * 0.5;
 
   // vins-mono eq 9
+  // Ft =
   // [0  I        0    0   0]
   // [0  0  -R*[a]x   -R   0]
   // [0  0    -[w]x    0  -I]
   // last two rows are all zeros
+  // F = I + Ft * dt
   const auto Rmat = gamma.matrix();
-  F.block<3, 3>(Index::ALPHA, Index::BETA) = kIdent3;
-  F.block<3, 3>(Index::BETA, Index::THETA) = -Rmat * Hat3(a);
-  F.block<3, 3>(Index::BETA, Index::BA) = -Rmat;
-  F.block<3, 3>(Index::THETA, Index::THETA) = -Hat3(w);
-  F.block<3, 3>(Index::THETA, Index::BW) = -kIdent3;
+  F.block<3, 3>(Index::ALPHA, Index::BETA) = kIdent3 * dt;
+  F.block<3, 3>(Index::BETA, Index::THETA) = -Rmat * Hat3(a) * dt;
+  F.block<3, 3>(Index::BETA, Index::BA) = -Rmat * dt;
+  F.block<3, 3>(Index::THETA, Index::THETA) = kIdent3 - Hat3(w) * dt;
+  F.block<3, 3>(Index::THETA, Index::BW) = -kIdent3 * dt;
 
   // vins-mono eq 10
   // Update covariance
-  P = F * P * F.transpose() * dt2;
+  // P = F * P * F' + G * Qd * G'
+  P = F * P * F.transpose();
   P.diagonal().tail<ImuNoise::kDim>() += noise.sigma2;
 
   // Update measurement
@@ -277,7 +298,7 @@ void ImuPreintegration::Reset() {
   P.setZero();
   alpha.setZero();
   beta.setZero();
-  gamma = Sophus::SO3d{};
+  gamma = SO3d{};
 }
 
 }  // namespace sv

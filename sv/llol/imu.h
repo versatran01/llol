@@ -13,6 +13,11 @@ struct NavState {
   Sophus::SO3d rot{};
   Eigen::Vector3d pos{kZero3d};
   Eigen::Vector3d vel{kZero3d};
+
+  std::string Repr() const;
+  friend std::ostream& operator<<(std::ostream& os, const NavState& rhs) {
+    return os << rhs.Repr();
+  }
 };
 
 struct ImuBias {
@@ -44,11 +49,12 @@ Sophus::SO3d IntegrateRot(const Sophus::SO3d& R0,
                           double dt);
 
 /// Integrate nav state one step, assume de-biased imu data
-/// @param s0 is current state, imu is imu data, g_w is gravity in world frame
-NavState IntegrateEuler(const NavState& s0,
-                        const ImuData& imu,
-                        const Eigen::Vector3d& g_w,
-                        double dt);
+/// @param s0 is current state, imu is imu data, g is gravity in fixed frame
+void IntegrateEuler(const NavState& s0,
+                    const ImuData& imu,
+                    const Eigen::Vector3d& g,
+                    double dt,
+                    NavState& s1);
 
 NavState IntegrateMidpoint(const NavState& s0,
                            const ImuData& imu0,
@@ -101,8 +107,8 @@ struct ImuTrajectory {
   const NavState& StateAt(int i) const { return states.at(i); }
   const ImuData& ImuAt(int i) const { return buf.at(i); }
 
-  void InitGravity(double gravity_norm);
-  void InitExtrinsic(const Sophus::SE3d& T_i_l);
+  /// @return the acc vector used to initialize gravity
+  void InitExtrinsic(const Sophus::SE3d& T_i_l, double gravity_norm);
 
   /// @brief Add imu data into buffer
   void Add(const ImuData& imu) { buf.push_back(imu); }
@@ -126,12 +132,12 @@ struct ImuPreintegration {
   void Integrate(double dt, const ImuData& imu, const ImuNoise& noise);
 
   /// Data
-  double duration{};
-  int n{0};  // number of imus used
+  int n{0};           // number of times integrated
+  double duration{};  // duration of integration
   Eigen::Vector3d alpha{kZero3d};
   Eigen::Vector3d beta{kZero3d};
   Sophus::SO3d gamma{};
-  Matrix15d F{Matrix15d::Identity()};  // State transition matrix
+  Matrix15d F{Matrix15d::Identity()};  // State transition matrix discrete time
   Matrix15d P{Matrix15d::Zero()};      // Covariance matrix
   Matrix15d U{Matrix15d::Zero()};      // Square root information matrix
 };

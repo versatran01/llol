@@ -116,12 +116,10 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const auto& q = tf_i_l.transform.rotation;
     const Eigen::Vector3d t_i_l{t.x, t.y, t.z};
     const Eigen::Quaterniond q_i_l{q.w, q.x, q.y, q.z};
-    imu_.InitExtrinsic({q_i_l, t_i_l});
+    imu_.InitExtrinsic({q_i_l, t_i_l}, 9.80184);
     ROS_INFO_STREAM("Transform from lidar to imu:\n"
                     << imu_.T_imu_lidar.matrix());
-
-    imu_.InitGravity(9.80184);
-    ROS_INFO_STREAM("Gravity vector: " << imu_.gravity.transpose());
+    ROS_INFO_STREAM("Gravity: " << imu_.gravity.transpose());
     ROS_INFO_STREAM("Transform from pano to odom:\n"
                     << imu_.T_init_pano.matrix());
     tf_init_ = true;
