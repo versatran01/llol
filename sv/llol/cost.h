@@ -11,6 +11,25 @@ namespace sv {
 // Note: state x is grouped as (dr0, dt0, dr1, dt1 | dv0, dv1 | dba, dbw)
 enum ErrorBlock { kR0, kP0, kR1, kP1, kV0, kV1, kBa, kBw };
 
+template <typename T>
+struct ErrorState {
+  static constexpr int kBlockSize = 3;
+  using Vec3 = Eigen::Matrix<T, kBlockSize, 1>;
+  using Vec3CMap = Eigen::Map<const Vec3>;
+
+  ErrorState(const T* const _x) : x{_x} {}
+  auto r0() const { return Vec3CMap{x + ErrorBlock::kR0 * kBlockSize}; }
+  auto p0() const { return Vec3CMap{x + ErrorBlock::kP0 * kBlockSize}; }
+  auto r1() const { return Vec3CMap{x + ErrorBlock::kR1 * kBlockSize}; }
+  auto p1() const { return Vec3CMap{x + ErrorBlock::kP1 * kBlockSize}; }
+  auto v0() const { return Vec3CMap{x + ErrorBlock::kV0 * kBlockSize}; }
+  auto v1() const { return Vec3CMap{x + ErrorBlock::kV1 * kBlockSize}; }
+  auto ba() const { return Vec3CMap{x + ErrorBlock::kBa * kBlockSize}; }
+  auto bw() const { return Vec3CMap{x + ErrorBlock::kBw * kBlockSize}; }
+
+  const T* const x{nullptr};
+};
+
 struct GicpCost {
   static constexpr int kNumResiduals = 3;
   GicpCost(const SweepGrid& grid, int gsize = 0);
@@ -33,11 +52,11 @@ struct GicpRigidCost final : public GicpCost {
     using Vec3 = Eigen::Matrix<T, 3, 1>;
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
+    using ES = ErrorState<T>;
 
     // We now assume left multiply delta
-    Eigen::Map<const Vec3> er(_x + ErrorBlock::kR0 * 3);
-    Eigen::Map<const Vec3> ep(_x + ErrorBlock::kP0 * 3);
-    const SE3 eT{SO3::exp(er), ep};
+    const ES es(_x);
+    const SE3 eT{SO3::exp(es.r0()), es.p0()};
 
     tbb::parallel_for(
         tbb::blocked_range<int>(0, matches.size(), gsize_),
@@ -69,21 +88,19 @@ struct GicpLinearCost final : public GicpCost {
     using Vec3 = Eigen::Matrix<T, 3, 1>;
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
+    using ES = ErrorState<T>;
 
     // We now assume left multiply delta
-    Eigen::Map<const Vec3> er0(_x + ErrorBlock::kR0 * 3);
-    Eigen::Map<const Vec3> ep0(_x + ErrorBlock::kP0 * 3);
-    Eigen::Map<const Vec3> er1(_x + ErrorBlock::kR1 * 3);
-    Eigen::Map<const Vec3> ep1(_x + ErrorBlock::kP1 * 3);
-
+    const ES es(_x);
     std::vector<SE3> eTs(pgrid->cols());
-    const Vec3 der = er1 - er0;
-    const Vec3 dep = ep1 - ep0;
+    const Vec3 der = es.r1() - es.r0();
+    const Vec3 dep = es.p1() - es.p0();
+
     // Precompute interpolated error state fom lidar to odom
     for (int i = 0; i < eTs.size(); ++i) {
       const double s = (i + 0.5) / eTs.size();
-      eTs[i].so3() = SO3::exp(er0 + s * der);
-      eTs[i].translation() = ep0 + s * dep;
+      eTs[i].so3() = SO3::exp(es.r0() + s * der);
+      eTs[i].translation() = es.p0() + s * dep;
     }
 
     tbb::parallel_for(
@@ -92,9 +109,9 @@ struct GicpLinearCost final : public GicpCost {
           for (int i = blk.begin(); i < blk.end(); ++i) {
             const auto& match = matches.at(i);
             const int c = match.px_g.x;
-            const Eigen::Matrix3d U = match.U.cast<double>();
-            const Eigen::Vector3d pt_p = match.mc_p.mean.cast<double>();
-            const Eigen::Vector3d pt_g = match.mc_g.mean.cast<double>();
+            const auto U = match.U.cast<double>();
+            const auto pt_p = match.mc_p.mean.cast<double>().eval();
+            const auto pt_g = match.mc_g.mean.cast<double>().eval();
             const auto tf_g = pgrid->tfs.at(c).cast<double>();
 
             Eigen::Map<Vec3> r(_r + kNumResiduals * i);
@@ -117,6 +134,7 @@ struct ImuCost {
     using Vec15 = Eigen::Matrix<T, 15, 1>;  // Residuals
     using Vec3 = Eigen::Matrix<T, 3, 1>;
     using SO3 = Sophus::SO3<T>;
+    using ES = ErrorState<T>;
 
     const auto dt = preint.duration;
     const auto dt2 = dt * dt;
@@ -124,23 +142,15 @@ struct ImuCost {
     const auto& st0 = ptraj->states.front();
     const auto& st1 = ptraj->states.back();
 
-    Eigen::Map<const Vec3> er0(_x + ErrorBlock::kR0 * 3);
-    Eigen::Map<const Vec3> ep0(_x + ErrorBlock::kP0 * 3);
-    Eigen::Map<const Vec3> er1(_x + ErrorBlock::kR1 * 3);
-    Eigen::Map<const Vec3> ep1(_x + ErrorBlock::kP1 * 3);
-    Eigen::Map<const Vec3> ev0(_x + ErrorBlock::kV0 * 3);
-    Eigen::Map<const Vec3> ev1(_x + ErrorBlock::kV1 * 3);
-    Eigen::Map<const Vec3> eba(_x + ErrorBlock::kBa * 3);
-    Eigen::Map<const Vec3> ebg(_x + ErrorBlock::kBw * 3);
-
-    const auto eR0 = SO3::exp(er0);
-    const auto eR1 = SO3::exp(er1);
-    const Vec3 p0 = ep0 + eR0 * st0.pos;
-    const Vec3 p1 = ep1 + eR1 * st1.pos;
+    const ES es(_x);
+    const auto eR0 = SO3::exp(es.r0());
+    const auto eR1 = SO3::exp(es.r1());
+    const Vec3 p0 = es.p0() + eR0 * st0.pos;
+    const Vec3 p1 = es.p1() + eR1 * st1.pos;
     const auto R0 = eR0 * st0.rot;
     const auto R1 = eR1 * st1.rot;
-    const Vec3 v0 = ev0 + st0.vel;
-    const Vec3 v1 = ev1 + st1.vel;
+    const Vec3 v0 = es.v0() + st0.vel;
+    const Vec3 v1 = es.v1() + st1.vel;
 
     const auto R0_inv = R0.inverse();
     const Vec3 alpha = R0_inv * (p1 - p0 - v0 * dt + 0.5 * g * dt2);
@@ -152,8 +162,8 @@ struct ImuCost {
     r.template segment<3>(IP::kAlpha) = alpha - preint.alpha;
     r.template segment<3>(IP::kBeta) = beta - preint.beta;
     r.template segment<3>(IP::kTheta) = (gamma * preint.gamma.inverse()).log();
-    r.template segment<3>(IP::kBa) = eba;
-    r.template segment<3>(IP::kBw) = ebg;
+    r.template segment<3>(IP::kBa) = es.ba();
+    r.template segment<3>(IP::kBw) = es.bw();
     r = preint.U * r;
 
     // Debug print

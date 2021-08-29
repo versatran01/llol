@@ -3,22 +3,13 @@
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <image_transport/camera_subscriber.h>
-#include <image_transport/image_transport.h>
 #include <nav_msgs/Path.h>
 #include <pcl_ros/point_cloud.h>
 #include <ros/ros.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_ros/transform_listener.h>
 
 // sv
-#include "sv/node/conv.h"
+#include "sv/node/odom.h"
 #include "sv/node/viz.h"
-#include "sv/util/manager.h"
-#include "sv/util/solver2.h"
-
-// others
-#include <fmt/ostream.h>
-#include <glog/logging.h>
 
 namespace sv {
 
@@ -27,53 +18,6 @@ using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
 using Vector6d = Eigen::Matrix<double, 6, 1>;
 using Vector6f = Eigen::Matrix<float, 6, 1>;
-
-struct OdomNode {
-  /// ros
-  ros::NodeHandle pnh_;
-  image_transport::ImageTransport it_;
-  image_transport::CameraSubscriber sub_camera_;
-  ros::Subscriber sub_imu_;
-  ros::Publisher pub_traj_;
-  ros::Publisher pub_path_;
-  ros::Publisher pub_sweep_;
-  ros::Publisher pub_pano_;
-  ros::Publisher pub_match_;
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
-  tf2_ros::TransformBroadcaster tf_broadcaster_;
-
-  /// params
-  bool vis_{true};
-  int tbb_{0};
-
-  bool tf_init_{false};
-  bool lidar_init_{false};
-
-  std::string lidar_frame_{};
-  std::string pano_frame_{"pano"};
-  std::string odom_frame_{"odom"};
-
-  /// odom
-  ImuTrajectory imu_;
-  LidarSweep sweep_;
-  SweepGrid grid_;
-  DepthPano pano_;
-  GicpSolver gicp_;
-
-  TimerManager tm_{"llol"};
-
-  /// Methods
-  OdomNode(const ros::NodeHandle& pnh);
-  void ImuCb(const sensor_msgs::Imu& imu_msg);
-  void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
-                const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
-  void Preprocess(const LidarScan& scan);
-  void Init(const sensor_msgs::CameraInfo& cinfo_msg);
-  void Register();
-  void Register2();
-  void PostProcess(const LidarScan& scan);
-};
 
 OdomNode::OdomNode(const ros::NodeHandle& pnh)
     : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
@@ -253,132 +197,6 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     Imshow("filter",
            ApplyCmap(
                grid_.DrawFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
-  }
-}
-
-void OdomNode::Register() {
-  // Outer icp iters
-  auto t_match = tm_.Manual("Grid.Match", false);
-  auto t_build = tm_.Manual("Icp.Build", false);
-  auto t_solve = tm_.Manual("Icp.Solve", false);
-
-  using Cost = GicpRigidCost;
-
-  Eigen::Matrix<double, 6, 1> x;
-  static TinySolver<AdCost<Cost>> solver;
-  solver.options.max_num_iterations = gicp_.iters.second;
-
-  for (int i = 0; i < gicp_.iters.first; ++i) {
-    x.setZero();
-    ROS_INFO_STREAM("Icp iteration: " << i);
-
-    t_match.Resume();
-    // Need to update cell tfs before match
-    grid_.Interp(imu_);
-    const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
-    t_match.Stop(false);
-
-    ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
-                                n_matches,
-                                grid_.total(),
-                                100.0 * n_matches / grid_.total()));
-
-    if (n_matches < 10) {
-      ROS_WARN_STREAM("Not enough matches: " << n_matches);
-      break;
-    }
-
-    // Build
-    t_build.Resume();
-    Cost cost(grid_, tbb_);
-    AdCost<Cost> adcost(cost);
-    t_build.Stop(false);
-    ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
-
-    // Solve
-    t_solve.Resume();
-    solver.Solve(adcost, &x);
-    t_solve.Stop(false);
-    ROS_INFO_STREAM(solver.summary.Report());
-
-    // Update state
-    auto& states = imu_.states;
-    const Sophus::SO3d dR = Sophus::SO3d::exp(x.head<3>());
-    for (auto& st : states) {
-      st.rot = dR * st.rot;
-      st.pos = dR * st.pos + x.tail<3>();
-    }
-
-    if (vis_) {
-      // display good match
-      Imshow("match",
-             ApplyCmap(grid_.DrawMatch(),
-                       1.0 / gicp_.pano_win.area(),
-                       cv::COLORMAP_VIRIDIS));
-    }
-  }
-}
-
-void OdomNode::Register2() {
-  // Outer icp iters
-  auto t_match = tm_.Manual("Grid.Match", false);
-  auto t_build = tm_.Manual("Icp.Build", false);
-  auto t_solve = tm_.Manual("Icp.Solve", false);
-
-  using Cost = GicpAndImuCost;
-
-  Eigen::Matrix<double, Cost::kNumParams, 1> x;
-  static TinySolver<AdCost<Cost>> solver;
-  solver.options.max_num_iterations = gicp_.iters.second;
-
-  for (int i = 0; i < gicp_.iters.first; ++i) {
-    x.setZero();
-    ROS_INFO_STREAM("Icp iteration: " << i);
-
-    t_match.Resume();
-    // Need to update cell tfs before match
-    grid_.Interp(imu_);
-    const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
-    t_match.Stop(false);
-
-    ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
-                                n_matches,
-                                grid_.total(),
-                                100.0 * n_matches / grid_.total()));
-
-    if (n_matches < 10) {
-      ROS_WARN_STREAM("Not enough matches: " << n_matches);
-      break;
-    }
-
-    // Build
-    t_build.Resume();
-    Cost cost(grid_, imu_, tbb_);
-    AdCost<Cost> adcost(cost);
-    t_build.Stop(false);
-    ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
-
-    // Solve
-    t_solve.Resume();
-    solver.Solve(adcost, &x);
-    t_solve.Stop(false);
-    ROS_INFO_STREAM(solver.summary.Report());
-
-    // Update state
-    //    auto& states = imu_.states;
-    //    const Sophus::SO3d dR = Sophus::SO3d::exp(x.head<3>());
-    //    for (auto& st : states) {
-    //      st.rot = dR * st.rot;
-    //      st.pos = dR * st.pos + x.tail<3>();
-    //    }
-
-    if (vis_) {
-      // display good match
-      Imshow("match",
-             ApplyCmap(grid_.DrawMatch(),
-                       1.0 / gicp_.pano_win.area(),
-                       cv::COLORMAP_VIRIDIS));
-    }
   }
 }
 

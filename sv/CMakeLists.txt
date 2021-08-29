@@ -85,7 +85,7 @@ cc_test(
 cc_library(
   NAME llol_imu
   SRCS "llol/imu.cpp"
-  DEPS sv_base sv_log sv_util_math Boost::boost)
+  DEPS sv_base sv_log sv_util_math Sophus::Sophus Boost::boost)
 cc_test(
   NAME llol_imu_test
   SRCS "llol/imu_test.cpp"
@@ -183,7 +183,7 @@ if(catkin_FOUND AND BUILD_NODE)
 
   cc_binary(
     NAME node_odom
-    SRCS "node/odom.cpp"
+    SRCS "node/odom.cpp" "node/odom_reg.cpp"
     DEPS sv_node_conv sv_node_viz sv_util_manager sv_util_solver)
 endif()
 

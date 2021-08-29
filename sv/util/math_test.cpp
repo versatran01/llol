@@ -3,8 +3,6 @@
 #include <benchmark/benchmark.h>
 #include <gtest/gtest.h>
 
-#include <sophus/interpolate.hpp>
-
 namespace sv {
 
 TEST(MathTest, TestAngleConversion) {
