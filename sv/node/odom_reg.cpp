@@ -12,9 +12,17 @@ void OdomNode::Register() {
 
   using Cost = GicpRigidCost;
 
-  Eigen::Matrix<double, 6, 1> x;
-  static TinySolver<AdCost<Cost>> solver;
+  Eigen::Matrix<double, Cost::kNumParams, 1> x;
+  TinySolver2<AdCost<Cost>> solver;
+  //  TinySolver<Cost> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
+
+  ImuPreintegration preint;
+  {
+    auto _ = tm_.Scoped("Icp.Preint");
+    preint.Compute(traj_);
+  }
+  ROS_INFO_STREAM("n: " << preint.n << ", dura: " << preint.duration);
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
     x.setZero();

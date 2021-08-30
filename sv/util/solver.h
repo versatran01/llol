@@ -208,7 +208,7 @@ class TinySolver {
 
   const SolverSummary& Solve(const Function& function, Parameters* x_and_min) {
     Initialize<NUM_RESIDUALS, NUM_PARAMETERS>(function);
-    assert(x_and_min);
+    CHECK_NOTNULL(x_and_min);
     Parameters& x = *x_and_min;
     summary = SolverSummary();
     summary.iterations = 0;
@@ -264,9 +264,11 @@ class TinySolver {
       function(&x_new_[0], &f_x_new_[0], NULL);
 
       const Scalar cost_change = (2 * cost_ - f_x_new_.squaredNorm());
+      LOG(INFO) << "cost_change: " << cost_change;
 
       // TODO(sameeragarwal): Better more numerically stable evaluation.
       const Scalar model_cost_change = lm_step_.dot(2 * g_ - jtj_ * lm_step_);
+      LOG(INFO) << "model_cost_change: " << model_cost_change;
 
       // rho is the ratio of the actual reduction in error to the reduction
       // in error that would be obtained if the problem was linear. See [1]
