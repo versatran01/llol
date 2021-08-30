@@ -15,12 +15,18 @@ static constexpr auto kTauD = static_cast<double>(M_PI * 2);
 
 // clang-format off
 /// @brief Make skew symmetric matrix
-inline Eigen::Matrix3d Hat3(const Eigen::Vector3d& w) {
-  Eigen::Matrix3d S;
-  S << 0.0,     -w(2),  w(1),
-       w(2),    0.0,    -w(0),
-       -w(1),   w(0),   0.0;
+template <typename T>
+Eigen::Matrix3<T> Hat3(const Eigen::Vector3<T>& w) {
+  Eigen::Matrix3<T> S;
+  S << T(0.0),  -w(2),  w(1),
+       w(2),    T(0.0), -w(0),
+       -w(1),   w(0),   T(0.0);
   return S;
+}
+
+template <typename T>
+Eigen::Matrix3<T> ExpApprox(const Eigen::Vector3<T>& w) {
+  return Eigen::Matrix3<T>::Identity() + Hat3(w);
 }
 // clang-format on
 

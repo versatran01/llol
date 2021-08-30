@@ -16,8 +16,6 @@ namespace sv {
 using geometry_msgs::PoseArray;
 using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
-using Vector6d = Eigen::Matrix<double, 6, 1>;
-using Vector6f = Eigen::Matrix<float, 6, 1>;
 
 OdomNode::OdomNode(const ros::NodeHandle& pnh)
     : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {

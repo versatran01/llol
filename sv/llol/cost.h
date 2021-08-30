@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ceres/tiny_solver_autodiff_function.h>
+#include <glog/logging.h>
 #include <tbb/parallel_for.h>
 
 #include "sv/llol/grid.h"
@@ -48,14 +49,15 @@ struct GicpRigidCost final : public GicpCost {
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
-    using Vec3 = Eigen::Matrix<T, 3, 1>;
+    using Vec3 = Eigen::Vector3<T>;
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
     using ES = ErrorState<T>;
 
     // We now assume left multiply delta
     const ES es(_x);
-    const SE3 eT{SO3::exp(es.r0()), es.p0()};
+    //    const SE3 eT{SO3::exp(es.r0()), es.p0()};
+    const auto eR = ExpApprox(es.r0().eval());
 
     tbb::parallel_for(
         tbb::blocked_range<int>(0, matches.size(), gsize_),
@@ -69,7 +71,8 @@ struct GicpRigidCost final : public GicpCost {
             const auto tf_g = pgrid->tfs.at(c).cast<double>();
 
             Eigen::Map<Vec3> r(_r + kNumResiduals * i);
-            r = U * (pt_p - eT * (tf_g * pt_g));
+            //            r = U * (pt_p - eT * (tf_g * pt_g));
+            r = U * (pt_p - (eR * (tf_g * pt_g) + es.p0()));
           }
         });
 
@@ -83,7 +86,7 @@ struct GicpLinearCost final : public GicpCost {
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
-    using Vec3 = Eigen::Matrix<T, 3, 1>;
+    using Vec3 = Eigen::Vector3<T>;
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
     using ES = ErrorState<T>;
@@ -137,7 +140,7 @@ struct ImuCost {
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
     using Vec15 = Eigen::Matrix<T, 15, 1>;  // Residuals
-    using Vec3 = Eigen::Matrix<T, 3, 1>;
+    using Vec3 = Eigen::Vector3<T>;
     using SO3 = Sophus::SO3<T>;
     using ES = ErrorState<T>;
 
@@ -193,14 +196,27 @@ struct GicpAndImuCost {
                  int gsize = 0);
 
   int NumResiduals() const {
-    return gicp_cost.NumResiduals() + imu_cost.NumResiduals();
+    //    return gicp_cost.NumResiduals() + imu_cost.NumResiduals();
+    return gicp_cost.NumResiduals();
   }
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
     bool ok = true;
     ok &= gicp_cost(_x, _r);
-    ok &= imu_cost(_x, _r + gicp_cost.NumResiduals());
+
+    // Just evaluate but dont do anything
+    //    std::vector<T> s(imu_cost.NumResiduals());
+    //    ok &= imu_cost(_x, s.data());
+
+    const auto& pi = imu_cost.preint;
+
+    LOG(INFO) << "dura: " << pi.duration;
+    LOG(INFO) << "n: " << pi.n;
+    LOG(INFO) << "alpha: " << pi.alpha.transpose();
+    LOG(INFO) << "beta: " << pi.beta.transpose();
+    LOG(INFO) << "gamma: " << pi.gamma.unit_quaternion().coeffs().transpose();
+
     return ok;
   }
 

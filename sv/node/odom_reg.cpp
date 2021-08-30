@@ -115,11 +115,11 @@ void OdomNode::Register2() {
     // Update state
     const ErrorState<double> es(x.data());
     // Update bias
-    traj_.bias.acc += es.ba();
-    traj_.bias.gyr += es.bw();
+    //    traj_.bias.acc += es.ba();
+    //    traj_.bias.gyr += es.bw();
     // Update velocity
-    traj_.states.front().vel += es.v0();
-    traj_.states.back().vel += es.v1();
+    //    traj_.states.front().vel += es.v0();
+    //    traj_.states.back().vel += es.v1();
 
     // Update pose
     //    const auto der = (es.r1() - es.r0()).eval();
