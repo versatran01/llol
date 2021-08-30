@@ -64,8 +64,8 @@ struct DepthPano {
   cv::Rect BoundWinCenterAt(const cv::Point& pt, const cv::Size& size) const;
 
   /// @brief Add a sweep to the pano
-  int Add(const LidarSweep& sweep, int gsize = 0);
-  int AddRow(const LidarSweep& sweep, int row);
+  int Add(const LidarSweep& sweep, const cv::Range& curr, int gsize = 0);
+  int AddRow(const LidarSweep& sweep, const cv::Range& curr, int row);
   bool FuseDepth(const cv::Point& px, float rg);
 
   /// @brief Render pano at a new location

@@ -26,29 +26,34 @@ int LidarSweep::Add(const LidarScan& scan) {
 void LidarSweep::Interp(const ImuTrajectory& traj, int gsize) {
   const int num_cells = traj.size() - 1;
   const int cell_width = cols() / num_cells;
+  const auto curr_g = curr / cell_width;
   gsize = gsize <= 0 ? num_cells : gsize;
 
-  tbb::parallel_for(tbb::blocked_range<int>(0, num_cells, gsize),
-                    [&](const auto& blk) {
-                      for (int i = blk.begin(); i < blk.end(); ++i) {
-                        // interpolate rotation and translation separately
-                        const auto& T0 = traj.StateAt(i);
-                        const auto& T1 = traj.StateAt(i + 1);
+  tbb::parallel_for(
+      tbb::blocked_range<int>(0, num_cells, gsize), [&](const auto& blk) {
+        for (int gc = blk.begin(); gc < blk.end(); ++gc) {
+          // Note that the starting point of traj is where curr
+          // ends, so we need to offset by curr.end to find the
+          // corresponding traj segment
 
-                        const auto drot = (T0.rot.inverse() * T1.rot).log();
-                        const auto dtrans = (T0.pos - T1.pos).eval();
+          const int tc = ColMod(gc - curr_g.end, num_cells);
+          const auto& st0 = traj.StateAt(tc);
+          const auto& st1 = traj.StateAt(tc + 1);
 
-                        for (int j = 0; j < cell_width; ++j) {
-                          // which column
-                          const int col = i * cell_width + j;
-                          const float s = static_cast<float>(j) / cell_width;
-                          Sophus::SE3d tf;
-                          tf.so3() = T0.rot * Sophus::SO3d::exp(s * drot);
-                          tf.translation() = T0.pos + s * dtrans;
-                          tfs.at(col) = (tf * traj.T_imu_lidar).cast<float>();
-                        }
-                      }
-                    });
+          const auto dr = (st0.rot.inverse() * st1.rot).log();
+          const auto dp = (st0.pos - st1.pos).eval();
+
+          for (int j = 0; j < cell_width; ++j) {
+            // which column
+            const int col = gc * cell_width + j;
+            const float s = static_cast<float>(j) / cell_width;
+            Sophus::SE3d tf_p_i;
+            tf_p_i.so3() = st0.rot * Sophus::SO3d::exp(s * dr);
+            tf_p_i.translation() = st0.pos + s * dp;
+            tfs.at(col) = (tf_p_i * traj.T_imu_lidar).cast<float>();
+          }
+        }
+      });
 }
 
 cv::Mat LidarSweep::DrawRange() const {

@@ -7,6 +7,8 @@
 
 namespace sv {
 
+inline int ColMod(int c, int cols) { return c < 0 ? c + cols : c; }
+
 struct ScanBase {
   // start and delta time
   double t0{};

@@ -144,8 +144,8 @@ struct GicpLinearCost final : public GicpCost {
     // Precompute interpolated error state fom lidar to odom
     for (int i = 0; i < eTs.size(); ++i) {
       const double s = (i + 0.5) / eTs.size();
-      eTs[i].so3() = SO3::exp(es.r0() + s * der);
-      eTs[i].translation() = es.p0() + s * dep;
+      eTs.at(i).so3() = SO3::exp(es.r0() + s * der);
+      eTs.at(i).translation() = es.p0() + s * dep;
     }
 
     tbb::parallel_for(

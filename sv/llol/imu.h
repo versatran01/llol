@@ -111,7 +111,7 @@ struct ImuTrajectory {
   /// @brief Given the first pose in poses, predict using imu
   /// @return Number of imus used
   /// @todo Need to handle partial sweep
-  int Predict(double t0, double dt);
+  int Predict(double t0, double dt, int n);
 };
 
 /// @brief Imu preintegration

@@ -37,7 +37,7 @@ cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
   return WinCenterAt(pt, win_size) & bound;
 }
 
-int DepthPano::Add(const LidarSweep& sweep, int gsize) {
+int DepthPano::Add(const LidarSweep& sweep, const cv::Range& curr, int gsize) {
   gsize = gsize <= 0 ? sweep.rows() : gsize;
 
   return tbb::parallel_reduce(
@@ -45,17 +45,18 @@ int DepthPano::Add(const LidarSweep& sweep, int gsize) {
       0,
       [&](const auto& block, int n) {
         for (int sr = block.begin(); sr < block.end(); ++sr) {
-          n += AddRow(sweep, sr);
+          n += AddRow(sweep, curr, sr);
         }
         return n;
       },
       std::plus<>{});
 }
 
-int DepthPano::AddRow(const LidarSweep& sweep, int sr) {
+int DepthPano::AddRow(const LidarSweep& sweep, const cv::Range& curr, int sr) {
   int n = 0;
 
-  for (int sc = 0; sc < sweep.cols(); ++sc) {
+  //  for (int sc = 0; sc < sweep.cols(); ++sc) {
+  for (int sc = curr.start; sc < curr.end; ++sc) {
     const auto& xyzr = sweep.XyzrAt({sc, sr});
     const float rg_s = xyzr[3];  // precomputed range
     if (!(rg_s > 0)) continue;   // filter out nan

@@ -40,7 +40,7 @@ TEST(ImuTest, TestImuTrajectoryPredict) {
     traj.Add(imu);
   }
 
-  const int n = traj.Predict(0.5, 1);
+  const int n = traj.Predict(0.5, 1, traj.size());
   EXPECT_EQ(n, 4);
   EXPECT_EQ(traj.states.front().time, 0.5);
   EXPECT_EQ(traj.states.back().time, 3.5);

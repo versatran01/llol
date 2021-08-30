@@ -41,7 +41,7 @@ void BM_PanoAddSweep(benchmark::State& state) {
   const int gsize = state.range(0);
 
   for (auto _ : state) {
-    pano.Add(sweep, gsize);
+    pano.Add(sweep, sweep.curr, gsize);
     benchmark::DoNotOptimize(pano);
   }
 }

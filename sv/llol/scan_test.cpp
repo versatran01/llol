@@ -34,5 +34,16 @@ TEST(ScanTest, TestUpdate) {
   EXPECT_EQ(s.curr.end, 20);
 }
 
+TEST(ScanTest, TestColMod) {
+  EXPECT_EQ(ColMod(0 - 64, 64), 0);
+  EXPECT_EQ(ColMod(1 - 64, 64), 1);
+  EXPECT_EQ(ColMod(63 - 64, 64), 63);
+
+  EXPECT_EQ(ColMod(0 - 2, 64), 62);
+  EXPECT_EQ(ColMod(1 - 2, 64), 63);
+  EXPECT_EQ(ColMod(2 - 2, 64), 0);
+  EXPECT_EQ(ColMod(63 - 2, 64), 61);
+}
+
 }  // namespace
 }  // namespace sv

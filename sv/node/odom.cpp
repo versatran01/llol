@@ -186,7 +186,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Imu.Integrate");
     const auto t0 = scan.t0;
     const auto dt = scan.dt * grid_.cell_size.width;
-    n_imus = traj_.Predict(t0, dt);
+    n_imus = traj_.Predict(t0, dt, grid_.curr.size());
   }
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
 
@@ -202,7 +202,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   int n_added = 0;
   {  // Add sweep to pano
     auto _ = tm_.Scoped("Pano.Add");
-    n_added = pano_.Add(sweep_, tbb_);
+    n_added = pano_.Add(sweep_, scan.curr, tbb_);
   }
   ROS_INFO_STREAM(fmt::format("[Pano.Add] Num added: {} / {} / {:02.2f}%",
                               n_added,
@@ -225,7 +225,10 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   }
 
   // TODO (chao): update first pose of traj for next round of imu integration
-  traj_.states.front() = traj_.states.back();
+  //  traj_.states.front() = traj_.states.back();
+  std::rotate(traj_.states.begin(),
+              traj_.states.begin() + grid_.curr.size(),
+              traj_.states.end());
 
   if (vis_) {
     const double max_range = 32.0;

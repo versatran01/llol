@@ -68,7 +68,7 @@ NavState IntegrateMidpoint(const NavState& s0,
 int FindNextImu(const ImuBuffer& buf, double t) {
   int ibuf = -1;
   for (int i = 0; i < buf.size(); ++i) {
-    if (buf[i].time > t) {
+    if (buf.at(i).time > t) {
       ibuf = i;
       break;
     }
@@ -97,15 +97,18 @@ void ImuTrajectory::InitExtrinsic(const SE3d& T_i_l, double gravity_norm) {
       Quaterniond::FromTwoVectors(Vector3d::UnitZ(), g_i));
 }
 
-int ImuTrajectory::Predict(double t0, double dt) {
+int ImuTrajectory::Predict(double t0, double dt, int n) {
+  // Find the first imu from buffer that is right after t0
   int ibuf = FindNextImu(buf, t0);
   CHECK_GE(ibuf, 0);
-
-  // Now try to fill in later poses by integrating gyro only
   const int ibuf0 = ibuf;
-  StateAt(0).time = t0;
 
-  for (int i = 1; i < states.size(); ++i) {
+  // Now try to fill in the last n poses
+  const int ist0 = size() - n - 1;
+  CHECK_GE(ist0, 0);
+  StateAt(ist0).time = t0;
+
+  for (int i = ist0 + 1; i < size(); ++i) {
     const auto ti = t0 + dt * i;
     // increment ibuf if it is ealier than current cell time
     if (buf[ibuf].time < ti) {
@@ -123,7 +126,8 @@ int ImuTrajectory::Predict(double t0, double dt) {
     auto& curr = StateAt(i);
     //    IntegrateEuler(prev, imu, gravity, dt, curr);
     curr.time = prev.time + dt;
-    curr.pos = states[0].pos;
+    // For do not propagate translation
+    curr.pos = StateAt(ist0).pos;
     curr.rot = prev.rot * SO3d::exp(imu.gyr * dt);
   }
 

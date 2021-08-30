@@ -169,13 +169,17 @@ cv::Mat SweepGrid::DrawMatch() const {
 void SweepGrid::Interp(const ImuTrajectory& traj) {
   CHECK_EQ(tfs.size() + 1, traj.size());
 
-  for (int c = 0; c < tfs.size(); ++c) {
-    const auto& st0 = traj.StateAt(c);
-    const auto& st1 = traj.StateAt(c + 1);
+  for (int gc = 0; gc < tfs.size(); ++gc) {
+    // Note that the starting point of traj is where curr ends, so we need to
+    // offset by curr.end to find the corresponding traj segment
+    const int tc = ColMod(gc - curr.end, cols());
+    const auto& st0 = traj.StateAt(tc);
+    const auto& st1 = traj.StateAt(tc + 1);
+
     Sophus::SE3d tf_p_i;
     tf_p_i.so3() = Sophus::interpolate(st0.rot, st1.rot, 0.5);
     tf_p_i.translation() = (st0.pos + st1.pos) / 2.0;
-    tfs.at(c) = (tf_p_i * traj.T_imu_lidar).cast<float>();
+    tfs.at(gc) = (tf_p_i * traj.T_imu_lidar).cast<float>();
   }
 }
 
