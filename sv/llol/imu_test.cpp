@@ -1,6 +1,7 @@
 #include "sv/llol/imu.h"
 
 #include <benchmark/benchmark.h>
+#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 #include <sophus/interpolate.hpp>

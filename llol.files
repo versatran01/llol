@@ -16,6 +16,7 @@ sv/cov_viz.cpp
 sv/llol/CMakeLists.txt
 sv/llol/cost.cpp
 sv/llol/cost.h
+sv/llol/cost_test.cpp
 sv/llol/gicp.cpp
 sv/llol/gicp.h
 sv/llol/gicp_test.cpp

@@ -13,8 +13,8 @@ void OdomNode::Register() {
   using Cost = GicpRigidCost;
 
   Eigen::Matrix<double, Cost::kNumParams, 1> x;
-  TinySolver2<AdCost<Cost>> solver;
-  //  TinySolver<Cost> solver;
+  //  TinySolver<AdCost<Cost>> solver;
+  TinySolver<Cost> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
 
   ImuPreintegration preint;
@@ -47,13 +47,13 @@ void OdomNode::Register() {
     // Build
     t_build.Resume();
     Cost cost(grid_, tbb_);
-    AdCost<Cost> adcost(cost);
+    //    AdCost<Cost> adcost(cost);
     t_build.Stop(false);
     ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
 
     // Solve
     t_solve.Resume();
-    solver.Solve(adcost, &x);
+    solver.Solve(cost, &x);
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 

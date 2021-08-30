@@ -143,6 +143,14 @@ cc_library(
   NAME llol_cost
   SRCS "llol/cost.cpp"
   DEPS sv_llol_grid Ceres::ceres)
+cc_test(
+  NAME llol_cost_test
+  SRCS "llol/cost_test.cpp"
+  DEPS sv_llol_cost benchmark::benchmark)
+cc_bench(
+  NAME llol_cost_bench
+  SRCS "llol/cost_test.cpp"
+  DEPS sv_llol_cost GTest::GTest)
 
 cc_library(
   NAME llol_gicp

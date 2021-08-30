@@ -50,38 +50,38 @@ struct GicpRigidCost final : public GicpCost {
   using Scalar = double;
   enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
 
-  //  bool operator()(const double* _x, double* _r, double* _J) const {
-  //    const ErrorState<double> es(_x);
-  //    const Sophus::SE3d eT{Sophus::SO3d::exp(es.r0()), es.p0()};
-  //    //    const auto eR = Sophus::SO3d::exp(es.r0());
+  bool operator()(const double* _x, double* _r, double* _J) const {
+    const ErrorState<double> es(_x);
+    const Sophus::SE3d eT{Sophus::SO3d::exp(es.r0()), es.p0()};
+    //    const auto eR = Sophus::SO3d::exp(es.r0());
 
-  //    tbb::parallel_for(
-  //        tbb::blocked_range<int>(0, matches.size(), gsize_),
-  //        [&](const auto& blk) {
-  //          for (int i = blk.begin(); i < blk.end(); ++i) {
-  //            const auto& match = matches.at(i);
-  //            const int c = match.px_g.x;
-  //            const auto U = match.U.cast<double>().eval();
-  //            const auto pt_p = match.mc_p.mean.cast<double>().eval();
-  //            const auto pt_g = match.mc_g.mean.cast<double>().eval();
-  //            const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
-  //            const auto pt_p_hat = tf_p_g * pt_g;
+    tbb::parallel_for(
+        tbb::blocked_range<int>(0, matches.size(), gsize_),
+        [&](const auto& blk) {
+          for (int i = blk.begin(); i < blk.end(); ++i) {
+            const auto& match = matches.at(i);
+            const int c = match.px_g.x;
+            const auto U = match.U.cast<double>().eval();
+            const auto pt_p = match.mc_p.mean.cast<double>().eval();
+            const auto pt_g = match.mc_g.mean.cast<double>().eval();
+            const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
+            const auto pt_p_hat = tf_p_g * pt_g;
 
-  //            const int ri = kNumResiduals * i;
-  //            Eigen::Map<Eigen::Vector3d> r(_r + ri);
+            const int ri = kNumResiduals * i;
+            Eigen::Map<Eigen::Vector3d> r(_r + ri);
 
-  //            r = U * (pt_p - eT * pt_p_hat);
+            r = U * (pt_p - eT * pt_p_hat);
 
-  //            if (_J) {
-  //              Eigen::Map<Eigen::MatrixXd> J(_J, NumResiduals(), kNumParams);
-  //              // dr / dtheta
-  //              J.block<3, 3>(ri, 0) = U * Hat3(pt_p_hat);
-  //              J.block<3, 3>(ri, 3) = U;
-  //            }
-  //          }
-  //        });
-  //    return true;
-  //  }
+            if (_J) {
+              Eigen::Map<Eigen::MatrixXd> J(_J, NumResiduals(), kNumParams);
+              // dr / dtheta
+              J.block<3, 3>(ri, 0) = U * Hat3(pt_p_hat);
+              J.block<3, 3>(ri, 3) = -U;
+            }
+          }
+        });
+    return true;
+  }
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
@@ -93,7 +93,6 @@ struct GicpRigidCost final : public GicpCost {
     // We now assume left multiply delta
     const ES es(_x);
     const SE3 eT{SO3::exp(es.r0()), es.p0()};
-    //    const auto eR = ExpApprox(es.r0().eval());
 
     tbb::parallel_for(
         tbb::blocked_range<int>(0, matches.size(), gsize_),
@@ -108,7 +107,6 @@ struct GicpRigidCost final : public GicpCost {
 
             Eigen::Map<Vec3> r(_r + kNumResiduals * i);
             r = U * (pt_p - eT * (tf_g * pt_g));
-            //            r = U * (pt_p - (eR * (tf_g * pt_g) + es.p0()));
           }
         });
 
