@@ -19,8 +19,8 @@ using visualization_msgs::MarkerArray;
 
 OdomNode::OdomNode(const ros::NodeHandle& pnh)
     : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
-  sub_camera_ = it_.subscribeCamera("image", 10, &OdomNode::CameraCb, this);
-  sub_imu_ = pnh_.subscribe("imu", 100, &OdomNode::ImuCb, this);
+  sub_camera_ = it_.subscribeCamera("image", 20, &OdomNode::CameraCb, this);
+  sub_imu_ = pnh_.subscribe("imu", 200, &OdomNode::ImuCb, this);
 
   pub_traj_ = pnh_.advertise<PoseArray>("traj", 1);
   pub_path_ = pnh_.advertise<nav_msgs::Path>("path", 1);
