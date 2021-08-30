@@ -15,7 +15,7 @@ DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
     : max_cnt{params.max_cnt},
       range_ratio{params.range_ratio},
       min_range{params.min_range},
-      model{size, params.hfov},
+      model{size, params.vfov},
       dbuf{size, CV_16UC2},
       dbuf2{size, CV_16UC2} {}
 

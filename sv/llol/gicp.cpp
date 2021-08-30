@@ -65,8 +65,9 @@ int GicpSolver::MatchCell(SweepGrid& grid,
 
   // Transform to pano frame
   // TODO (chao): move this transform somewhere else
-  const Eigen::Vector3f pt_p = grid.tfs.at(px_g.x) * match.mc_g.mean;
-  const float rg_p = pt_p.norm();
+  const auto& T_p_g = grid.tfs.at(px_g.x);
+  const auto pt_p = T_p_g * match.mc_g.mean;
+  const auto rg_p = pt_p.norm();
 
   // Project to pano
   const auto px_p = pano.model.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
@@ -95,6 +96,7 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   }
   // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
   match.CalcSqrtInfo(cov_lambda);
+  //  match.CalcSqrtInfo(T_p_g.rotationMatrix());
   return 1;
 }
 

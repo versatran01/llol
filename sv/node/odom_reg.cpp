@@ -14,7 +14,7 @@ void OdomNode::Register() {
 
   Eigen::Matrix<double, Cost::kNumParams, 1> x;
   //  TinySolver<AdCost<Cost>> solver;
-  TinySolver<Cost> solver;
+  TinySolver2<Cost> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
 
   ImuPreintegration preint;
@@ -49,7 +49,6 @@ void OdomNode::Register() {
     Cost cost(grid_, tbb_);
     //    AdCost<Cost> adcost(cost);
     t_build.Stop(false);
-    ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
 
     // Solve
     t_solve.Resume();
@@ -81,10 +80,10 @@ void OdomNode::Register2() {
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
-  using Cost = GicpAndImuCost;
+  using Cost = GicpLinearCost;
 
   Eigen::Matrix<double, Cost::kNumParams, 1> x;
-  static TinySolver<AdCost<Cost>> solver;
+  TinySolver<AdCost<Cost>> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
@@ -109,7 +108,7 @@ void OdomNode::Register2() {
 
     // Build
     t_build.Resume();
-    Cost cost(grid_, traj_, tbb_);
+    Cost cost(grid_, tbb_);
     AdCost<Cost> adcost(cost);
     t_build.Stop(false);
     ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
@@ -130,22 +129,15 @@ void OdomNode::Register2() {
     //    traj_.states.back().vel += es.v1();
 
     // Update pose
-    //    const auto der = (es.r1() - es.r0()).eval();
-    //    const auto eR = Sophus::SO3d::exp(es.r0());
-    //    const auto dep = (es.p1() - es.p0()).eval();
-    //    for (int i = 0; i < imu_.states.size(); ++i) {
-    //      auto& st = imu_.StateAt(i);
-    //      const double s = i / (imu_.states.size() - 1.0);
-    //      //      const auto eR = Sophus::SO3d::exp(es.r0() + s * der);
-    //      const auto ep = es.p0() + s * dep;
-    //      st.rot = eR * st.rot;
-    //      st.pos = eR * st.pos + ep;
-    //    }
-
-    const auto dR = Sophus::SO3d::exp(es.r0());
-    for (auto& st : traj_.states) {
-      st.rot = dR * st.rot;
-      st.pos = dR * st.pos + es.p0();
+    const auto der = (es.r1() - es.r0()).eval();
+    const auto dep = (es.p1() - es.p0()).eval();
+    for (int i = 0; i < traj_.states.size(); ++i) {
+      auto& st = traj_.StateAt(i);
+      const double s = i / (traj_.states.size() - 1.0);
+      const auto eR = Sophus::SO3d::exp(es.r0() + s * der);
+      const auto ep = es.p0() + s * dep;
+      st.rot = eR * st.rot;
+      st.pos = eR * st.pos + ep;
     }
 
     if (vis_) {

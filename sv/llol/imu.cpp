@@ -35,7 +35,6 @@ void IntegrateEuler(const NavState& s0,
   // acc
   // transform to fixed frame acc and remove gravity
   const Vector3d a = s0.rot * imu.acc - g;
-  //  LOG(INFO) << fmt::format("{} / {} / {}", s0.time, dt, a.transpose());
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt * dt;
 }
@@ -148,7 +147,8 @@ ImuNoise::ImuNoise(double dt,
 
 std::string ImuNoise::Repr() const {
   return fmt::format(
-      "acc_cov=[{}], gyr_cov=[{}], acc_bias_cov=[{}], gyr_bias_cov=[{}]",
+      "ImuNoise(acc_cov=[{}], gyr_cov=[{}], acc_bias_cov=[{}], "
+      "gyr_bias_cov=[{}])",
       sigma2.segment<3>(kNa).transpose(),
       sigma2.segment<3>(kNw).transpose(),
       sigma2.segment<3>(kBa).transpose(),

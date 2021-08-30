@@ -13,6 +13,16 @@ void SO3d2Ros(const Sophus::SO3d& rot, geometry_msgs::Quaternion& q) {
   q = tf2::toMsg(rot.unit_quaternion());
 }
 
+ImuData MakeImu(const sensor_msgs::Imu& imu_msg) {
+  ImuData imu;
+  imu.time = imu_msg.header.stamp.toSec();
+  const auto& a = imu_msg.linear_acceleration;
+  const auto& w = imu_msg.angular_velocity;
+  imu.acc = {a.x, a.y, a.z};
+  imu.gyr = {w.x, w.y, w.z};
+  return imu;
+}
+
 LidarScan MakeScan(const sensor_msgs::Image& image_msg,
                    const sensor_msgs::CameraInfo& cinfo_msg) {
   cv_bridge::CvImageConstPtr cv_ptr;
@@ -25,7 +35,7 @@ LidarScan MakeScan(const sensor_msgs::Image& image_msg,
                     cinfo_msg.roi.x_offset + cinfo_msg.roi.width)};
 }
 
-LidarSweep InitSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
+LidarSweep MakeSweep(const sensor_msgs::CameraInfo& cinfo_msg) {
   return LidarSweep{cv::Size(cinfo_msg.width, cinfo_msg.height)};
 }
 
@@ -42,7 +52,7 @@ DepthPano InitPano(const ros::NodeHandle& pnh) {
   PanoParams pp;
   const auto pano_rows = pnh.param<int>("rows", 256);
   const auto pano_cols = pnh.param<int>("cols", 1024);
-  pp.hfov = Deg2Rad(pnh.param<double>("hfov", pp.hfov));
+  pp.vfov = Deg2Rad(pnh.param<double>("vfov", pp.vfov));
   pp.max_cnt = pnh.param<int>("max_cnt", pp.max_cnt);
   pp.min_range = pnh.param<double>("min_range", pp.min_range);
   pp.range_ratio = pnh.param<double>("range_ratio", pp.range_ratio);
@@ -58,25 +68,15 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
   return GicpSolver{gp};
 }
 
-ImuData MakeImuData(const sensor_msgs::Imu& imu_msg) {
-  ImuData imu;
-  imu.time = imu_msg.header.stamp.toSec();
-  const auto& a = imu_msg.linear_acceleration;
-  const auto& w = imu_msg.angular_velocity;
-  imu.acc = {a.x, a.y, a.z};
-  imu.gyr = {w.x, w.y, w.z};
-  return imu;
-}
-
-ImuTrajectory InitImu(const ros::NodeHandle& pnh, int grid_cols) {
-  ImuTrajectory imu(grid_cols + 1);
-  const auto dt = 1.0 / pnh.param<double>("rate", 100.0);
+ImuTrajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
+  ImuTrajectory traj(grid_cols + 1);
+  const auto dt = 1.0 / pnh.param<double>("imu_rate", 100.0);
   const auto acc_noise = pnh.param<double>("acc_noise", 1e-3);
   const auto gyr_noise = pnh.param<double>("gyr_noise", 1e-4);
   const auto acc_bias_noise = pnh.param<double>("acc_bias_noise", 1e-4);
   const auto gyr_bias_noise = pnh.param<double>("gyr_bias_noise", 1e-5);
-  imu.noise = {dt, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
-  return imu;
+  traj.noise = {dt, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
+  return traj;
 }
 
 void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,

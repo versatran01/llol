@@ -40,7 +40,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   // Add imu data to buffer
-  const auto imu = MakeImuData(imu_msg);
+  const auto imu = MakeImu(imu_msg);
   traj_.Add(imu);
 
   if (tf_init_) return;
@@ -74,13 +74,13 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 
 void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
   ROS_INFO_STREAM("+++ Initializing");
-  sweep_ = InitSweep(cinfo_msg);
+  sweep_ = MakeSweep(cinfo_msg);
   ROS_INFO_STREAM(sweep_);
 
   grid_ = InitGrid({pnh_, "grid"}, sweep_.size());
   ROS_INFO_STREAM(grid_);
 
-  traj_ = InitImu({pnh_, "imu"}, grid_.cols());
+  traj_ = InitTraj({pnh_, "traj"}, grid_.cols());
   ROS_INFO_STREAM(traj_.noise);
 
   gicp_ = InitGicp({pnh_, "gicp"});

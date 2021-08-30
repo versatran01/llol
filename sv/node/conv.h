@@ -23,12 +23,12 @@ void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,
                  geometry_msgs::PoseArray& parray);
 
 /// @brief Factory methods
-ImuData MakeImuData(const sensor_msgs::Imu& imu_msg);
+ImuData MakeImu(const sensor_msgs::Imu& imu_msg);
 LidarScan MakeScan(const sensor_msgs::Image& image_msg,
                    const sensor_msgs::CameraInfo& cinfo_msg);
+LidarSweep MakeSweep(const sensor_msgs::CameraInfo& cinfo_msg);
 
-ImuTrajectory InitImu(const ros::NodeHandle& pnh, int grid_cols);
-LidarSweep InitSweep(const sensor_msgs::CameraInfo& cinfo_msg);
+ImuTrajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols);
 SweepGrid InitGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size);
 DepthPano InitPano(const ros::NodeHandle& pnh);
 GicpSolver InitGicp(const ros::NodeHandle& pnh);

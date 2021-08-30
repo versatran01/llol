@@ -26,6 +26,7 @@ struct PointMatch {
   void Reset();
 
   void CalcSqrtInfo(float lambda = 0.0F);
+  void CalcSqrtInfo(const Eigen::Matrix3f& R_p_g, float lambda = 0.0F);
 };
 
 }  // namespace sv

@@ -133,7 +133,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 }
 
 void OdomNode::InitLidar(const sensor_msgs::CameraInfo& cinfo_msg) {
-  sweep_ = InitSweep(cinfo_msg);
+  sweep_ = MakeSweep(cinfo_msg);
   ROS_INFO_STREAM(sweep_);
 
   grid_ = InitGrid({pnh_, "grid"}, sweep_.size());
