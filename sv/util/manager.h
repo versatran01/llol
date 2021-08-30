@@ -142,7 +142,7 @@ class TimerManager final : public StatsManagerBase<absl::Duration> {
    public:
     /// If start is true then start on construction, otherise stopped
     ManualTimer(std::string name, TimerManager* manager, bool start = true);
-    virtual ~ManualTimer() { Commit(); }
+    virtual ~ManualTimer() noexcept = default;
 
     /// Disable copy, allow move
     ManualTimer(const ManualTimer&) = delete;

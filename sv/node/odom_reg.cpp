@@ -17,12 +17,12 @@ void OdomNode::Register() {
   TinySolver2<Cost> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
 
-  ImuPreintegration preint;
-  {
-    auto _ = tm_.Scoped("Icp.Preint");
-    preint.Compute(traj_);
-  }
-  ROS_INFO_STREAM("n: " << preint.n << ", dura: " << preint.duration);
+  //  ImuPreintegration preint;
+  //  {
+  //    auto _ = tm_.Scoped("Icp.Preint");
+  //    preint.Compute(traj_);
+  //  }
+  //  ROS_INFO_STREAM("n: " << preint.n << ", dura: " << preint.duration);
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
     x.setZero();
@@ -72,6 +72,10 @@ void OdomNode::Register() {
                        cv::COLORMAP_VIRIDIS));
     }
   }
+
+  t_match.Commit();
+  t_solve.Commit();
+  t_build.Commit();
 }
 
 void OdomNode::Register2() {

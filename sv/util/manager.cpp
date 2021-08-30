@@ -53,7 +53,7 @@ void TimerManager::ManualTimer::Stop(bool record) {
 }
 
 void TimerManager::ManualTimer::Commit() {
-  Stop();
+  Stop(true);
   if (!stats_.ok()) return;  // Noop if there's no stats to commit
 
   // Already checked in ctor
