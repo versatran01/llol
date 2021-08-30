@@ -112,6 +112,15 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     return;
   }
 
+  if (!scan_init_) {
+    if (cinfo_msg->binning_x == 0) {
+      scan_init_ = true;
+    } else {
+      ROS_WARN_STREAM("Scan not initialized");
+      return;
+    }
+  }
+
   // Transform from pano to odom
   TransformStamped tf_o_p;
   tf_o_p.header.frame_id = odom_frame_;
@@ -184,8 +193,8 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   int n_imus{};
   {  // Integarte imu to fill nominal traj
     auto _ = tm_.Scoped("Imu.Integrate");
-    const auto t0 = scan.t0;
-    const auto dt = scan.dt * grid_.cell_size.width;
+    const auto t0 = grid_.t0;
+    const auto dt = grid_.dt;
     n_imus = traj_.Predict(t0, dt, grid_.curr.size());
   }
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
@@ -224,11 +233,8 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     sweep_.Interp(traj_, tbb_);
   }
 
-  // TODO (chao): update first pose of traj for next round of imu integration
-  //  traj_.states.front() = traj_.states.back();
-  std::rotate(traj_.states.begin(),
-              traj_.states.begin() + grid_.curr.size(),
-              traj_.states.end());
+  // Update traj starting point
+  traj_.Rotate(grid_.curr.size());
 
   if (vis_) {
     const double max_range = 32.0;

@@ -32,6 +32,7 @@ struct OdomNode {
   int tbb_{0};
 
   bool tf_init_{false};
+  bool scan_init_{false};
   bool lidar_init_{false};
 
   std::string lidar_frame_{};

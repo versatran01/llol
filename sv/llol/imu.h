@@ -112,6 +112,9 @@ struct ImuTrajectory {
   /// @return Number of imus used
   /// @todo Need to handle partial sweep
   int Predict(double t0, double dt, int n);
+
+  /// @brief Rotate the states so that the traj starts at curr end
+  void Rotate(int n);
 };
 
 /// @brief Imu preintegration

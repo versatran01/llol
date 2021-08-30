@@ -134,6 +134,12 @@ int ImuTrajectory::Predict(double t0, double dt, int n) {
   return ibuf - ibuf0 + 1;
 }
 
+void ImuTrajectory::Rotate(int n) {
+  CHECK_LE(0, n);
+  CHECK_LT(n, size());
+  std::rotate(states.begin(), states.begin() + n, states.end());
+}
+
 ImuNoise::ImuNoise(double dt,
                    double acc_noise,
                    double gyr_noise,

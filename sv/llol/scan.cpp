@@ -35,18 +35,7 @@ void ScanBase::UpdateView(const cv::Range& new_curr) {
   const int width = new_curr.size();
   CHECK_EQ(new_curr.start, curr.end % cols());
   CHECK_LE(width, cols());
-
-  // Update curr
   curr = new_curr;
-  //  if (full()) {
-  //    // If span full increment both
-  //    span.start += width;
-  //    span.end += width;
-  //  } else {
-  //    // If span not full, only increment end
-  //    span.end += width;
-  //  }
-  //  CHECK_LE(span.size(), cols());
 }
 
 /// LidarScan ==================================================================
