@@ -80,7 +80,7 @@ void OdomNode::Register() {
     ROS_WARN_STREAM(fmt::format(
         "err_rot: [{}], norm={:6e}", ess.r0().transpose(), ess.r0().norm()));
 
-    imuq_.UpdateBias(traj_.states);
+    //    imuq_.UpdateBias(traj_.states);
 
   } else {
     ROS_WARN_STREAM("Trajectory not updated");

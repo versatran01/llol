@@ -74,6 +74,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const auto imu_mean = imuq_.CalcMean();
     traj_.InitExtrinsic({q_i_l, t_i_l}, imu.acc, 9.80184);
     //    imuq_.bias.gyr = imu_mean.gyr;
+    //    imuq_.bias.gyr_var = imu_mean.gyr.array().square();
     ROS_INFO_STREAM(traj_);
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {

@@ -4,8 +4,8 @@ imuq:
   acc_bias_noise: 0.005
   acc_bias_std: 0.01
   gyr_noise: 0.005
-  gyr_bias_noise: 0.0001
-  gyr_bias_std: 0.0001
+  gyr_bias_noise: 0.0002
+  gyr_bias_std: 0.0002
 grid:
   cell_rows: 2
   cell_cols: 16
