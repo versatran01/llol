@@ -33,6 +33,17 @@ std::string NavState::Repr() const {
                      vel.transpose());
 }
 
+void ImuData::Debias(const ImuBias& bias) {
+  acc -= bias.acc;
+  gyr -= bias.gyr;
+}
+
+ImuData ImuData::DeBiased(const ImuBias& bias) const {
+  ImuData out = *this;
+  out.Debias(bias);
+  return out;
+}
+
 void IntegrateEuler(const NavState& s0,
                     const ImuData& imu,
                     const Vector3d& g,
@@ -100,8 +111,8 @@ ImuNoise::ImuNoise(double dt,
   // https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model
   sigma2.segment<3>(kNa).setConstant(Sq(acc_noise) / dt);
   sigma2.segment<3>(kNw).setConstant(Sq(gyr_noise) / dt);
-  sigma2.segment<3>(kBa).setConstant(Sq(acc_bias_noise) * dt);
-  sigma2.segment<3>(kBw).setConstant(Sq(gyr_bias_noise) * dt);
+  sigma2.segment<3>(kNba).setConstant(Sq(acc_bias_noise) * dt);
+  sigma2.segment<3>(kNbw).setConstant(Sq(gyr_bias_noise) * dt);
 }
 
 std::string ImuNoise::Repr() const {
@@ -110,8 +121,8 @@ std::string ImuNoise::Repr() const {
       "gyr_bias_cov=[{}])",
       sigma2.segment<3>(kNa).transpose(),
       sigma2.segment<3>(kNw).transpose(),
-      sigma2.segment<3>(kBa).transpose(),
-      sigma2.segment<3>(kBw).transpose());
+      sigma2.segment<3>(kNba).transpose(),
+      sigma2.segment<3>(kNbw).transpose());
 }
 
 std::string ImuQueue::Repr() const {
@@ -122,17 +133,61 @@ std::string ImuQueue::Repr() const {
                      noise);
 }
 
-int ImuQueue::IndexAfter(int t) const { return FindNextImu(buf, t); }
+void sv::ImuQueue::Add(const ImuData& imu) {
+  // Also propagate covariance for bias model
+  if (!buf.empty()) {
+    bias.acc_var += noise.nba();
+    bias.gyr_var += noise.nbw();
+  }
 
-void ImuData::Debias(const ImuBias& bias) {
-  acc -= bias.acc;
-  gyr -= bias.gyr;
+  buf.push_back(imu);
 }
 
-ImuData ImuData::DeBiased(const ImuBias& bias) const {
-  ImuData out = *this;
-  out.Debias(bias);
-  return out;
+int ImuQueue::IndexAfter(int t) const { return FindNextImu(buf, t); }
+
+int ImuQueue::UpdateBias(const std::vector<NavState>& states) {
+  // TODO (chao): for now only update gyro bias
+  const auto t0 = states.front().time;
+  const auto t1 = states.back().time;
+  const auto dt_state = (t1 - t0) / (states.size() - 1);
+
+  // Find next imu
+  int ibuf = FindNextImu(buf, t0);
+  CHECK_LE(0, ibuf);
+
+  MeanCovar3d bw;
+
+  while (ibuf < size()) {
+    // Get an imu and try to find its left and right state
+    const auto& imu = At(ibuf);
+    const int ist = (imu.time - t0) / dt_state;
+    if (ist + 1 >= states.size()) break;
+
+    const auto& st0 = states.at(ist);
+    const auto& st1 = states.at(ist + 1);
+    const Eigen::Vector3d omg_hat =
+        (st0.rot.inverse() * st1.rot).log() / dt_state;
+    // gyr_true = gyr_meas - gyr_bias
+    // gyr_bias = gyr_meas - gyr_true
+    bw.Add(imu.gyr - omg_hat);
+
+    ++ibuf;
+  }
+
+  //  LOG(INFO) << "n: " << bw.n;
+  //  LOG(INFO) << "mean: " << bw.mean.transpose();
+  //  LOG(INFO) << "cov: " << bw.Covar();
+
+  // Simple update
+  const Vector3d y = bw.mean - bias.gyr;
+  const Vector3d S = bias.gyr_var + bw.Covar().diagonal();
+  const Vector3d K = bias.gyr_var.cwiseProduct(S.cwiseInverse());
+  bias.gyr += K.cwiseProduct(y);
+  bias.gyr_var -= K.cwiseProduct(bias.gyr_var);
+  LOG(INFO) << "bw: " << bias.gyr.transpose();
+  LOG(INFO) << "bw_var: " << bias.gyr_var.transpose();
+
+  return bw.n;
 }
 
 int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {

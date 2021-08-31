@@ -23,6 +23,7 @@ struct OdomNode {
   ros::Publisher pub_sweep_;
   ros::Publisher pub_pano_;
   ros::Publisher pub_match_;
+  ros::Publisher pub_imu_bias_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
   tf2_ros::TransformBroadcaster tf_broadcaster_;
@@ -34,7 +35,9 @@ struct OdomNode {
   bool tf_init_{false};
   bool scan_init_{false};
   bool lidar_init_{false};
+  bool traj_updated_{false};
 
+  std::string imu_frame_{};
   std::string lidar_frame_{};
   std::string pano_frame_{"pano"};
   std::string odom_frame_{"odom"};

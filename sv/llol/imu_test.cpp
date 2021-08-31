@@ -14,8 +14,8 @@ TEST(ImuTest, TestImuNoise) {
 
   EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::kNa), 10);
   EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::kNw), 40);
-  EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::kBa), 0.9);
-  EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::kBw), 1.6);
+  EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::kNba), 0.9);
+  EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::kNbw), 1.6);
 }
 
 TEST(ImuTest, TestFindNextImu) {

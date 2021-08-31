@@ -2,10 +2,10 @@ imuq:
   imu_rate: 100.0
   acc_noise: 0.05
   acc_bias_noise: 0.005
-  acc_bias_std: 0.005
+  acc_bias_std: 0.01
   gyr_noise: 0.005
   gyr_bias_noise: 0.0005
-  gyr_bias_std: 0.0005
+  gyr_bias_std: 0.001
 grid:
   cell_rows: 2
   cell_cols: 16

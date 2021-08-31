@@ -27,6 +27,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   pub_sweep_ = pnh_.advertise<CloudXYZ>("sweep", 1);
   pub_pano_ = pnh_.advertise<CloudXYZ>("pano", 1);
   pub_match_ = pnh_.advertise<MarkerArray>("match", 1);
+  pub_imu_bias_ = pnh_.advertise<sensor_msgs::Imu>("imu_bias", 1);
 
   vis_ = pnh_.param<bool>("vis", true);
   ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -42,6 +43,11 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 }
 
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
+  if (imu_frame_.empty()) {
+    imu_frame_ = imu_msg.header.frame_id;
+    ROS_INFO_STREAM("Imu frame: " << imu_frame_);
+  }
+
   // Add imu data to buffer
   const auto imu = MakeImu(imu_msg);
   imuq_.Add(imu);
@@ -172,6 +178,14 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   pano_header.stamp = cinfo_msg->header.stamp;
   Pano2Cloud(pano_, pano_header, pano_cloud);
   pub_pano_.publish(pano_cloud);
+
+  // publish imu bias
+  sensor_msgs::Imu imu_bias;
+  imu_bias.header.stamp = cinfo_msg->header.stamp;
+  imu_bias.header.frame_id = imu_frame_;
+  tf2::toMsg(imuq_.bias.acc, imu_bias.linear_acceleration);
+  tf2::toMsg(imuq_.bias.gyr, imu_bias.angular_velocity);
+  pub_imu_bias_.publish(imu_bias);
 
   ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
 }

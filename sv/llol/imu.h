@@ -6,6 +6,7 @@
 namespace sv {
 
 static const Eigen::Vector3d kVecZero3d = Eigen::Vector3d::Zero();
+static const Eigen::Matrix3d kMatZero3d = Eigen::Matrix3d::Zero();
 static const Eigen::Matrix3d kMatEye3d = Eigen::Matrix3d::Identity();
 
 struct NavState {
@@ -63,8 +64,9 @@ NavState IntegrateMidpoint(const NavState& s0,
 /// @brief Discrete time IMU noise
 struct ImuNoise {
   static constexpr int kDim = 12;
+  using Vec3CMap = Eigen::Map<const Eigen::Vector3d>;
   using Vector12d = Eigen::Matrix<double, kDim, 1>;
-  enum Index { kNa = 0, kNw = 3, kBa = 6, kBw = 9 };
+  enum Index { kNa = 0, kNw = 3, kNba = 6, kNbw = 9 };
 
   ImuNoise() = default;
   ImuNoise(double dt,
@@ -77,6 +79,11 @@ struct ImuNoise {
   friend std::ostream& operator<<(std::ostream& os, const ImuNoise& rhs) {
     return os << rhs.Repr();
   }
+
+  auto na() const { return Vec3CMap{sigma2.data() + Index::kNa}; }
+  auto nw() const { return Vec3CMap{sigma2.data() + Index::kNw}; }
+  auto nba() const { return Vec3CMap{sigma2.data() + Index::kNba}; }
+  auto nbw() const { return Vec3CMap{sigma2.data() + Index::kNbw}; }
 
   Vector12d sigma2{Vector12d::Zero()};  // discrete time noise covar
 };
@@ -100,15 +107,20 @@ struct ImuQueue {
   int capacity() const { return buf.capacity(); }
 
   /// @brief Add imu data into buffer
-  void Add(const ImuData& imu) { buf.push_back(imu); }
+  void Add(const ImuData& imu);
 
   /// @brief At
   const ImuData& At(int i) const { return buf.at(i); }
   ImuData DebiasedAt(int i) const { return buf.at(i).DeBiased(bias); }
+  // TODO (chao): temp disable bias for testing
+  //  ImuData DebiasedAt(int i) const { return buf.at(i); }
 
   /// @brief Get index into buffer with time rgith next to t
   /// @return -1 if not found
   int IndexAfter(int t) const;
+
+  /// @brief Update
+  int UpdateBias(const std::vector<NavState>& states);
 };
 
 /// @brief Imu preintegration

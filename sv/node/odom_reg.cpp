@@ -12,13 +12,17 @@ void OdomNode::Register() {
 
   using Cost = GicpRigidCost;
 
-  Eigen::Matrix<double, Cost::kNumParams, 1> x;
+  Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
+  err_sum.setZero();
+  Eigen::Matrix<double, Cost::kNumParams, 1> err;
   //  TinySolver<AdCost<Cost>> solver;
   TinySolver2<Cost> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
 
+  bool traj_updated_ = false;
+
   for (int i = 0; i < gicp_.iters.first; ++i) {
-    x.setZero();
+    err.setZero();
     ROS_INFO_STREAM("Icp iteration: " << i);
 
     t_match.Resume();
@@ -45,17 +49,22 @@ void OdomNode::Register() {
 
     // Solve
     t_solve.Resume();
-    solver.Solve(cost, &x);
+    solver.Solve(cost, &err);
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 
     // Update state
-    const Cost::State<double> es(x.data());
+    // accumulate e
+    err_sum += err;
+
+    const Cost::State<double> es(err.data());
     const auto dR = Sophus::SO3d::exp(es.r0());
     for (auto& st : traj_.states) {
       st.rot = dR * st.rot;
       st.pos = dR * st.pos + es.p0();
     }
+
+    traj_updated_ = true;
 
     if (vis_) {
       // display good match
@@ -64,6 +73,17 @@ void OdomNode::Register() {
                        1.0 / gicp_.pano_win.area(),
                        cv::COLORMAP_VIRIDIS));
     }
+  }
+
+  if (traj_updated_) {
+    const Cost::State<double> ess(err_sum.data());
+    ROS_WARN_STREAM(fmt::format(
+        "err_rot: [{}], norm={:6e}", ess.r0().transpose(), ess.r0().norm()));
+
+    imuq_.UpdateBias(traj_.states);
+
+  } else {
+    ROS_WARN_STREAM("Trajectory not updated");
   }
 
   t_match.Commit();
