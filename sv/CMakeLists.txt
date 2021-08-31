@@ -96,9 +96,18 @@ cc_bench(
   DEPS sv_llol_imu GTest::GTest)
 
 cc_library(
+  NAME llol_traj
+  SRCS "llol/traj.cpp"
+  DEPS sv_llol_imu)
+cc_test(
+  NAME llol_traj_test
+  SRCS "llol/traj_test.cpp"
+  DEPS sv_llol_traj)
+
+cc_library(
   NAME llol_sweep
   SRCS "llol/sweep.cpp"
-  DEPS sv_llol_scan sv_llol_imu sv_tbb)
+  DEPS sv_llol_scan sv_llol_traj sv_tbb)
 cc_test(
   NAME llol_sweep_test
   SRCS "llol/sweep_test.cpp"
@@ -129,7 +138,7 @@ cc_bench(
 cc_library(
   NAME llol_grid
   SRCS "llol/grid.cpp"
-  DEPS sv_llol_imu sv_llol_match sv_llol_scan sv_tbb)
+  DEPS sv_llol_traj sv_llol_match sv_llol_scan sv_tbb)
 cc_test(
   NAME llol_grid_test
   SRCS "llol/grid_test.cpp"

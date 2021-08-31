@@ -47,50 +47,35 @@ struct GicpCost {
 /// @brief Assume rigit transformation
 struct GicpRigidCost final : public GicpCost {
   static constexpr int kNumParams = 6;
+  enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
+  enum Block { kR0, kP0 };
+
+  // Pull in base constructor
   using GicpCost::GicpCost;
 
-  enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
+  template <typename T>
+  struct State {
+    static constexpr int kBlockSize = 3;
+    using Vec3 = Eigen::Matrix<T, kBlockSize, 1>;
+    using Vec3CMap = Eigen::Map<const Vec3>;
 
-  bool operator()(const double* _x, double* _r, double* _J) const {
-    const ErrorState<double> es(_x);
-    const Sophus::SE3d eT{Sophus::SO3d::exp(es.r0()), es.p0()};
+    State(const T* const _x) : x{_x} {}
+    auto r0() const { return Vec3CMap{x + Block::kR0 * kBlockSize}; }
+    auto p0() const { return Vec3CMap{x + Block::kP0 * kBlockSize}; }
 
-    tbb::parallel_for(
-        tbb::blocked_range<int>(0, matches.size(), gsize_),
-        [&](const auto& blk) {
-          for (int i = blk.begin(); i < blk.end(); ++i) {
-            const auto& match = matches.at(i);
-            const auto c = match.px_g.x;
-            const auto U = match.U.cast<double>().eval();
-            const auto pt_p = match.mc_p.mean.cast<double>().eval();
-            const auto pt_g = match.mc_g.mean.cast<double>().eval();
-            const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
-            const auto pt_p_hat = tf_p_g * pt_g;
+    const T* const x{nullptr};
+  };
 
-            const int ri = kNumResiduals * i;
-            Eigen::Map<Eigen::Vector3d> r(_r + ri);
-            r = U * (pt_p - eT * pt_p_hat);
-
-            if (_J) {
-              Eigen::Map<Eigen::MatrixXd> J(_J, NumResiduals(), kNumParams);
-              // dr / dtheta
-              J.block<3, 3>(ri, 0) = U * Hat3(pt_p_hat);
-              J.block<3, 3>(ri, 3) = -U;
-            }
-          }
-        });
-    return true;
-  }
+  bool operator()(const double* _x, double* _r, double* _J) const;
 
   template <typename T>
   bool operator()(const T* const _x, T* _r) const {
     using Vec3 = Eigen::Vector3<T>;
     using SE3 = Sophus::SE3<T>;
     using SO3 = Sophus::SO3<T>;
-    using ES = ErrorState<T>;
 
     // We now assume left multiply delta
-    const ES es(_x);
+    const State<T> es(_x);
     const SE3 eT{SO3::exp(es.r0()), es.p0()};
 
     tbb::parallel_for(
@@ -177,102 +162,88 @@ struct GicpLinearCost final : public GicpCost {
   }
 };
 
-struct ImuCost {
-  static constexpr int kNumParams = 24;
+// struct ImuCost {
+//  static constexpr int kNumParams = 24;
 
-  explicit ImuCost(const ImuTrajectory& traj);
-  int NumResiduals() const { return ImuPreintegration::kDim; }
+//  explicit ImuCost(const Trajectory& traj);
+//  int NumResiduals() const { return ImuPreintegration::kDim; }
 
-  template <typename T>
-  bool operator()(const T* const _x, T* _r) const {
-    using Vec15 = Eigen::Matrix<T, 15, 1>;  // Residuals
-    using Vec3 = Eigen::Vector3<T>;
-    using SO3 = Sophus::SO3<T>;
-    using ES = ErrorState<T>;
+//  template <typename T>
+//  bool operator()(const T* const _x, T* _r) const {
+//    using Vec15 = Eigen::Matrix<T, 15, 1>;  // Residuals
+//    using Vec3 = Eigen::Vector3<T>;
+//    using SO3 = Sophus::SO3<T>;
+//    using ES = ErrorState<T>;
 
-    const auto dt = preint.duration;
-    const auto dt2 = dt * dt;
-    const auto& g = ptraj->gravity;
-    const auto& st0 = ptraj->states.front();
-    const auto& st1 = ptraj->states.back();
+//    const auto dt = preint.duration;
+//    const auto dt2 = dt * dt;
+//    const auto& g = ptraj->gravity;
+//    const auto& st0 = ptraj->states.front();
+//    const auto& st1 = ptraj->states.back();
 
-    const ES es(_x);
-    const auto eR0 = SO3::exp(es.r0());
-    const auto eR1 = SO3::exp(es.r1());
-    const Vec3 p0 = es.p0() + eR0 * st0.pos;
-    const Vec3 p1 = es.p1() + eR1 * st1.pos;
-    const auto R0 = eR0 * st0.rot;
-    const auto R1 = eR1 * st1.rot;
-    const Vec3 v0 = es.v0() + st0.vel;
-    const Vec3 v1 = es.v1() + st1.vel;
+//    const ES es(_x);
+//    const auto eR0 = SO3::exp(es.r0());
+//    const auto eR1 = SO3::exp(es.r1());
+//    const Vec3 p0 = es.p0() + eR0 * st0.pos;
+//    const Vec3 p1 = es.p1() + eR1 * st1.pos;
+//    const auto R0 = eR0 * st0.rot;
+//    const auto R1 = eR1 * st1.rot;
+//    const Vec3 v0 = es.v0() + st0.vel;
+//    const Vec3 v1 = es.v1() + st1.vel;
 
-    const auto R0_inv = R0.inverse();
-    const Vec3 alpha = R0_inv * (p1 - p0 - v0 * dt + 0.5 * g * dt2);
-    const Vec3 beta = R0_inv * (v1 - v0 + g * dt);
-    const auto gamma = R0_inv * R1;
+//    const auto R0_inv = R0.inverse();
+//    const Vec3 alpha = R0_inv * (p1 - p0 - v0 * dt + 0.5 * g * dt2);
+//    const Vec3 beta = R0_inv * (v1 - v0 + g * dt);
+//    const auto gamma = R0_inv * R1;
 
-    using IP = ImuPreintegration::Index;
-    Eigen::Map<Vec15> r(_r);
-    r.template segment<3>(IP::kAlpha) = alpha - preint.alpha;
-    r.template segment<3>(IP::kBeta) = beta - preint.beta;
-    r.template segment<3>(IP::kTheta) = (gamma * preint.gamma.inverse()).log();
-    r.template segment<3>(IP::kBa) = es.ba();
-    r.template segment<3>(IP::kBw) = es.bw();
-    r = preint.U * r;
+//    using IP = ImuPreintegration::Index;
+//    Eigen::Map<Vec15> r(_r);
+//    r.template segment<3>(IP::kAlpha) = alpha - preint.alpha;
+//    r.template segment<3>(IP::kBeta) = beta - preint.beta;
+//    r.template segment<3>(IP::kTheta) = (gamma *
+//    preint.gamma.inverse()).log(); r.template segment<3>(IP::kBa) = es.ba();
+//    r.template segment<3>(IP::kBw) = es.bw();
+//    r = preint.U * r;
 
-    // Debug print
-    if constexpr (std::is_same_v<T, double>) {
-      std::cout << preint.F << std::endl;
-      std::cout << r.transpose() << std::endl;
-      std::cout << "norm: " << r.squaredNorm() << std::endl;
-    }
+//    // Debug print
+//    if constexpr (std::is_same_v<T, double>) {
+//      std::cout << preint.F << std::endl;
+//      std::cout << r.transpose() << std::endl;
+//      std::cout << "norm: " << r.squaredNorm() << std::endl;
+//    }
 
-    return true;
-  }
+//    return true;
+//  }
 
-  const ImuTrajectory* const ptraj;
-  ImuPreintegration preint;
-};
+//  const Trajectory* const ptraj;
+//  ImuPreintegration preint;
+//};
 
-struct GicpAndImuCost {
-  static constexpr int kNumParams = 6;
+// struct GicpAndImuCost {
+//  static constexpr int kNumParams = 6;
 
-  GicpAndImuCost(const SweepGrid& grid,
-                 const ImuTrajectory& traj,
-                 int gsize = 0);
+//  GicpAndImuCost(const SweepGrid& grid, const Trajectory& traj, int gsize =
+//  0);
 
-  int NumResiduals() const {
-    //    return gicp_cost.NumResiduals() + imu_cost.NumResiduals();
-    return gicp_cost.NumResiduals();
-  }
+//  int NumResiduals() const {
+//    //    return gicp_cost.NumResiduals() + imu_cost.NumResiduals();
+//    return gicp_cost.NumResiduals();
+//  }
 
-  template <typename T>
-  bool operator()(const T* const _x, T* _r) const {
-    bool ok = true;
-    ok &= gicp_cost(_x, _r);
+//  template <typename T>
+//  bool operator()(const T* const _x, T* _r) const {
+//    bool ok = true;
+//    ok &= gicp_cost(_x, _r);
 
-    // Just evaluate but dont do anything
-    //    std::vector<T> s(imu_cost.NumResiduals());
-    //    ok &= imu_cost(_x, s.data());
+//    return ok;
+//  }
 
-    //    const auto& pi = imu_cost.preint;
+//  GicpRigidCost gicp_cost;
+//  //  ImuCost imu_cost;
+//};
 
-    //    LOG(INFO) << "dura: " << pi.duration;
-    //    LOG(INFO) << "n: " << pi.n;
-    //    LOG(INFO) << "alpha: " << pi.alpha.transpose();
-    //    LOG(INFO) << "beta: " << pi.beta.transpose();
-    //    LOG(INFO) << "gamma: " <<
-    //    pi.gamma.unit_quaternion().coeffs().transpose();
-
-    return ok;
-  }
-
-  GicpRigidCost gicp_cost;
-  ImuCost imu_cost;
-};
-
-template <typename T>
+template <typename F>
 using AdCost =
-    ceres::TinySolverAutoDiffFunction<T, Eigen::Dynamic, T::kNumParams>;
+    ceres::TinySolverAutoDiffFunction<F, Eigen::Dynamic, F::kNumParams>;
 
 }  // namespace sv

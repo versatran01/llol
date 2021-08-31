@@ -12,6 +12,19 @@ using SE3d = Sophus::SE3d;
 using Vector3d = Eigen::Vector3d;
 using Quaterniond = Eigen::Quaterniond;
 
+ImuBias::ImuBias(double acc_bias_std, double gyr_bias_std) {
+  acc_var.setConstant(Sq(acc_bias_std));
+  gyr_var.setConstant(Sq(gyr_bias_std));
+}
+
+std::string ImuBias::Repr() const {
+  return fmt::format("ImuBias(acc=[{}], gyr=[{}], acc_var=[{}], gyr_var=[{}])",
+                     acc.transpose(),
+                     gyr.transpose(),
+                     acc_var.transpose(),
+                     gyr_var.transpose());
+}
+
 std::string NavState::Repr() const {
   return fmt::format("NavState(t={}, rot=[{}], pos=[{}], vel=[{}]",
                      time,
@@ -76,70 +89,6 @@ int FindNextImu(const ImuBuffer& buf, double t) {
   return ibuf;
 }
 
-void ImuTrajectory::InitExtrinsic(const SE3d& T_i_l, double gravity_norm) {
-  CHECK(!states.empty());
-  CHECK(!buf.empty());
-
-  T_imu_lidar = T_i_l;
-  // set all states to T_l_i since we want first sweep frame to align with pano
-  const auto T_l_i = T_i_l.inverse();
-  for (auto& s : states) {
-    s.rot = T_l_i.so3();
-    s.pos = T_l_i.translation();
-  }
-
-  // We want to initialized gravity vector with first imu measurement but it
-  // should be in pano frame
-  const Vector3d a_i = buf.back().acc;  // in imu frame
-  const Vector3d g_i = a_i.normalized() * gravity_norm;
-  gravity = T_imu_lidar.so3().inverse() * g_i;
-  T_odom_pano.so3().setQuaternion(
-      Quaterniond::FromTwoVectors(Vector3d::UnitZ(), g_i));
-}
-
-int ImuTrajectory::Predict(double t0, double dt, int n) {
-  // Find the first imu from buffer that is right after t0
-  int ibuf = FindNextImu(buf, t0);
-  CHECK_GE(ibuf, 0);
-  const int ibuf0 = ibuf;
-
-  // Now try to fill in the last n poses
-  const int ist0 = size() - n - 1;
-  CHECK_GE(ist0, 0);
-  StateAt(ist0).time = t0;
-
-  for (int i = ist0 + 1; i < size(); ++i) {
-    const auto ti = t0 + dt * i;
-    // increment ibuf if it is ealier than current cell time
-    if (buf[ibuf].time < ti) {
-      ++ibuf;
-    }
-    // make sure it is always valid
-    if (ibuf >= buf.size()) {
-      ibuf = buf.size() - 1;
-    }
-
-    const auto imu = ImuAt(ibuf).DeBiased(bias);
-
-    // TODO (chao): for now assume translation stays the same
-    const auto& prev = StateAt(i - 1);
-    auto& curr = StateAt(i);
-    //    IntegrateEuler(prev, imu, gravity, dt, curr);
-    curr.time = prev.time + dt;
-    // For do not propagate translation
-    curr.pos = StateAt(ist0).pos;
-    curr.rot = prev.rot * SO3d::exp(imu.gyr * dt);
-  }
-
-  return ibuf - ibuf0 + 1;
-}
-
-void ImuTrajectory::Rotate(int n) {
-  CHECK_LE(0, n);
-  CHECK_LT(n, size());
-  std::rotate(states.begin(), states.begin() + n, states.end());
-}
-
 ImuNoise::ImuNoise(double dt,
                    double acc_noise,
                    double gyr_noise,
@@ -163,6 +112,73 @@ std::string ImuNoise::Repr() const {
       sigma2.segment<3>(kNw).transpose(),
       sigma2.segment<3>(kBa).transpose(),
       sigma2.segment<3>(kBw).transpose());
+}
+
+std::string ImuQueue::Repr() const {
+  return fmt::format("ImuQueue(size={}, capacity={}, bias={}, noise={}",
+                     size(),
+                     capacity(),
+                     bias,
+                     noise);
+}
+
+int ImuQueue::IndexAfter(int t) const { return FindNextImu(buf, t); }
+
+void ImuData::Debias(const ImuBias& bias) {
+  acc -= bias.acc;
+  gyr -= bias.gyr;
+}
+
+ImuData ImuData::DeBiased(const ImuBias& bias) const {
+  ImuData out = *this;
+  out.Debias(bias);
+  return out;
+}
+
+int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {
+  CHECK_LT(t0, t1);
+
+  const int ibuf0 = imuq.IndexAfter(t0);
+  CHECK_LE(0, ibuf0);
+
+  // Keep integrate till we reach either the last imu or one right before t1
+  double t = t0;
+  int ibuf = ibuf0;
+
+  while (true) {
+    // This imu must exist
+    const auto imu = imuq.DebiasedAt(ibuf);
+    Integrate(imu.time - t, imu, imuq.noise);
+    t = imu.time;
+
+    // stop if we are at the last imu
+    if (ibuf + 1 == imuq.size()) break;
+    // or if next imu time is later than t1
+    if (imuq.At(ibuf + 1).time >= t1) break;
+    // above ensures that ibuf should be valid
+
+    ++ibuf;
+  }
+
+  // Use the imu at ibuf to finish integrating to t1
+  const auto imu = imuq.DebiasedAt(ibuf);
+  Integrate(t1 - imu.time, imu, imuq.noise);
+
+  // Compute sqrt info
+  U = MatrixSqrtUtU(P.inverse().eval());
+
+  return n;
+}
+
+void ImuPreintegration::Reset() {
+  duration = 0;
+  n = 0;
+  alpha.setZero();
+  beta.setZero();
+  gamma = SO3d{};
+  F.setIdentity();
+  P.setZero();
+  U.setZero();
 }
 
 void ImuPreintegration::Integrate(double dt,
@@ -189,11 +205,11 @@ void ImuPreintegration::Integrate(double dt,
   // last two rows are all zeros
   // F = I + Ft * dt
   const auto Rmat = gamma.matrix();
-  F.block<3, 3>(Index::kAlpha, Index::kBeta) = kIdent3 * dt;
+  F.block<3, 3>(Index::kAlpha, Index::kBeta) = kMatEye3d * dt;
   F.block<3, 3>(Index::kBeta, Index::kTheta) = -Rmat * Hat3(a) * dt;
   F.block<3, 3>(Index::kBeta, Index::kBa) = -Rmat * dt;
-  F.block<3, 3>(Index::kTheta, Index::kTheta) = kIdent3 - Hat3(w) * dt;
-  F.block<3, 3>(Index::kTheta, Index::kBw) = -kIdent3 * dt;
+  F.block<3, 3>(Index::kTheta, Index::kTheta) = kMatEye3d - Hat3(w) * dt;
+  F.block<3, 3>(Index::kTheta, Index::kBw) = -kMatEye3d * dt;
 
   // vins-mono eq 10
   // Update covariance
@@ -250,53 +266,5 @@ void ImuPreintegration::Integrate(double dt,
 //  duration += dt;
 //  ++n;
 //}
-
-int ImuPreintegration::Compute(const ImuTrajectory& traj) {
-  const auto t0 = traj.states.front().time;
-  const auto t1 = traj.states.back().time;
-  CHECK_LT(t0, t1);
-
-  const int ibuf0 = FindNextImu(traj.buf, t0);
-  CHECK_LE(0, ibuf0);
-
-  // Keep integrate till we reach either the last imu or one right before t1
-  double t = t0;
-  int ibuf = ibuf0;
-
-  while (true) {
-    // This imu must exist
-    const auto imu = traj.ImuAt(ibuf).DeBiased(traj.bias);
-    Integrate(imu.time - t, imu, traj.noise);
-    t = imu.time;
-
-    // stop if we are at the last imu
-    if (ibuf + 1 == traj.buf.size()) break;
-    // or if next imu time is later than t1
-    if (traj.ImuAt(ibuf + 1).time >= t1) break;
-    // above ensures that ibuf should be valid
-
-    ++ibuf;
-  }
-
-  // Use the imu at ibuf to finish integrating to t1
-  const auto imu = traj.ImuAt(ibuf).DeBiased(traj.bias);
-  Integrate(t1 - imu.time, imu, traj.noise);
-
-  // Compute sqrt info
-  U = MatrixSqrtUtU(P.inverse().eval());
-
-  return n;
-}
-
-void ImuPreintegration::Reset() {
-  duration = 0;
-  n = 0;
-  alpha.setZero();
-  beta.setZero();
-  gamma = SO3d{};
-  F.setIdentity();
-  P.setZero();
-  U.setZero();
-}
 
 }  // namespace sv

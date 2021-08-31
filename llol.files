@@ -44,6 +44,9 @@ sv/llol/scan_test.cpp
 sv/llol/sweep.cpp
 sv/llol/sweep.h
 sv/llol/sweep_test.cpp
+sv/llol/traj.cpp
+sv/llol/traj.h
+sv/llol/traj_test.cpp
 sv/llol/viz.cpp
 sv/llol/viz.h
 sv/node.cpp

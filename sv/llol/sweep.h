@@ -1,7 +1,7 @@
 #pragma once
 
-#include "sv/llol/imu.h"
 #include "sv/llol/scan.h"
+#include "sv/llol/traj.h"
 
 namespace sv {
 
@@ -20,7 +20,7 @@ struct LidarSweep final : public LidarScan {
   int Add(const LidarScan& scan);
 
   /// @brief Interpolate pose of each column
-  void Interp(const ImuTrajectory& traj, int gsize = 0);
+  void Interp(const Trajectory& traj, int gsize = 0);
 
   /// @brief Draw
   cv::Mat DrawRange() const;

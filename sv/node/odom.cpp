@@ -34,6 +34,9 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
+  imuq_ = InitImuq({pnh_, "imuq"});
+  ROS_INFO_STREAM(imuq_);
+
   pano_ = InitPano({pnh_, "pano"});
   ROS_INFO_STREAM(pano_);
 }
@@ -41,7 +44,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   // Add imu data to buffer
   const auto imu = MakeImu(imu_msg);
-  traj_.Add(imu);
+  imuq_.Add(imu);
 
   if (tf_init_) return;
 
@@ -59,12 +62,15 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const auto& q = tf_i_l.transform.rotation;
     const Eigen::Vector3d t_i_l{t.x, t.y, t.z};
     const Eigen::Quaterniond q_i_l{q.w, q.x, q.y, q.z};
-    traj_.InitExtrinsic({q_i_l, t_i_l}, 9.80184);
-    ROS_INFO_STREAM("Transform from lidar to imu:\n"
-                    << traj_.T_imu_lidar.matrix());
-    ROS_INFO_STREAM("Gravity: " << traj_.gravity.transpose());
-    ROS_INFO_STREAM("Transform from pano to odom:\n"
-                    << traj_.T_odom_pano.matrix());
+
+    // Just use current acc
+    traj_.InitExtrinsic({q_i_l, t_i_l}, imu.acc, 9.80184);
+    ROS_INFO_STREAM(traj_);
+    //    ROS_INFO_STREAM("Transform from lidar to imu:\n"
+    //                    << traj_.T_imu_lidar.matrix());
+    //    ROS_INFO_STREAM("Gravity: " << traj_.g_pano.transpose());
+    //    ROS_INFO_STREAM("Transform from pano to odom:\n"
+    //                    << traj_.T_odom_pano.matrix());
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {
     ROS_WARN_STREAM(ex.what());
@@ -81,7 +87,6 @@ void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
   ROS_INFO_STREAM(grid_);
 
   traj_ = InitTraj({pnh_, "traj"}, grid_.cols());
-  ROS_INFO_STREAM(traj_.noise);
 
   gicp_ = InitGicp({pnh_, "gicp"});
   ROS_INFO_STREAM(gicp_);
@@ -101,9 +106,9 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     ROS_INFO_STREAM("Lidar initialized!");
   }
 
-  if (!traj_.buf.full()) {
+  if (!imuq_.full()) {
     ROS_WARN_STREAM(fmt::format(
-        "Imu buffer not full: {}/{}", traj_.buf.size(), traj_.buf.capacity()));
+        "Imu buffer not full: {}/{}", imuq_.size(), imuq_.capacity()));
     return;
   }
 
@@ -195,7 +200,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Imu.Integrate");
     const auto t0 = grid_.t0;
     const auto dt = grid_.dt;
-    n_imus = traj_.Predict(t0, dt, grid_.curr.size());
+    n_imus = traj_.Predict(imuq_, t0, dt, grid_.curr.size());
   }
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
 

@@ -13,6 +13,7 @@
 #include "sv/llol/imu.h"
 #include "sv/llol/pano.h"
 #include "sv/llol/scan.h"
+#include "sv/llol/traj.h"
 
 namespace sv {
 
@@ -28,7 +29,8 @@ LidarScan MakeScan(const sensor_msgs::Image& image_msg,
                    const sensor_msgs::CameraInfo& cinfo_msg);
 LidarSweep MakeSweep(const sensor_msgs::CameraInfo& cinfo_msg);
 
-ImuTrajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols);
+ImuQueue InitImuq(const ros::NodeHandle& pnh);
+Trajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols);
 SweepGrid InitGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size);
 DepthPano InitPano(const ros::NodeHandle& pnh);
 GicpSolver InitGicp(const ros::NodeHandle& pnh);

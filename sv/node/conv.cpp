@@ -13,6 +13,21 @@ void SO3d2Ros(const Sophus::SO3d& rot, geometry_msgs::Quaternion& q) {
   q = tf2::toMsg(rot.unit_quaternion());
 }
 
+void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,
+                 geometry_msgs::PoseArray& parray) {
+  parray.poses.resize(poses.size());
+
+  for (int i = 0; i < poses.size(); ++i) {
+    auto& pose = parray.poses.at(i);
+    const auto& t = poses.at(i).translation();
+    pose.position.x = t.x();
+    pose.position.y = t.y();
+    pose.position.z = t.z();
+    SO3d2Ros(poses.at(i).so3(), pose.orientation);
+  }
+}
+
+/// Make
 ImuData MakeImu(const sensor_msgs::Imu& imu_msg) {
   ImuData imu;
   imu.time = imu_msg.header.stamp.toSec();
@@ -68,29 +83,20 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
   return GicpSolver{gp};
 }
 
-ImuTrajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
-  ImuTrajectory traj(grid_cols + 1);
+Trajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
+  Trajectory traj(grid_cols + 1);
+  return traj;
+}
+
+ImuQueue InitImuq(const ros::NodeHandle& pnh) {
+  ImuQueue imuq;
   const auto dt = 1.0 / pnh.param<double>("imu_rate", 100.0);
   const auto acc_noise = pnh.param<double>("acc_noise", 1e-3);
   const auto gyr_noise = pnh.param<double>("gyr_noise", 1e-4);
   const auto acc_bias_noise = pnh.param<double>("acc_bias_noise", 1e-4);
   const auto gyr_bias_noise = pnh.param<double>("gyr_bias_noise", 1e-5);
-  traj.noise = {dt, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
-  return traj;
-}
-
-void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,
-                 geometry_msgs::PoseArray& parray) {
-  parray.poses.resize(poses.size());
-
-  for (int i = 0; i < poses.size(); ++i) {
-    auto& pose = parray.poses.at(i);
-    const auto& t = poses.at(i).translation();
-    pose.position.x = t.x();
-    pose.position.y = t.y();
-    pose.position.z = t.z();
-    SO3d2Ros(poses.at(i).so3(), pose.orientation);
-  }
+  imuq.noise = {dt, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
+  return imuq;
 }
 
 }  // namespace sv

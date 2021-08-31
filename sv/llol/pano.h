@@ -9,6 +9,7 @@ inline cv::Rect WinCenterAt(const cv::Point& pt, const cv::Size& size) {
   return {{pt.x - size.width / 2, pt.y - size.height / 2}, size};
 }
 
+/// @brief Pixel stored in DepthPano
 struct DepthPixel {
   static constexpr float kScale = 512.0F;
   static constexpr uint16_t kMaxRaw = std::numeric_limits<uint16_t>::max();

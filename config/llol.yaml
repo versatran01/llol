@@ -1,9 +1,11 @@
-traj:
+imuq:
   imu_rate: 100.0
   acc_noise: 0.05
   acc_bias_noise: 0.005
+  acc_bias_std: 0.005
   gyr_noise: 0.005
   gyr_bias_noise: 0.0005
+  gyr_bias_std: 0.0005
 grid:
   cell_rows: 2
   cell_cols: 16
@@ -13,7 +15,7 @@ gicp:
   outer: 2
   inner: 3
   half_rows: 2
-  cov_lambda: 1e-8
+  cov_lambda: 1.0e-8
 pano:
   rows: 256
   cols: 1024

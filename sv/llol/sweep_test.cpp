@@ -61,7 +61,7 @@ BENCHMARK(BM_SweepAdd);
 
 void BM_SweepInterp(benchmark::State& state) {
   LidarSweep sweep({1024, 64});
-  ImuTrajectory traj(64);
+  Trajectory traj(64);
   int gsize = state.range(0);
 
   for (auto _ : state) {

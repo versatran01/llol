@@ -23,7 +23,7 @@ int LidarSweep::Add(const LidarScan& scan) {
   return scan.total();
 }
 
-void LidarSweep::Interp(const ImuTrajectory& traj, int gsize) {
+void LidarSweep::Interp(const Trajectory& traj, int gsize) {
   const int num_cells = traj.size() - 1;
   const int cell_width = cols() / num_cells;
   const auto curr_g = curr / cell_width;
@@ -37,8 +37,8 @@ void LidarSweep::Interp(const ImuTrajectory& traj, int gsize) {
           // corresponding traj segment
 
           const int tc = ColMod(gc - curr_g.end, num_cells);
-          const auto& st0 = traj.StateAt(tc);
-          const auto& st1 = traj.StateAt(tc + 1);
+          const auto& st0 = traj.At(tc);
+          const auto& st1 = traj.At(tc + 1);
 
           const auto dr = (st0.rot.inverse() * st1.rot).log();
           const auto dp = (st0.pos - st1.pos).eval();

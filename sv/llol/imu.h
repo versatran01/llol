@@ -5,14 +5,14 @@
 
 namespace sv {
 
-static const Eigen::Vector3d kZero3d = Eigen::Vector3d::Zero();
-static const Eigen::Matrix3d kIdent3 = Eigen::Matrix3d::Identity();
+static const Eigen::Vector3d kVecZero3d = Eigen::Vector3d::Zero();
+static const Eigen::Matrix3d kMatEye3d = Eigen::Matrix3d::Identity();
 
 struct NavState {
   double time{};
   Sophus::SO3d rot{};
-  Eigen::Vector3d pos{kZero3d};
-  Eigen::Vector3d vel{kZero3d};
+  Eigen::Vector3d pos{kVecZero3d};
+  Eigen::Vector3d vel{kVecZero3d};
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const NavState& rhs) {
@@ -21,27 +21,31 @@ struct NavState {
 };
 
 struct ImuBias {
-  Eigen::Vector3d acc{kZero3d};
-  Eigen::Vector3d gyr{kZero3d};
+  ImuBias() = default;
+  ImuBias(double acc_bias_std, double gyr_bias_std);
+
+  std::string Repr() const;
+  friend std::ostream& operator<<(std::ostream& os, const ImuBias& rhs) {
+    return os << rhs.Repr();
+  }
+
+  Eigen::Vector3d acc{kVecZero3d};
+  Eigen::Vector3d gyr{kVecZero3d};
+
+  Eigen::Vector3d acc_var{kVecZero3d};
+  Eigen::Vector3d gyr_var{kVecZero3d};
 };
 
 /// @brief Time-stamped Imu data
 struct ImuData {
   double time{};
-  Eigen::Vector3d acc{kZero3d};
-  Eigen::Vector3d gyr{kZero3d};
+  Eigen::Vector3d acc{kVecZero3d};
+  Eigen::Vector3d gyr{kVecZero3d};
 
-  void Debias(const ImuBias& bias) {
-    acc -= bias.acc;
-    gyr -= bias.gyr;
-  }
-
-  ImuData DeBiased(const ImuBias& bias) const {
-    ImuData out = *this;
-    out.Debias(bias);
-    return out;
-  }
+  void Debias(const ImuBias& bias);
+  ImuData DeBiased(const ImuBias& bias) const;
 };
+using ImuBuffer = boost::circular_buffer<ImuData>;
 
 /// Integrate nav state one step, assume de-biased imu data
 /// @param s0 is current state, imu is imu data, g is gravity in fixed frame
@@ -55,8 +59,6 @@ NavState IntegrateMidpoint(const NavState& s0,
                            const ImuData& imu0,
                            const ImuData& imu1,
                            const Eigen::Vector3d& g_w);
-
-using ImuBuffer = boost::circular_buffer<ImuData>;
 
 /// @brief Discrete time IMU noise
 struct ImuNoise {
@@ -82,39 +84,31 @@ struct ImuNoise {
 /// @brief Get the index of the imu right after time t
 int FindNextImu(const ImuBuffer& buf, double t);
 
-/// @brief Accumulates imu data and integrate
-/// @todo for now only integrate gyro for rotation
-struct ImuTrajectory {
-  ImuTrajectory() = default;
-  explicit ImuTrajectory(int size) { states.resize(size); }
-
-  ImuBuffer buf{16};
+struct ImuQueue {
   ImuBias bias;
   ImuNoise noise;
+  ImuBuffer buf{16};
 
-  Eigen::Vector3d gravity;       // gravity vector in pano frame
-  Sophus::SE3d T_odom_pano{};    // tf from pano to odom frame
-  Sophus::SE3d T_imu_lidar{};    // extrinsics lidar to imu
-  std::vector<NavState> states;  // imu state wrt current pano
+  std::string Repr() const;
+  friend std::ostream& operator<<(std::ostream& os, const ImuQueue& rhs) {
+    return os << rhs.Repr();
+  }
 
-  int size() const { return states.size(); }
-  NavState& StateAt(int i) { return states.at(i); }
-  const NavState& StateAt(int i) const { return states.at(i); }
-  const ImuData& ImuAt(int i) const { return buf.at(i); }
-
-  /// @return the acc vector used to initialize gravity
-  void InitExtrinsic(const Sophus::SE3d& T_i_l, double gravity_norm);
+  int size() const { return buf.size(); }
+  int full() const { return buf.full(); }
+  bool empty() const { return buf.empty(); }
+  int capacity() const { return buf.capacity(); }
 
   /// @brief Add imu data into buffer
   void Add(const ImuData& imu) { buf.push_back(imu); }
 
-  /// @brief Given the first pose in poses, predict using imu
-  /// @return Number of imus used
-  /// @todo Need to handle partial sweep
-  int Predict(double t0, double dt, int n);
+  /// @brief At
+  const ImuData& At(int i) const { return buf.at(i); }
+  ImuData DebiasedAt(int i) const { return buf.at(i).DeBiased(bias); }
 
-  /// @brief Rotate the states so that the traj starts at curr end
-  void Rotate(int n);
+  /// @brief Get index into buffer with time rgith next to t
+  /// @return -1 if not found
+  int IndexAfter(int t) const;
 };
 
 /// @brief Imu preintegration
@@ -124,7 +118,7 @@ struct ImuPreintegration {
   enum Index { kAlpha = 0, kBeta = 3, kTheta = 6, kBa = 9, kBw = 12 };
 
   /// @brief Compute measurement for imu trajectory
-  int Compute(const ImuTrajectory& traj);
+  int Compute(const ImuQueue& imuq, double t0, double t1);
   void Reset();
 
   void Integrate(double dt, const ImuData& imu, const ImuNoise& noise);
@@ -132,8 +126,8 @@ struct ImuPreintegration {
   /// Data
   int n{0};           // number of times integrated
   double duration{};  // duration of integration
-  Eigen::Vector3d alpha{kZero3d};
-  Eigen::Vector3d beta{kZero3d};
+  Eigen::Vector3d alpha{kVecZero3d};
+  Eigen::Vector3d beta{kVecZero3d};
   Sophus::SO3d gamma{};
   Matrix15d F{Matrix15d::Identity()};  // State transition matrix discrete time
   Matrix15d P{Matrix15d::Zero()};      // Covariance matrix
