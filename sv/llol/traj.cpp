@@ -23,7 +23,7 @@ std::string Trajectory::Repr() const {
 }
 
 void Trajectory::InitExtrinsic(const SE3d& T_i_l,
-                               const Eigen::Vector3d& acc,
+                               const Vector3d& acc,
                                double g_norm) {
   CHECK(!states.empty());
 
@@ -57,7 +57,7 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
   for (int i = ist0 + 1; i < size(); ++i) {
     const auto ti = t0 + dt * i;
     // increment ibuf if it is ealier than current cell time
-    if (imuq.At(ibuf).time < ti) {
+    if (imuq.RawAt(ibuf).time < ti) {
       ++ibuf;
     }
     // make sure it is always valid

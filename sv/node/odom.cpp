@@ -70,13 +70,11 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const Eigen::Quaterniond q_i_l{q.w, q.x, q.y, q.z};
 
     // Just use current acc
+    ROS_INFO_STREAM("buffer size: " << imuq_.size());
+    const auto imu_mean = imuq_.CalcMean();
     traj_.InitExtrinsic({q_i_l, t_i_l}, imu.acc, 9.80184);
+    //    imuq_.bias.gyr = imu_mean.gyr;
     ROS_INFO_STREAM(traj_);
-    //    ROS_INFO_STREAM("Transform from lidar to imu:\n"
-    //                    << traj_.T_imu_lidar.matrix());
-    //    ROS_INFO_STREAM("Gravity: " << traj_.g_pano.transpose());
-    //    ROS_INFO_STREAM("Transform from pano to odom:\n"
-    //                    << traj_.T_odom_pano.matrix());
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {
     ROS_WARN_STREAM(ex.what());

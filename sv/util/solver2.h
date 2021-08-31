@@ -336,7 +336,7 @@ class TinySolver2 {
   // The number of parameters and residuals are statically sized.
   template <int R, int P>
   typename enable_if<(R != Eigen::Dynamic && P != Eigen::Dynamic), void>::type
-  Initialize(const Function& function) {
+  Initialize(const Function&) {
     Initialize(R, P);
   }
 

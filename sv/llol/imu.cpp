@@ -134,16 +134,15 @@ std::string ImuQueue::Repr() const {
 }
 
 void sv::ImuQueue::Add(const ImuData& imu) {
-  // Also propagate covariance for bias model
-  if (!buf.empty()) {
-    bias.acc_var += noise.nba();
-    bias.gyr_var += noise.nbw();
-  }
-
   buf.push_back(imu);
+  // Also propagate covariance for bias model
+  bias.acc_var += noise.nba();
+  bias.gyr_var += noise.nbw();
 }
 
-int ImuQueue::IndexAfter(int t) const { return FindNextImu(buf, t); }
+ImuData ImuQueue::DebiasedAt(int i) const { return buf.at(i).DeBiased(bias); }
+
+int ImuQueue::IndexAfter(double t) const { return FindNextImu(buf, t); }
 
 int ImuQueue::UpdateBias(const std::vector<NavState>& states) {
   // TODO (chao): for now only update gyro bias
@@ -155,39 +154,50 @@ int ImuQueue::UpdateBias(const std::vector<NavState>& states) {
   int ibuf = FindNextImu(buf, t0);
   CHECK_LE(0, ibuf);
 
-  MeanCovar3d bw;
+  MeanVar3d bw;
 
   while (ibuf < size()) {
     // Get an imu and try to find its left and right state
-    const auto& imu = At(ibuf);
+    const auto& imu = RawAt(ibuf);
     const int ist = (imu.time - t0) / dt_state;
     if (ist + 1 >= states.size()) break;
 
     const auto& st0 = states.at(ist);
     const auto& st1 = states.at(ist + 1);
-    const Eigen::Vector3d omg_hat =
+    const Eigen::Vector3d gyr_hat =
         (st0.rot.inverse() * st1.rot).log() / dt_state;
-    // gyr_true = gyr_meas - gyr_bias
-    // gyr_bias = gyr_meas - gyr_true
-    bw.Add(imu.gyr - omg_hat);
+    // w = w_m - b_w -> b_w = w_m - w
+    //    bw.Add(imu.gyr - gyr_hat);
+    bw.Add(imu.gyr - gyr_hat);
 
     ++ibuf;
   }
 
   //  LOG(INFO) << "n: " << bw.n;
   //  LOG(INFO) << "mean: " << bw.mean.transpose();
-  //  LOG(INFO) << "cov: " << bw.Covar();
+  //  LOG(INFO) << "var: " << bw.Var();
 
   // Simple update
   const Vector3d y = bw.mean - bias.gyr;
-  const Vector3d S = bias.gyr_var + bw.Covar().diagonal();
+  const Vector3d S = bias.gyr_var + bw.Var();
   const Vector3d K = bias.gyr_var.cwiseProduct(S.cwiseInverse());
   bias.gyr += K.cwiseProduct(y);
   bias.gyr_var -= K.cwiseProduct(bias.gyr_var);
-  LOG(INFO) << "bw: " << bias.gyr.transpose();
-  LOG(INFO) << "bw_var: " << bias.gyr_var.transpose();
+  //  LOG(INFO) << "bw: " << bias.gyr.transpose();
+  //  LOG(INFO) << "bw_var: " << bias.gyr_var.transpose();
 
   return bw.n;
+}
+
+ImuData ImuQueue::CalcMean() const {
+  ImuData mean;
+  for (const auto& imu : buf) {
+    mean.acc += imu.acc;
+    mean.gyr += imu.gyr;
+  }
+  mean.acc /= size();
+  mean.gyr /= size();
+  return mean;
 }
 
 int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {
@@ -209,7 +219,7 @@ int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {
     // stop if we are at the last imu
     if (ibuf + 1 == imuq.size()) break;
     // or if next imu time is later than t1
-    if (imuq.At(ibuf + 1).time >= t1) break;
+    if (imuq.RawAt(ibuf + 1).time >= t1) break;
     // above ensures that ibuf should be valid
 
     ++ibuf;

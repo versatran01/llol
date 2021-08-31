@@ -91,7 +91,40 @@ T Atan2Approx(T y, T x) {
   return y < 0.0 ? -angle : angle;
 }
 
-/// @struct Stream Mean and covar
+/// @struct Running mean and variance
+template <typename T, int N>
+struct MeanVar {
+  using Vector = Eigen::Matrix<T, N, 1>;
+
+  int n{0};
+  Vector mean{Vector::Zero()};
+  Vector var_sum_{Vector::Zero()};
+
+  /// @brief compute covariance
+  Vector Var() const { return var_sum_ / (n - 1); }
+
+  /// @brief whether result is ok
+  bool ok() const noexcept { return n > 1; }
+
+  void Add(const Vector& x) {
+    ++n;
+    const Vector dx = x - mean;
+    const Vector dx_n = dx / n;
+    mean += dx_n;
+    var_sum_.noalias() += (n - 1.0) * dx_n.cwiseProduct(dx);
+  }
+
+  void Reset() {
+    n = 0;
+    mean.setZero();
+    var_sum_.setZero();
+  }
+};
+
+using MeanVar3f = MeanVar<float, 3>;
+using MeanVar3d = MeanVar<double, 3>;
+
+/// @struct Running mean and covariance
 template <typename T, int N>
 struct MeanCovar {
   using Matrix = Eigen::Matrix<T, N, N>;
@@ -108,10 +141,11 @@ struct MeanCovar {
   bool ok() const noexcept { return n > 1; }
 
   void Add(const Vector& x) {
-    const Vector diff = x - mean;
-    mean.noalias() += diff / (n + 1.0);
-    covar_sum_.noalias() += (n / (n + 1.0) * diff) * diff.transpose();
     ++n;
+    const Vector dx = x - mean;
+    const Vector dx_n = dx / n;
+    mean += dx_n;
+    covar_sum_.noalias() += ((n - 1.0) * dx_n) * dx.transpose();
   }
 
   void Reset() {
@@ -123,10 +157,6 @@ struct MeanCovar {
 
 using MeanCovar3f = MeanCovar<float, 3>;
 using MeanCovar3d = MeanCovar<double, 3>;
-static_assert(sizeof(MeanCovar3f) == 52, "size of MeanCovar3f is 52 bytes");
-
-/// @brief Compute covariance, each column is a sample
-Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X);
 
 /// @brief force the axis to be right handed for 3D
 /// @details sometimes eigvecs has det -1 (reflection), this makes it a rotation

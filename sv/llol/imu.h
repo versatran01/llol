@@ -94,7 +94,7 @@ int FindNextImu(const ImuBuffer& buf, double t);
 struct ImuQueue {
   ImuBias bias;
   ImuNoise noise;
-  ImuBuffer buf{16};
+  ImuBuffer buf{20};
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const ImuQueue& rhs) {
@@ -110,17 +110,18 @@ struct ImuQueue {
   void Add(const ImuData& imu);
 
   /// @brief At
-  const ImuData& At(int i) const { return buf.at(i); }
-  ImuData DebiasedAt(int i) const { return buf.at(i).DeBiased(bias); }
-  // TODO (chao): temp disable bias for testing
-  //  ImuData DebiasedAt(int i) const { return buf.at(i); }
+  const ImuData& RawAt(int i) const { return buf.at(i); }
+  ImuData DebiasedAt(int i) const;
 
   /// @brief Get index into buffer with time rgith next to t
   /// @return -1 if not found
-  int IndexAfter(int t) const;
+  int IndexAfter(double t) const;
 
-  /// @brief Update
+  /// @brief Update bias given optimized trajectory
   int UpdateBias(const std::vector<NavState>& states);
+
+  /// @brief Compute mean imu data
+  ImuData CalcMean() const;
 };
 
 /// @brief Imu preintegration

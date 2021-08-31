@@ -5,6 +5,19 @@
 
 namespace sv {
 
+/// @brief Compute covariance, each column is a sample
+Eigen::Matrix3d CalCovar3d(const Eigen::Matrix3Xd& X) {
+  const Eigen::Vector3d m = X.rowwise().mean();   // mean
+  const Eigen::Matrix3Xd Xm = (X.colwise() - m);  // centered
+  return ((Xm * Xm.transpose()) / (X.cols() - 1));
+}
+
+Eigen::Vector3d CalVar3d(const Eigen::Matrix3Xd& X) {
+  const Eigen::Vector3d m = X.rowwise().mean();   // mean
+  const Eigen::Matrix3Xd Xm = (X.colwise() - m);  // centered
+  return Xm.cwiseProduct(Xm).rowwise().sum() / (X.cols() - 1);
+}
+
 TEST(MathTest, TestAngleConversion) {
   EXPECT_DOUBLE_EQ(Deg2Rad(0.0), 0.0);
   EXPECT_DOUBLE_EQ(Deg2Rad(90.0), M_PI / 2.0);
@@ -27,11 +40,26 @@ TEST(LinalgTest, TestMatrixSqrtUtU) {
   EXPECT_TRUE(A.isApprox(UtU));
 }
 
+TEST(MathTest, TestMeanVar) {
+  for (int i = 3; i < 50; i += 10) {
+    const auto X = Eigen::Matrix3Xd::Random(3, i).eval();
+    const auto var0 = CalVar3d(X);
+    const auto m = X.rowwise().mean().eval();
+
+    MeanVar3d mv;
+    for (int j = 0; j < X.cols(); ++j) mv.Add(X.col(j));
+    const auto var1 = mv.Var();
+
+    EXPECT_TRUE(var0.isApprox(var1));
+    EXPECT_TRUE(mv.mean.isApprox(m));
+  }
+}
+
 TEST(MathTest, TestMeanCovar) {
   for (int i = 3; i < 50; i += 10) {
     const auto X = Eigen::Matrix3Xd::Random(3, i).eval();
     const auto cov0 = CalCovar3d(X);
-    const Eigen::Vector3d m = X.rowwise().mean();
+    const auto m = X.rowwise().mean().eval();
 
     MeanCovar3d mc;
     for (int j = 0; j < X.cols(); ++j) mc.Add(X.col(j));
