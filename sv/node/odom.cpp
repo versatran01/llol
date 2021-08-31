@@ -35,6 +35,9 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
+  rigid_ = pnh_.param<bool>("rigid", true);
+  ROS_WARN_STREAM("GICP: " << (rigid_ ? "Rigid" : "Linear"));
+
   imuq_ = InitImuq({pnh_, "imuq"});
   ROS_INFO_STREAM(imuq_);
 
@@ -144,7 +147,11 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   // Add scan to sweep, compute score and filter
   Preprocess(scan);
 
-  Register();
+  if (rigid_) {
+    Register();
+  } else {
+    Register2();
+  }
 
   static MarkerArray match_marray;
   std_msgs::Header match_header;

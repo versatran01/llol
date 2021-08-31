@@ -49,6 +49,12 @@ bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
   return true;
 }
 
+bool GicpLinearCost::operator()(const double* _x,
+                                double* _r,
+                                double* _J) const {
+  return true;
+}
+
 // ImuCost::ImuCost(const Trajectory& traj) : ptraj{&traj} {
 //  preint.Compute(traj);
 //}

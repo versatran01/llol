@@ -13,9 +13,9 @@ struct Cost {
   int NumResiduals() const { return NUM_RESIDUALS; }
 
   bool operator()(const double* _x, double* _r, double* _J) const {
-    const ErrorState<double> es(_x);
+    Eigen::Map<Eigen::Vector3d> er(_r);
 
-    const auto eR = Sophus::SO3d::exp(es.r0());
+    const auto eR = Sophus::SO3d::exp(er);
     Eigen::Map<Eigen::Vector3d> r(_r);
 
     r = a - eR * (R * b);
@@ -30,9 +30,9 @@ struct Cost {
 
   template <typename T>
   bool operator()(const T* _x, T* _r) const {
-    const ErrorState<T> es(_x);
+    Eigen::Map<Eigen::Vector3<T>> er(_r);
 
-    const auto eR = Sophus::SO3<T>::exp(es.r0());
+    const auto eR = Sophus::SO3<T>::exp(er);
     Eigen::Map<Eigen::Vector3<T>> r(_r);
 
     r = a - eR * (R * b);

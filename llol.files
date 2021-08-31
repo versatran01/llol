@@ -56,7 +56,7 @@ sv/node/cov_viz.cpp
 sv/node/odom.cpp
 sv/node/odom.h
 sv/node/odom_old.cpp
-sv/node/odom_reg.cpp
+sv/node/register.cpp
 sv/node/viz.cpp
 sv/node/viz.h
 sv/sim/doctest.h

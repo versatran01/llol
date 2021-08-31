@@ -32,6 +32,7 @@ struct OdomNode {
   bool vis_{true};
   int tbb_{0};
 
+  bool rigid_{false};
   bool tf_init_{false};
   bool scan_init_{false};
   bool lidar_init_{false};

@@ -22,3 +22,4 @@ pano:
   vfov: 0.0
   max_cnt: 10
   range_ratio: 0.1
+rigid: False
