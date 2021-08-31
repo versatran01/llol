@@ -136,7 +136,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   tf_o_p.header.frame_id = odom_frame_;
   tf_o_p.header.stamp = cinfo_msg->header.stamp;
   tf_o_p.child_frame_id = pano_frame_;
-  SE3d2Ros(traj_.T_odom_pano, tf_o_p.transform);
+  SE3dToMsg(traj_.T_odom_pano, tf_o_p.transform);
   tf_broadcaster_.sendTransform(tf_o_p);
 
   // We can always process incoming scan no matter what
@@ -157,7 +157,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   static PoseArray parray_traj;
   parray_traj.header.frame_id = pano_frame_;
   parray_traj.header.stamp = cinfo_msg->header.stamp;
-  SE3fVec2Ros(grid_.tfs, parray_traj);
+  SE3fVecToMsg(grid_.tfs, parray_traj);
   pub_traj_.publish(parray_traj);
 
   PostProcess(scan);
@@ -185,6 +185,17 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   tf2::toMsg(imuq_.bias.acc, imu_bias.linear_acceleration);
   tf2::toMsg(imuq_.bias.gyr, imu_bias.angular_velocity);
   pub_imu_bias_.publish(imu_bias);
+
+  // publish latest traj as path
+  static nav_msgs::Path path;
+  path.header.stamp = cinfo_msg->header.stamp;
+  path.header.frame_id = odom_frame_;
+  geometry_msgs::PoseStamped pose;
+  pose.header.stamp = path.header.stamp;
+  pose.header.frame_id = path.header.frame_id;
+  SE3dToMsg(traj_.GetLidarPoseOdom(), pose.pose);
+  path.poses.push_back(pose);
+  pub_path_.publish(path);
 
   ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
 }

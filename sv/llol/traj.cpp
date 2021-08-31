@@ -86,4 +86,9 @@ void Trajectory::Rotate(int n) {
   std::rotate(states.begin(), states.begin() + n, states.end());
 }
 
+SE3d Trajectory::GetLidarPoseOdom() const {
+  const Sophus::SE3d T_pano_imu{states.back().rot, states.back().pos};
+  return T_odom_pano * T_pano_imu * T_imu_lidar;
+}
+
 }  // namespace sv

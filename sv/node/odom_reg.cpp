@@ -19,7 +19,7 @@ void OdomNode::Register() {
   TinySolver2<Cost> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
 
-  bool traj_updated_ = false;
+  traj_updated_ = false;
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();

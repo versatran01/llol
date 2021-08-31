@@ -4,17 +4,26 @@
 
 namespace sv {
 
-void SE3d2Ros(const Sophus::SE3d& pose, geometry_msgs::Transform& tf) {
-  tf2::toMsg(pose.translation(), tf.translation);
-  tf.rotation = tf2::toMsg(pose.unit_quaternion());
+void SE3dToMsg(const Sophus::SE3d& se3, geometry_msgs::Transform& tf) {
+  tf2::toMsg(se3.translation(), tf.translation);
+  tf.rotation = tf2::toMsg(se3.unit_quaternion());
 }
 
-void SO3d2Ros(const Sophus::SO3d& rot, geometry_msgs::Quaternion& q) {
-  q = tf2::toMsg(rot.unit_quaternion());
+void SO3dToMsg(const Sophus::SO3d& so3, geometry_msgs::Quaternion& q) {
+  q = tf2::toMsg(so3.unit_quaternion());
 }
 
-void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,
-                 geometry_msgs::PoseArray& parray) {
+void SE3dToMsg(const Sophus::SE3d& se3, geometry_msgs::Pose& pose) {
+  auto& p = pose.position;
+  const auto& t = se3.translation();
+  p.x = t.x();
+  p.y = t.y();
+  p.z = t.z();
+  SO3dToMsg(se3.so3(), pose.orientation);
+}
+
+void SE3fVecToMsg(const std::vector<Sophus::SE3f>& poses,
+                  geometry_msgs::PoseArray& parray) {
   parray.poses.resize(poses.size());
 
   for (int i = 0; i < poses.size(); ++i) {
@@ -23,7 +32,7 @@ void SE3fVec2Ros(const std::vector<Sophus::SE3f>& poses,
     pose.position.x = t.x();
     pose.position.y = t.y();
     pose.position.z = t.z();
-    SO3d2Ros(poses.at(i).so3(), pose.orientation);
+    SO3dToMsg(poses.at(i).so3(), pose.orientation);
   }
 }
 

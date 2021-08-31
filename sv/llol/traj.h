@@ -32,6 +32,8 @@ struct Trajectory {
   /// @brief Rotate the states so that the traj starts at curr end
   void Rotate(int n);
 
+  Sophus::SE3d GetLidarPoseOdom() const;
+
   Eigen::Vector3d g_pano;        // gravity vector in pano frame
   Sophus::SE3d T_odom_pano{};    // tf from pano to odom frame
   Sophus::SE3d T_imu_lidar{};    // extrinsics lidar to imu

@@ -64,7 +64,7 @@ void Grid2Markers(const SweepGrid& grid,
       if (match.Ok()) {
         marker.action = Marker::ADD;
         covar = match.mc_p.Covar();
-        covar.diagonal().array() += 1e-6;
+        covar.diagonal().array() += 1e-10;
         es.compute(covar);
         MeanCovar2Marker(
             marker, match.mc_p.mean, es.eigenvalues(), es.eigenvectors());

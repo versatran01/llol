@@ -439,7 +439,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     if (good) {
       /// Transform from sweep to pano
       TransformStamped tf_p_s;
-      SE3d2Ros(T_p_s_, tf_p_s.transform);
+      SE3dToMsg(T_p_s_, tf_p_s.transform);
       tf_p_s.header.frame_id = pano_frame_;
       tf_p_s.header.stamp = cinfo_msg->header.stamp;
       tf_p_s.child_frame_id = cinfo_msg->header.frame_id;
