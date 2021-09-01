@@ -148,6 +148,7 @@ struct SolverOptions {
       std::numeric_limits<double>::epsilon();  // eps > ||f(x)||
   double initial_trust_region_radius = 1e4;
   int max_num_iterations = 50;
+  double min_eigenvalue = 0.0;
 };
 
 struct SolverSummary {

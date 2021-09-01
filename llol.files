@@ -88,6 +88,7 @@ sv/temp/curve_fitting.cpp
 sv/temp/factor.cpp
 sv/temp/factor.h
 sv/temp/imu_factor.h
+sv/temp/inverse.cpp
 sv/temp/vins_imu.h
 sv/util/CMakeLists.txt
 sv/util/angle.h

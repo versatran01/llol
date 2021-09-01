@@ -217,3 +217,8 @@ endif()
 # cc_binary( NAME curve_fitting SRCS "temp/curve_fitting.cpp" DEPS sv_util_timer
 # Ceres::ceres) cc_bench( NAME ceres_bench SRCS "temp/ceres_bench.cpp" DEPS
 # Ceres::ceres sv_tbb)
+
+cc_binary(
+  NAME inverse
+  SRCS "temp/inverse.cpp"
+  DEPS sv_base Eigen3::Eigen)

@@ -18,6 +18,7 @@ void OdomNode::Register() {
   //  TinySolver<AdCost<Cost>> solver;
   TinySolver2<Cost> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
+  solver.options.min_eigenvalue = 0.05;
 
   traj_updated_ = false;
 

@@ -54,6 +54,7 @@
 
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
+#include <Eigen/Eigenvalues>
 #include <cassert>
 #include <cmath>
 
@@ -206,6 +207,27 @@ class TinySolver2 {
       return summary;
     }
 
+    if (options.min_eigenvalue > 0) {
+      // Compute eigen values and eigen vectors of jtj
+      eigen_solver_.compute(jtj_);
+      const auto& eigvals = eigen_solver_.eigenvalues();
+
+      // Determine a number m of eigvals smaller than a threshold
+      const int n = dx_.rows();
+      int m = 0;
+      for (; m < n; ++m) {
+        if (eigvals[m] >= options.min_eigenvalue) break;
+      }
+      need_remap_ = m > 0;
+      if (need_remap_) {
+        // Construct Vf^-1 * Vu into Vu
+        const auto& Vf = eigen_solver_.eigenvectors();
+        Vu_.setZero();
+        Vu_.rightCols(n - m) = Vf.rightCols(n - m);
+        Vu_.applyOnTheLeft(Vf.inverse());
+      }
+    }
+
     Scalar u = 1.0 / options.initial_trust_region_radius;
     Scalar v = 2;
 
@@ -234,6 +256,11 @@ class TinySolver2 {
       if (dx_.norm() < parameter_tolerance) {
         summary.status = SolverStatus::RELATIVE_STEP_SIZE_TOO_SMALL;
         break;
+      }
+
+      if (need_remap_) {
+        // dx = Vf^-1 * Vu * dx
+        dx_ = Vu_ * dx_;
       }
       x_new_ = x + dx_;
 
@@ -300,8 +327,17 @@ class TinySolver2 {
   ResidualsMap error_{nullptr, 0}, f_x_new_{nullptr, 0};
   JacobianMap jacobian_{nullptr, 0, 0};
   HessianMap jtj_{nullptr, 0, 0}, jtj_regularized_{nullptr, 0, 0};
+  HessianMap Vu_{nullptr, 0, 0};  // this is acctually Vf^-1 * Vu
 
   std::vector<Scalar> storage_;
+
+  // Remapping stuff
+  using EigenSolver =
+      Eigen::SelfAdjointEigenSolver<Eigen::Matrix<typename Function::Scalar,
+                                                  Function::NUM_PARAMETERS,
+                                                  Function::NUM_PARAMETERS>>;
+  EigenSolver eigen_solver_;
+  bool need_remap_{false};
 
   // The following definitions are needed for template metaprogramming.
   template <bool Condition, typename T>
@@ -346,7 +382,7 @@ class TinySolver2 {
     const int num_jacobian = num_residuals * num_parameters;
     const int num_hessian = num_parameters * num_parameters;
     const int total = num_parameters * 6 + num_residuals * 2 +
-                      num_jacobian * 1 + num_hessian * 2;
+                      num_jacobian * 1 + num_hessian * 3;
     storage_.resize(total);
     auto* s = storage_.data();
 
@@ -387,6 +423,8 @@ class TinySolver2 {
     new (&jtj_) HessianMap(s, num_parameters, num_parameters);
     s += num_hessian;
     new (&jtj_regularized_) HessianMap(s, num_parameters, num_parameters);
+    s += num_hessian;
+    new (&Vu_) HessianMap(s, num_parameters, num_parameters);
     s += num_hessian;
 
     CHECK_EQ(s - storage_.data(), total);
