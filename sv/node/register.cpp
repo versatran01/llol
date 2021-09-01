@@ -127,7 +127,7 @@ void OdomNode::Register2() {
 
     // Build
     t_build.Resume();
-    Cost cost(grid_, tbb_);
+    Cost cost(grid_, traj_, imuq_, tbb_);
     AdCost<Cost> adcost(cost);
     t_build.Stop(false);
     ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
@@ -151,6 +151,10 @@ void OdomNode::Register2() {
       const auto ep = es.p0() + s * dep;
       st.rot = eR * st.rot;
       st.pos = eR * st.pos + ep;
+      if (i > 1) {
+        const auto& st_prev = traj_.At(i - 1);
+        st.vel = (st.pos - st_prev.pos) / (st.time - st_prev.time);
+      }
     }
 
     if (vis_) {

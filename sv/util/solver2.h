@@ -1,3 +1,4 @@
+/*
 // Ceres Solver - A fast non-linear least squares minimizer
 // Copyright 2019 Google Inc. All rights reserved.
 // http://ceres-solver.org/
@@ -47,6 +48,7 @@
 // [1] K. Madsen, H. Nielsen, O. Tingleoff.
 //     Methods for Non-linear Least Squares Problems.
 //     http://www2.imm.dtu.dk/pubdb/views/edoc_download.php/3215/pdf/imm3215.pdf
+*/
 
 #pragma once
 
@@ -126,7 +128,7 @@ namespace sv {
 //   int NumParameters() const;
 //
 
-// This version preallocates everything and use Eigen::Map
+/// @brief This version allocates once and use Eigen::Map
 template <typename Function,
           typename LinearSolver =
               Eigen::LDLT<Eigen::Matrix<typename Function::Scalar,

@@ -34,7 +34,7 @@ bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
           const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
           const auto pt_p_hat = tf_p_g * pt_g;
 
-          const int ri = kNumResiduals * i;
+          const int ri = kResidualDim * i;
           Eigen::Map<Eigen::Vector3d> r(_r + ri);
           r = U * (pt_p - eT * pt_p_hat);
 
@@ -55,13 +55,12 @@ bool GicpLinearCost::operator()(const double* _x,
   return true;
 }
 
-// ImuCost::ImuCost(const Trajectory& traj) : ptraj{&traj} {
-//  preint.Compute(traj);
-//}
-
-// GicpAndImuCost::GicpAndImuCost(const SweepGrid& grid,
-//                               const Trajectory& traj,
-//                               int gsize)
-//    : gicp_cost(grid, gsize), imu_cost(traj) {}
+GicpLinearCost::GicpLinearCost(const SweepGrid& grid,
+                               const Trajectory& traj,
+                               const ImuQueue& imuq,
+                               int gsize)
+    : GicpCost{grid, gsize}, ptraj{&traj} {
+  preint.Compute(imuq, traj.states.front().time, traj.states.back().time);
+}
 
 }  // namespace sv
