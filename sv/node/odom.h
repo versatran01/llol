@@ -20,9 +20,11 @@ struct OdomNode {
   ros::Subscriber sub_imu_;
   ros::Publisher pub_traj_;
   ros::Publisher pub_path_;
-  ros::Publisher pub_sweep_;
+  ros::Publisher pub_odom_;
+  ros::Publisher pub_pose_;
   ros::Publisher pub_pano_;
-  ros::Publisher pub_match_;
+  ros::Publisher pub_grid_;
+  ros::Publisher pub_sweep_;
   ros::Publisher pub_imu_bias_;
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
@@ -58,6 +60,8 @@ struct OdomNode {
   void ImuCb(const sensor_msgs::Imu& imu_msg);
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
+  void Publish(const std_msgs::Header& header);
+
   void Preprocess(const LidarScan& scan);
   void Init(const sensor_msgs::CameraInfo& cinfo_msg);
   void Register();

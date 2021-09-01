@@ -162,7 +162,7 @@ using MeanCovar3d = MeanCovar<double, 3>;
 /// @details sometimes eigvecs has det -1 (reflection), this makes it a rotation
 /// @ref
 /// https://docs.ros.org/en/noetic/api/rviz/html/c++/covariance__visual_8cpp_source.html
-void MakeRightHanded(Eigen::Vector3f& eigvals, Eigen::Matrix3f& eigvecs);
+void MakeRightHanded(Eigen::Vector3d& eigvals, Eigen::Matrix3d& eigvecs);
 
 /// @brief Computes matrix square root using Cholesky
 template <typename T, int N>

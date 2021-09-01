@@ -1,6 +1,5 @@
 #pragma once
 
-#include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/Transform.h>
 #include <ros/node_handle.h>
 #include <sensor_msgs/CameraInfo.h>
@@ -21,8 +20,6 @@ namespace sv {
 void SE3dToMsg(const Sophus::SE3d& se3, geometry_msgs::Pose& pose);
 void SE3dToMsg(const Sophus::SE3d& se3, geometry_msgs::Transform& tf);
 void SO3dToMsg(const Sophus::SO3d& so3, geometry_msgs::Quaternion& q);
-void SE3fVecToMsg(const std::vector<Sophus::SE3f>& se3s,
-                  geometry_msgs::PoseArray& parray);
 
 /// @brief Factory methods
 ImuData MakeImu(const sensor_msgs::Imu& imu_msg);

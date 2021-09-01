@@ -1,11 +1,14 @@
 // ros
 #include <cv_bridge/cv_bridge.h>
+#include <fmt/color.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <image_transport/camera_subscriber.h>
+#include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <pcl_ros/point_cloud.h>
 #include <ros/ros.h>
+#include <tf2_eigen/tf2_eigen.h>
 
 // sv
 #include "sv/node/odom.h"
@@ -14,6 +17,7 @@
 namespace sv {
 
 using geometry_msgs::PoseArray;
+using geometry_msgs::PoseStamped;
 using geometry_msgs::TransformStamped;
 using visualization_msgs::MarkerArray;
 
@@ -23,11 +27,14 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   sub_imu_ = pnh_.subscribe("imu", 200, &OdomNode::ImuCb, this);
 
   pub_traj_ = pnh_.advertise<PoseArray>("traj", 1);
+  pub_pose_ = pnh_.advertise<PoseStamped>("pose", 1);
   pub_path_ = pnh_.advertise<nav_msgs::Path>("path", 1);
-  pub_sweep_ = pnh_.advertise<CloudXYZ>("sweep", 1);
-  pub_pano_ = pnh_.advertise<CloudXYZ>("pano", 1);
-  pub_match_ = pnh_.advertise<MarkerArray>("match", 1);
+  pub_odom_ = pnh_.advertise<nav_msgs::Odometry>("odom", 1);
   pub_imu_bias_ = pnh_.advertise<sensor_msgs::Imu>("imu_bias", 1);
+
+  pub_pano_ = pnh_.advertise<CloudXYZ>("pano", 1);
+  pub_sweep_ = pnh_.advertise<CloudXYZ>("sweep", 1);
+  pub_grid_ = pnh_.advertise<MarkerArray>("grid", 1);
 
   vis_ = pnh_.param<bool>("vis", true);
   ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -134,16 +141,10 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     }
   }
 
-  // Transform from pano to odom
-  TransformStamped tf_o_p;
-  tf_o_p.header.frame_id = odom_frame_;
-  tf_o_p.header.stamp = cinfo_msg->header.stamp;
-  tf_o_p.child_frame_id = pano_frame_;
-  SE3dToMsg(traj_.T_odom_pano, tf_o_p.transform);
-  tf_broadcaster_.sendTransform(tf_o_p);
-
   // We can always process incoming scan no matter what
   const auto scan = MakeScan(*image_msg, *cinfo_msg);
+  ROS_WARN_STREAM(
+      fmt::format("Processing scan: [{},{})", scan.curr.start, scan.curr.end));
   // Add scan to sweep, compute score and filter
   Preprocess(scan);
 
@@ -153,27 +154,41 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
     Register2();
   }
 
-  static MarkerArray match_marray;
-  std_msgs::Header match_header;
-  match_header.frame_id = pano_frame_;
-  match_header.stamp = cinfo_msg->header.stamp;
-  Grid2Markers(grid_, match_header, match_marray.markers);
-  pub_match_.publish(match_marray);
-
-  // Publish as pose array
-  static PoseArray parray_traj;
-  parray_traj.header.frame_id = pano_frame_;
-  parray_traj.header.stamp = cinfo_msg->header.stamp;
-  SE3fVecToMsg(grid_.tfs, parray_traj);
-  pub_traj_.publish(parray_traj);
-
   PostProcess(scan);
 
+  Publish(cinfo_msg->header);
+
+  ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
+}
+
+void OdomNode::Publish(const std_msgs::Header& header) {
+  // Transform from pano to odom
+  TransformStamped tf_o_p;
+  tf_o_p.header.frame_id = odom_frame_;
+  tf_o_p.header.stamp = header.stamp;
+  tf_o_p.child_frame_id = pano_frame_;
+  SE3dToMsg(traj_.T_odom_pano, tf_o_p.transform);
+  tf_broadcaster_.sendTransform(tf_o_p);
+
+  static MarkerArray grid_marray;
+  std_msgs::Header grid_header;
+  grid_header.frame_id = pano_frame_;
+  grid_header.stamp = header.stamp;
+  Grid2Markers(grid_, grid_header, grid_marray.markers);
+  pub_grid_.publish(grid_marray);
+
+  // Publish as pose array
+  static PoseArray traj_parray;
+  traj_parray.header.frame_id = pano_frame_;
+  traj_parray.header.stamp = header.stamp;
+  Traj2PoseArray(traj_, traj_parray);
+  pub_traj_.publish(traj_parray);
+
   // publish undistorted sweep
-  static CloudXYZ sweep_cloud;
+  static CloudXYZI sweep_cloud;
   std_msgs::Header sweep_header;
   sweep_header.frame_id = pano_frame_;
-  sweep_header.stamp = cinfo_msg->header.stamp;
+  sweep_header.stamp = header.stamp;
   Sweep2Cloud(sweep_, sweep_header, sweep_cloud);
   pub_sweep_.publish(sweep_cloud);
 
@@ -181,13 +196,13 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   static CloudXYZ pano_cloud;
   std_msgs::Header pano_header;
   pano_header.frame_id = pano_frame_;
-  pano_header.stamp = cinfo_msg->header.stamp;
+  pano_header.stamp = header.stamp;
   Pano2Cloud(pano_, pano_header, pano_cloud);
   pub_pano_.publish(pano_cloud);
 
   // publish imu bias
   sensor_msgs::Imu imu_bias;
-  imu_bias.header.stamp = cinfo_msg->header.stamp;
+  imu_bias.header.stamp = header.stamp;
   imu_bias.header.frame_id = imu_frame_;
   tf2::toMsg(imuq_.bias.acc, imu_bias.linear_acceleration);
   tf2::toMsg(imuq_.bias.gyr, imu_bias.angular_velocity);
@@ -195,7 +210,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 
   // publish latest traj as path
   static nav_msgs::Path path;
-  path.header.stamp = cinfo_msg->header.stamp;
+  path.header.stamp = header.stamp;
   path.header.frame_id = odom_frame_;
   geometry_msgs::PoseStamped pose;
   pose.header.stamp = path.header.stamp;
@@ -204,7 +219,12 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   path.poses.push_back(pose);
   pub_path_.publish(path);
 
-  ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
+  // publish odom
+  nav_msgs::Odometry odom;
+  odom.header = path.header;
+  odom.pose.pose = pose.pose;
+  pub_odom_.publish(odom);
+  pub_pose_.publish(pose);
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {

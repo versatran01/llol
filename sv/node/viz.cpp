@@ -3,6 +3,7 @@
 #include <glog/logging.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <tbb/parallel_for.h>
+#include <tf2_eigen/tf2_eigen.h>
 
 #include <Eigen/Eigenvalues>
 #include <Eigen/Geometry>
@@ -12,12 +13,12 @@ namespace sv {
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
-void MeanCovar2Marker(Marker& marker,
-                      const Eigen::Vector3f& mean,
-                      Eigen::Vector3f eigvals,
-                      Eigen::Matrix3f eigvecs) {
+void MeanCovar2Marker(const Eigen::Vector3d& mean,
+                      Eigen::Vector3d eigvals,
+                      Eigen::Matrix3d eigvecs,
+                      Marker& marker) {
   MakeRightHanded(eigvals, eigvecs);
-  const Eigen::Quaternionf quat(eigvecs);
+  const Eigen::Quaterniond quat(eigvecs);
   eigvals = eigvals.cwiseSqrt() * 2;
 
   marker.pose.position.x = mean.x();
@@ -40,7 +41,7 @@ void Grid2Markers(const SweepGrid& grid,
 
   markers.resize(grid.total() * 2 + 1);
 
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es;
   auto& line_mk = markers.back();
   line_mk.header = header;
   line_mk.ns = "match";
@@ -78,18 +79,19 @@ void Grid2Markers(const SweepGrid& grid,
 
       if (match.Ok()) {
         pano_mk.action = Marker::ADD;
-        const auto pt_p = match.mc_p.mean;
-        auto pano_cov = match.mc_p.Covar();
+        const auto pt_p = match.mc_p.mean.cast<double>().eval();
+        auto pano_cov = match.mc_p.Covar().cast<double>().eval();
         pano_cov.diagonal().array() += eps;
         es.compute(pano_cov);
-        MeanCovar2Marker(pano_mk, pt_p, es.eigenvalues(), es.eigenvectors());
+        MeanCovar2Marker(pt_p, es.eigenvalues(), es.eigenvectors(), pano_mk);
 
         grid_mk.action = Marker::ADD;
-        const auto pt_g = grid.tfs.at(c) * match.mc_g.mean;
-        auto grid_cov = match.mc_g.Covar();
+        const auto pt_g =
+            (grid.tfs.at(c) * match.mc_g.mean).cast<double>().eval();
+        auto grid_cov = match.mc_g.Covar().cast<double>().eval();
         grid_cov.diagonal().array() += eps;
         es.compute(grid_cov);
-        MeanCovar2Marker(grid_mk, pt_g, es.eigenvalues(), es.eigenvectors());
+        MeanCovar2Marker(pt_g, es.eigenvalues(), es.eigenvectors(), grid_mk);
 
         // Line
         geometry_msgs::Point p0, p1;
@@ -164,7 +166,7 @@ void Pano2Cloud(const DepthPano& pano,
 
 void Sweep2Cloud(const LidarSweep& sweep,
                  const std_msgs::Header header,
-                 CloudXYZ& cloud) {
+                 CloudXYZI& cloud) {
   const auto size = sweep.size();
   if (cloud.empty()) {
     cloud.resize(sweep.total());
@@ -177,18 +179,34 @@ void Sweep2Cloud(const LidarSweep& sweep,
                     [&](const auto& blk) {
                       for (int r = blk.begin(); r < blk.end(); ++r) {
                         for (int c = 0; c < size.width; ++c) {
+                          const bool col_in_curr =
+                              (sweep.curr.start <= c && c < sweep.curr.end);
+                          float intensity = col_in_curr ? 1.0 : 0.5;
+
                           const auto& tf = sweep.tfs.at(c);
                           const auto& xyzr = sweep.XyzrAt({c, r});
                           auto& pc = cloud.at(c, r);
                           if (std::isnan(xyzr[0])) {
-                            pc.x = pc.y = pc.z = kNaNF;
+                            pc.x = pc.y = pc.z = pc.intensity = kNaNF;
                           } else {
                             Eigen::Map<const Eigen::Vector3f> xyz(&xyzr[0]);
                             pc.getArray3fMap() = tf * xyz;
+                            pc.intensity = intensity;
                           }
                         }
                       }
                     });
+}
+
+void Traj2PoseArray(const Trajectory& traj, geometry_msgs::PoseArray& parray) {
+  parray.poses.resize(traj.size());
+  for (int i = 0; i < traj.size(); ++i) {
+    const auto& st = traj.At(i);
+    auto& pose = parray.poses.at(i);
+    const auto T_p_l = Sophus::SE3d(st.rot, st.pos) * traj.T_imu_lidar;
+    pose.orientation = tf2::toMsg(T_p_l.unit_quaternion());
+    pose.position = tf2::toMsg(T_p_l.translation());
+  }
 }
 
 }  // namespace sv

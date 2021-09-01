@@ -101,6 +101,7 @@ void OdomNode::Register2() {
 
   Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
   err_sum.setZero();
+
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
   TinySolver<AdCost<Cost>> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
@@ -146,14 +147,15 @@ void OdomNode::Register2() {
     const auto eR = Sophus::SO3d::exp(es.r0());
     const auto dep = (es.p1() - es.p0()).eval();
     for (int i = 0; i < traj_.size(); ++i) {
-      auto& st = traj_.At(i);
+      auto& st1 = traj_.At(i);
       const double s = i / (traj_.size() - 1.0);
       const auto ep = es.p0() + s * dep;
-      st.rot = eR * st.rot;
-      st.pos = eR * st.pos + ep;
+      st1.rot = eR * st1.rot;
+      st1.pos = eR * st1.pos + ep;
       if (i > 1) {
-        const auto& st_prev = traj_.At(i - 1);
-        st.vel = (st.pos - st_prev.pos) / (st.time - st_prev.time);
+        const auto& st0 = traj_.At(i - 1);
+        st1.vel =
+            st1.rot.inverse() * (st1.pos - st0.pos) / (st1.time - st0.time);
       }
     }
 

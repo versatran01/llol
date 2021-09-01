@@ -1,6 +1,7 @@
 #include "sv/node/conv.h"
 
 #include <cv_bridge/cv_bridge.h>
+#include <tf2_eigen/tf2_eigen.h>
 
 namespace sv {
 
@@ -20,20 +21,6 @@ void SE3dToMsg(const Sophus::SE3d& se3, geometry_msgs::Pose& pose) {
   p.y = t.y();
   p.z = t.z();
   SO3dToMsg(se3.so3(), pose.orientation);
-}
-
-void SE3fVecToMsg(const std::vector<Sophus::SE3f>& poses,
-                  geometry_msgs::PoseArray& parray) {
-  parray.poses.resize(poses.size());
-
-  for (int i = 0; i < poses.size(); ++i) {
-    auto& pose = parray.poses.at(i);
-    const auto& t = poses.at(i).translation();
-    pose.position.x = t.x();
-    pose.position.y = t.y();
-    pose.position.z = t.z();
-    SO3dToMsg(poses.at(i).so3(), pose.orientation);
-  }
 }
 
 /// Make

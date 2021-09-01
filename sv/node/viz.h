@@ -1,5 +1,6 @@
 #pragma once
 
+#include <geometry_msgs/PoseArray.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -13,6 +14,7 @@
 namespace sv {
 
 using CloudXYZ = pcl::PointCloud<pcl::PointXYZ>;
+using CloudXYZI = pcl::PointCloud<pcl::PointXYZI>;
 
 /// @brief Apply color map to mat
 /// @details input must be 1-channel, assume after scale the max will be 1
@@ -27,15 +29,16 @@ void Imshow(const std::string& name,
             const cv::Mat& mat,
             int flag = cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
 
-void MeanCovar2Marker(visualization_msgs::Marker& marker,
-                      const Eigen::Vector3d& mean,
+void MeanCovar2Marker(const Eigen::Vector3d& mean,
                       Eigen::Vector3d eigvals,
                       Eigen::Matrix3d eigvecs,
-                      double scale = 1.0);
+                      visualization_msgs::Marker& marker);
 
 void Grid2Markers(const SweepGrid& grid,
                   const std_msgs::Header& header,
                   std::vector<visualization_msgs::Marker>& markers);
+
+void Traj2PoseArray(const Trajectory& traj, geometry_msgs::PoseArray& parray);
 
 void Pano2Cloud(const DepthPano& pano,
                 const std_msgs::Header header,
@@ -43,6 +46,6 @@ void Pano2Cloud(const DepthPano& pano,
 
 void Sweep2Cloud(const LidarSweep& sweep,
                  const std_msgs::Header header,
-                 CloudXYZ& cloud);
+                 CloudXYZI& cloud);
 
 }  // namespace sv
