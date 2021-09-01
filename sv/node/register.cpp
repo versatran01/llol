@@ -104,7 +104,8 @@ void OdomNode::Register2() {
   err_sum.setZero();
 
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
-  TinySolver<AdCost<Cost>> solver;
+  //  TinySolver<AdCost<Cost>> solver;
+  TinySolver2<Cost> solver;
   solver.options.max_num_iterations = gicp_.iters.second;
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
@@ -130,13 +131,13 @@ void OdomNode::Register2() {
     // Build
     t_build.Resume();
     Cost cost(grid_, tbb_);
-    AdCost<Cost> adcost(cost);
+    //    AdCost<Cost> adcost(cost);
     t_build.Stop(false);
     ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
 
     // Solve
     t_solve.Resume();
-    solver.Solve(adcost, &err);
+    solver.Solve(cost, &err);
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 

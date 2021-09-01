@@ -52,6 +52,33 @@ bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
 bool GicpLinearCost::operator()(const double* _x,
                                 double* _r,
                                 double* _J) const {
+  const State<double> es(_x);
+  const auto eR = Sophus::SO3d::exp(es.r0());
+
+  tbb::parallel_for(
+      tbb::blocked_range<int>(0, matches.size(), gsize_), [&](const auto& blk) {
+        for (int i = blk.begin(); i < blk.end(); ++i) {
+          const auto& match = matches.at(i);
+          const auto c = match.px_g.x;
+          const auto U = match.U.cast<double>().eval();
+          const auto pt_p = match.mc_p.mean.cast<double>().eval();
+          const auto pt_g = match.mc_g.mean.cast<double>().eval();
+          const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
+          const auto pt_p_hat = tf_p_g * pt_g;
+          const double s = (c + 0.5) / pgrid->cols();
+
+          const int ri = kResidualDim * i;
+          Eigen::Map<Eigen::Vector3d> r(_r + ri);
+          r = U * (pt_p - (eR * pt_p_hat + s * es.p0()));
+
+          if (_J) {
+            Eigen::Map<Eigen::MatrixXd> J(_J, NumResiduals(), kNumParams);
+            J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
+            J.block<3, 3>(ri, Block::kP0 * 3) = -s * U;
+          }
+        }
+      });
+
   return true;
 }
 
