@@ -78,14 +78,15 @@ struct GicpRigidCost final : public GicpCost {
 
 /// @brief Linear interpolation in translation error state
 struct GicpLinearCost final : public GicpCost {
-  static constexpr int kNumParams = 9;
+  static constexpr int kNumParams = 6;
   enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
-  enum Block { kR0, kP0, kP1 };
+  enum Block { kR0, kP0 };
 
-  const Trajectory* ptraj;
-  ImuPreintegration preint;
+  //  const Trajectory* ptraj;
+  //  ImuPreintegration preint;
+  using GicpCost::GicpCost;
 
-  virtual int NumResiduals() const { return matches.size() * kResidualDim + 6; }
+  //  virtual int NumResiduals() const { return matches.size() * kResidualDim; }
 
   GicpLinearCost(const SweepGrid& grid,
                  const Trajectory& traj,
@@ -101,7 +102,6 @@ struct GicpLinearCost final : public GicpCost {
     State(const T* const _x) : x{_x} {}
     auto r0() const { return Vec3CMap{x + Block::kR0 * kBlockSize}; }
     auto p0() const { return Vec3CMap{x + Block::kP0 * kBlockSize}; }
-    auto p1() const { return Vec3CMap{x + Block::kP1 * kBlockSize}; }
 
     const T* const x{nullptr};
   };
@@ -116,13 +116,12 @@ struct GicpLinearCost final : public GicpCost {
 
     const State<T> es(_x);
     const auto eR = SO3::exp(es.r0());
-    const Vec3 dep = es.p1() - es.p0();
 
     // Precompute interpolated error state fom lidar to odom
     std::vector<Vec3> eps(pgrid->cols());
     for (int i = 0; i < eps.size(); ++i) {
       const double s = (i + 0.5) / eps.size();
-      eps.at(i) = es.p0() + s * dep;
+      eps.at(i) = s * es.p0();
     }
 
     tbb::parallel_for(
@@ -143,28 +142,28 @@ struct GicpLinearCost final : public GicpCost {
         });
 
     // Imu preint cost
-    const auto dt = preint.duration;
-    const auto dt2 = dt * dt;
-    const auto& g = ptraj->g_pano;
-    const auto& st0 = ptraj->states.front();
-    const auto& st1 = ptraj->states.back();
+    //    const auto dt = preint.duration;
+    //    const auto dt2 = dt * dt;
+    //    const auto& g = ptraj->g_pano;
+    //    const auto& st0 = ptraj->states.front();
+    //    const auto& st1 = ptraj->states.back();
 
-    const auto R0 = eR * st0.rot;
+    //    const auto R0 = eR * st0.rot;
     //    const auto R1 = eR * st1.rot;
-    const Vec3 p0 = es.p0() + eR * st0.pos;
-    const Vec3 p1 = es.p1() + eR * st1.pos;
+    //    const Vec3 p0 = es.p0() + eR * st0.pos;
+    //    const Vec3 p1 = es.p1() + eR * st1.pos;
 
-    const auto R0_inv = R0.inverse();
-    const Vec3 alpha = R0_inv * (p1 - p0 - st0.vel * dt + 0.5 * g * dt2);
-    const Vec3 beta = R0_inv * (st1.vel - st0.vel + g * dt);
+    //    const auto R0_inv = R0.inverse();
+    //    const Vec3 alpha = R0_inv * (p1 - p0 - st0.vel * dt + 0.5 * g * dt2);
+    //    const Vec3 beta = R0_inv * (st1.vel - st0.vel + g * dt);
     //    const auto gamma = R0_inv * R1;
 
-    const int offset = matches.size() * kResidualDim;
-    const auto& V = preint.U;
-    Eigen::Map<Vec3> r_alpha(_r + offset);
-    r_alpha = V.topLeftCorner<3, 3>() * (alpha - preint.alpha);
-    Eigen::Map<Vec3> r_beta(_r + offset + 3);
-    r_beta = V.block<3, 3>(3, 3) * (beta - preint.beta);
+    //    const int offset = matches.size() * kResidualDim;
+    //    const auto& V = preint.U;
+    //    Eigen::Map<Vec3> r_alpha(_r + offset);
+    //    r_alpha = V.topLeftCorner<3, 3>() * (alpha - preint.alpha);
+    //    Eigen::Map<Vec3> r_beta(_r + offset + 3);
+    //    r_beta = V.block<3, 3>(3, 3) * (beta - preint.beta);
     //    Eigen::Map<Vec3> r_gamma(_r + offset + 6);
     //    r_gamma = V.block<3, 3>(6, 6) * (gamma *
     //    preint.gamma.inverse()).log();

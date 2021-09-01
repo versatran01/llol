@@ -192,6 +192,8 @@ class TinySolver2 {
     summary = SolverSummary();
     summary.iterations = 0;
 
+    bool need_remap = false;
+
     // TODO(sameeragarwal): Deal with failure here.
     Update(function, x);
     summary.initial_cost = cost_;
@@ -207,6 +209,8 @@ class TinySolver2 {
       return summary;
     }
 
+    // Solution remapping
+    // https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=7487211
     if (options.min_eigenvalue > 0) {
       // Compute eigen values and eigen vectors of jtj
       eigen_solver_.compute(jtj_);
@@ -218,13 +222,14 @@ class TinySolver2 {
       for (; m < n; ++m) {
         if (eigvals[m] >= options.min_eigenvalue) break;
       }
-      need_remap_ = m > 0;
-      if (need_remap_) {
-        // Construct Vf^-1 * Vu into Vu
+      // Obiviously if all eigenvalues are good then no need for remapping
+      need_remap = m > 0;
+      if (need_remap) {
+        // Construct Vf^-1 * Vu
         const auto& Vf = eigen_solver_.eigenvectors();
-        Vu_.setZero();
-        Vu_.rightCols(n - m) = Vf.rightCols(n - m);
-        Vu_.applyOnTheLeft(Vf.inverse());
+        Vf_inv_Vu_.setZero();
+        Vf_inv_Vu_.rightCols(n - m) = Vf.rightCols(n - m);
+        Vf_inv_Vu_.applyOnTheLeft(Vf.inverse());
       }
     }
 
@@ -258,9 +263,9 @@ class TinySolver2 {
         break;
       }
 
-      if (need_remap_) {
+      if (need_remap) {
         // dx = Vf^-1 * Vu * dx
-        dx_ = Vu_ * dx_;
+        dx_ = Vf_inv_Vu_ * dx_;
       }
       x_new_ = x + dx_;
 
@@ -327,17 +332,13 @@ class TinySolver2 {
   ResidualsMap error_{nullptr, 0}, f_x_new_{nullptr, 0};
   JacobianMap jacobian_{nullptr, 0, 0};
   HessianMap jtj_{nullptr, 0, 0}, jtj_regularized_{nullptr, 0, 0};
-  HessianMap Vu_{nullptr, 0, 0};  // this is acctually Vf^-1 * Vu
+  HessianMap Vf_inv_Vu_{nullptr, 0, 0};
 
   std::vector<Scalar> storage_;
 
   // Remapping stuff
-  using EigenSolver =
-      Eigen::SelfAdjointEigenSolver<Eigen::Matrix<typename Function::Scalar,
-                                                  Function::NUM_PARAMETERS,
-                                                  Function::NUM_PARAMETERS>>;
+  using EigenSolver = Eigen::SelfAdjointEigenSolver<Hessian>;
   EigenSolver eigen_solver_;
-  bool need_remap_{false};
 
   // The following definitions are needed for template metaprogramming.
   template <bool Condition, typename T>
@@ -387,12 +388,12 @@ class TinySolver2 {
     auto* s = storage_.data();
 
     // https://eigen.tuxfamily.org/dox/group__TutorialMapClass.html#TutorialMapPlacementNew
-    //    dx_.resize(num_parameters);
-    //    x_new_.resize(num_parameters);
-    //    g_.resize(num_parameters);
-    //    jacobi_scaling_.resize(num_parameters);
-    //    lm_diagonal_.resize(num_parameters);
-    //    lm_step_.resize(num_parameters);
+    // dx_.resize(num_parameters);
+    // x_new_.resize(num_parameters);
+    // g_.resize(num_parameters);
+    // jacobi_scaling_.resize(num_parameters);
+    // lm_diagonal_.resize(num_parameters);
+    // lm_step_.resize(num_parameters);
 
     new (&dx_) ParametersMap(s, num_parameters);
     s += num_parameters;
@@ -407,24 +408,24 @@ class TinySolver2 {
     new (&lm_step_) ParametersMap(s, num_parameters);
     s += num_parameters;
 
-    //    error_.resize(num_residuals);
-    //    f_x_new_.resize(num_residuals);
+    // error_.resize(num_residuals);
+    // f_x_new_.resize(num_residuals);
     new (&error_) ResidualsMap(s, num_residuals);
     s += num_residuals;
     new (&f_x_new_) ResidualsMap(s, num_residuals);
     s += num_residuals;
 
-    //    jacobian_.resize(num_residuals, num_parameters);
+    // jacobian_.resize(num_residuals, num_parameters);
     new (&jacobian_) JacobianMap(s, num_residuals, num_parameters);
     s += num_jacobian;
 
-    //    jtj_.resize(num_parameters, num_parameters);
-    //    jtj_regularized_.resize(num_parameters, num_parameters);
+    // jtj_.resize(num_parameters, num_parameters);
+    // jtj_regularized_.resize(num_parameters, num_parameters);
     new (&jtj_) HessianMap(s, num_parameters, num_parameters);
     s += num_hessian;
     new (&jtj_regularized_) HessianMap(s, num_parameters, num_parameters);
     s += num_hessian;
-    new (&Vu_) HessianMap(s, num_parameters, num_parameters);
+    new (&Vf_inv_Vu_) HessianMap(s, num_parameters, num_parameters);
     s += num_hessian;
 
     CHECK_EQ(s - storage_.data(), total);

@@ -55,12 +55,12 @@ bool GicpLinearCost::operator()(const double* _x,
   return true;
 }
 
-GicpLinearCost::GicpLinearCost(const SweepGrid& grid,
-                               const Trajectory& traj,
-                               const ImuQueue& imuq,
-                               int gsize)
-    : GicpCost{grid, gsize}, ptraj{&traj} {
-  preint.Compute(imuq, traj.states.front().time, traj.states.back().time);
-}
+// GicpLinearCost::GicpLinearCost(const SweepGrid& grid,
+//                               const Trajectory& traj,
+//                               const ImuQueue& imuq,
+//                               int gsize)
+//    : GicpCost{grid, gsize}, ptraj{&traj} {
+//  preint.Compute(imuq, traj.states.front().time, traj.states.back().time);
+//}
 
 }  // namespace sv

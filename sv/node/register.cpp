@@ -129,7 +129,7 @@ void OdomNode::Register2() {
 
     // Build
     t_build.Resume();
-    Cost cost(grid_, traj_, imuq_, tbb_);
+    Cost cost(grid_, tbb_);
     AdCost<Cost> adcost(cost);
     t_build.Stop(false);
     ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
@@ -146,17 +146,15 @@ void OdomNode::Register2() {
 
     const Cost::State<double> es(err.data());
     const auto eR = Sophus::SO3d::exp(es.r0());
-    const auto dep = (es.p1() - es.p0()).eval();
+
     for (int i = 0; i < traj_.size(); ++i) {
       auto& st1 = traj_.At(i);
       const double s = i / (traj_.size() - 1.0);
-      const auto ep = es.p0() + s * dep;
       st1.rot = eR * st1.rot;
-      st1.pos = eR * st1.pos + ep;
+      st1.pos = eR * st1.pos + s * es.p0();
       if (i > 1) {
         const auto& st0 = traj_.At(i - 1);
-        st1.vel =
-            st1.rot.inverse() * (st1.pos - st0.pos) / (st1.time - st0.time);
+        st1.vel = (st1.pos - st0.pos) / (st1.time - st0.time);
       }
     }
 

@@ -13,15 +13,15 @@ grid:
   max_var: 0.01
   nms: True
 gicp:
-  outer: 2
-  inner: 3
+  outer: 3
+  inner: 4
   half_rows: 2
   cov_lambda: 1.0e-8
-  min_eigval: 0.05
+  min_eigval: 0.0
 pano:
   rows: 256
   cols: 1024
   vfov: 0.0
   max_cnt: 16
   range_ratio: 0.1
-rigid: True
+rigid: False

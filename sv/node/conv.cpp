@@ -77,6 +77,7 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
   gp.inner = pnh.param<int>("inner", gp.inner);
   gp.half_rows = pnh.param<int>("half_rows", gp.half_rows);
   gp.cov_lambda = pnh.param<double>("cov_lambda", gp.cov_lambda);
+  gp.min_eigval = pnh.param<double>("min_eigval", gp.min_eigval);
   return GicpSolver{gp};
 }
 
