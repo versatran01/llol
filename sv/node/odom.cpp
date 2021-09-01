@@ -236,10 +236,12 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
 
   if (vis_) {
-    Imshow("score", ApplyCmap(grid_.mat, 1 / 0.2, cv::COLORMAP_VIRIDIS));
+    const auto& disps = grid_.DrawCurveVar();
+    Imshow("curve", ApplyCmap(disps[0], 1 / 0.2, cv::COLORMAP_VIRIDIS));
+    Imshow("var", ApplyCmap(disps[1], 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
-               grid_.DrawFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
+               grid_.DrawFilter(), 1 / grid_.max_curve, cv::COLORMAP_VIRIDIS));
   }
 }
 

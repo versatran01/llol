@@ -32,9 +32,12 @@ TEST(GridTest, TestScore) {
   const auto n1 = grid.Score(scan);
   EXPECT_EQ(n1, 1024);
   EXPECT_EQ(grid.curr.end, 32);
-  EXPECT_TRUE(std::isnan(grid.ScoreAt({32, 0})));
-  EXPECT_EQ(grid.ScoreAt({0, 0}), 0);
-  EXPECT_EQ(grid.ScoreAt({31, 0}), 0);
+  EXPECT_TRUE(std::isnan(grid.ScoreAt({32, 0})[0]));
+  EXPECT_TRUE(std::isnan(grid.ScoreAt({32, 0})[1]));
+  EXPECT_EQ(grid.ScoreAt({0, 0})[0], 0);
+  EXPECT_EQ(grid.ScoreAt({31, 0})[0], 0);
+  EXPECT_EQ(grid.ScoreAt({0, 0})[1], 0);
+  EXPECT_EQ(grid.ScoreAt({31, 0})[1], 0);
   std::cout << grid << std::endl;
 
   scan.curr = {512, 1024};

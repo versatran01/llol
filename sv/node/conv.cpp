@@ -67,7 +67,8 @@ SweepGrid InitGrid(const ros::NodeHandle& pnh, const cv::Size& sweep_size) {
   GridParams gp;
   gp.cell_rows = pnh.param<int>("cell_rows", gp.cell_rows);
   gp.cell_cols = pnh.param<int>("cell_cols", gp.cell_cols);
-  gp.max_score = pnh.param<double>("max_score", gp.max_score);
+  gp.max_curve = pnh.param<double>("max_curve", gp.max_curve);
+  gp.max_var = pnh.param<double>("max_var", gp.max_var);
   gp.nms = pnh.param<bool>("nms", gp.nms);
   return SweepGrid{sweep_size, gp};
 }

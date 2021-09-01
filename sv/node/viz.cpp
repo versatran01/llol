@@ -35,41 +35,75 @@ void MeanCovar2Marker(Marker& marker,
 void Grid2Markers(const SweepGrid& grid,
                   const std_msgs::Header& header,
                   std::vector<Marker>& markers) {
-  markers.resize(grid.total());
+  const double alpha = 0.5;
+  const double eps = 1e-8;
+
+  markers.resize(grid.total() * 2 + 1);
 
   Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> es;
+  auto& line_mk = markers.back();
+  line_mk.header = header;
+  line_mk.ns = "match";
+  line_mk.id = 0;
+  line_mk.type = Marker::LINE_LIST;
+  line_mk.action = Marker::ADD;
+  line_mk.color.a = 1.0;
+  line_mk.color.b = 1.0;
+  line_mk.points.clear();
+  line_mk.points.reserve(grid.total() * 2);
+  line_mk.scale.x = 0.005;
+  line_mk.pose.orientation.w = 1.0;
 
-  Marker pano_mk;
-  pano_mk.header = header;
-  pano_mk.ns = "match";
-  pano_mk.type = Marker::SPHERE;
-  pano_mk.color.a = 0.5;
-  pano_mk.color.r = 0.0;
-  pano_mk.color.g = 1.0;
-  pano_mk.color.b = 0.0;
-
-  Eigen::Matrix3f covar;
-
-  // TODO (chao): only draw matches up to width?
-  // TODO (chao): also need to remove bad match
   for (int r = 0; r < grid.rows(); ++r) {
     for (int c = 0; c < grid.cols(); ++c) {
       const auto i = grid.Px2Ind({c, r});
       const auto& match = grid.MatchAt({c, r});
 
-      auto& marker = markers.at(grid.Px2Ind({c, r}));
-      marker = pano_mk;
-      marker.id = i;
+      auto& pano_mk = markers.at(i);
+      auto& grid_mk = markers.at(i + grid.total());
+
+      pano_mk.header = header;
+      pano_mk.ns = "pano";
+      pano_mk.id = i;
+      pano_mk.type = Marker::SPHERE;
+      pano_mk.color.a = alpha;
+      pano_mk.color.g = 1.0;
+
+      grid_mk.header = header;
+      grid_mk.ns = "grid";
+      grid_mk.id = i;
+      grid_mk.type = Marker::SPHERE;
+      grid_mk.color.a = alpha;
+      grid_mk.color.r = 1.0;
 
       if (match.Ok()) {
-        marker.action = Marker::ADD;
-        covar = match.mc_p.Covar();
-        covar.diagonal().array() += 1e-10;
-        es.compute(covar);
-        MeanCovar2Marker(
-            marker, match.mc_p.mean, es.eigenvalues(), es.eigenvectors());
+        pano_mk.action = Marker::ADD;
+        const auto pt_p = match.mc_p.mean;
+        auto pano_cov = match.mc_p.Covar();
+        pano_cov.diagonal().array() += eps;
+        es.compute(pano_cov);
+        MeanCovar2Marker(pano_mk, pt_p, es.eigenvalues(), es.eigenvectors());
+
+        grid_mk.action = Marker::ADD;
+        const auto pt_g = grid.tfs.at(c) * match.mc_g.mean;
+        auto grid_cov = match.mc_g.Covar();
+        grid_cov.diagonal().array() += eps;
+        es.compute(grid_cov);
+        MeanCovar2Marker(grid_mk, pt_g, es.eigenvalues(), es.eigenvectors());
+
+        // Line
+        geometry_msgs::Point p0, p1;
+        p0.x = pt_p.x();
+        p0.y = pt_p.y();
+        p0.z = pt_p.z();
+        p1.x = pt_g.x();
+        p1.y = pt_g.y();
+        p1.z = pt_g.z();
+        line_mk.points.push_back(p0);
+        line_mk.points.push_back(p1);
       } else {
-        marker.action = Marker::DELETE;
+        pano_mk.action = Marker::DELETE;
+        grid_mk.action = Marker::DELETE;
       }
     }
   }

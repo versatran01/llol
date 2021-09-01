@@ -183,7 +183,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     Imshow("score", ApplyCmap(grid_.mat, 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
-               grid_.DrawFilter(), 1 / grid_.max_score, cv::COLORMAP_VIRIDIS));
+               grid_.DrawFilter(), 1 / grid_.max_curve, cv::COLORMAP_VIRIDIS));
   }
 
   IntegrateImu();

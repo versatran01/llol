@@ -64,29 +64,37 @@ void LidarScan::MeanCovarAt(const cv::Point& px,
   }
 }
 
-float LidarScan::CurveAt(const cv::Point& px, int width) const {
+cv::Vec2f LidarScan::ScoreAt(const cv::Point& px, int width) const {
   static constexpr float kValidCellRatio = 0.8;
+  cv::Vec2f score(kNaNF, kNaNF);
 
   // compute sum of range in cell
-  int num = 0;
+  int n = 0;
   float sum = 0.0F;
+  float sq_sum = 0.0F;
 
   const int half = width / 2;
   const auto left = RangeAt({px.x + half - 1, px.y});
   const auto right = RangeAt({px.x + half, px.y});
   const auto mid = std::min(left, right);
-  if (std::isnan(mid)) return kNaNF;
+  if (std::isnan(mid)) return score;
 
   for (int c = 0; c < width; ++c) {
     const auto rg = RangeAt({px.x + c, px.y});
     if (std::isnan(rg)) continue;
     sum += rg;
-    ++num;
+    sq_sum += rg * rg;
+    ++n;
   }
 
   // Discard if there are too many nans in this cell
-  if (num < kValidCellRatio * width) return kNaNF;
-  return std::abs(sum / mid / num - 1.0F);
+  if (n < kValidCellRatio * width) return score;
+
+  // Check variance
+  // https://www.johndcook.com/blog/standard_deviation/
+  score[0] = std::abs(sum / mid / n - 1.0F);
+  score[1] = 1.0 / (n * (n - 1)) * (n * sq_sum - sum * sum) / mid;
+  return score;
 }
 
 /// Test Related ===============================================================

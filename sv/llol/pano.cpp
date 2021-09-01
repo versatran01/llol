@@ -5,7 +5,7 @@
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_reduce.h>
 
-#include <opencv2/core/core.hpp>
+#include <opencv2/core.hpp>
 
 #include "sv/util/ocv.h"  // Repr
 
@@ -175,7 +175,7 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg) {
   return false;
 }
 
-const std::vector<cv::Mat>& DepthPano::DrawRangeCount() {
+const std::vector<cv::Mat>& DepthPano::DrawRangeCount() const {
   static std::vector<cv::Mat> disp;
   cv::split(dbuf, disp);
   return disp;

@@ -10,14 +10,19 @@ struct GridParams {
   int cell_rows{2};
   int cell_cols{16};
   bool nms{true};          // non-minimum suppression in Filter()
-  float max_score{0.01F};  // score > max_score will be discarded
+  float max_curve{0.01F};  // score > max_score will be discarded
+  float max_var{0.01F};    // var > max_score will be discarded
 };
 
 /// @struct Sweep Grid summarizes sweep into reduced-sized grid
 struct SweepGrid final : public ScanBase {
+  using PixelT = cv::Vec2f;
+  static constexpr int kDtype = CV_32FC2;
+
   /// Params
   bool nms{};
-  float max_score{};
+  float max_curve{};
+  float max_var{};
   cv::Size cell_size;
 
   /// Data
@@ -48,8 +53,8 @@ struct SweepGrid final : public ScanBase {
   bool IsCellGood(const cv::Point& px) const;
 
   /// @brief At
-  float& ScoreAt(const cv::Point& px) { return mat.at<float>(px); }
-  float ScoreAt(const cv::Point& px) const { return mat.at<float>(px); }
+  auto& ScoreAt(const cv::Point& px) { return mat.at<PixelT>(px); }
+  const auto& ScoreAt(const cv::Point& px) const { return mat.at<PixelT>(px); }
   PointMatch& MatchAt(const cv::Point& px) { return matches.at(Px2Ind(px)); }
   const PointMatch& MatchAt(const cv::Point& px) const {
     return matches.at(Px2Ind(px));
@@ -70,6 +75,7 @@ struct SweepGrid final : public ScanBase {
   /// @brief Draw
   cv::Mat DrawFilter() const;
   cv::Mat DrawMatch() const;
+  const std::vector<cv::Mat>& DrawCurveVar() const;
 };
 
 }  // namespace sv

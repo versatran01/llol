@@ -3,7 +3,7 @@
 #include <glog/logging.h>
 #include <tbb/parallel_for.h>
 
-#include <opencv2/core/core.hpp>
+#include <opencv2/core.hpp>
 
 #include "sv/util/ocv.h"
 
