@@ -21,7 +21,7 @@ struct ScanBase {
 
   ScanBase() = default;
   ScanBase(const cv::Size& size, int dtype);
-  ScanBase(double t0, double dt, const cv::Mat& mat, const cv::Range& curr);
+  ScanBase(double time, double dt, const cv::Mat& mat, const cv::Range& curr);
   virtual ~ScanBase() noexcept = default;
 
   /// @brief Info
@@ -38,7 +38,7 @@ struct ScanBase {
 
   /// @brief Update view (curr and span) given new curr
   void UpdateView(const cv::Range& new_curr);
-  /// @brief Update time (t0 and dt) given new time
+  /// @brief Update time (time and dt) given new time
   void UpdateTime(double new_time, double new_dt);
 };
 

@@ -2,7 +2,7 @@ import rosbag
 from tqdm import tqdm
 from pathlib import Path
 
-in_bag_file = "/home/chao/Workspace/ws/ouster_ws/2021-09-01-22-34-34.bag"
+in_bag_file = "/home/chao/Workspace/ws/ouster_ws/2021-09-02-00-13-32.bag"
 out_bag_file = "/home/chao/Workspace/ws/ouster_ws/morgtown-scan1.bag"
 
 

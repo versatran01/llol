@@ -10,12 +10,12 @@ ScanBase::ScanBase(const cv::Size& size, int dtype) : mat{size, dtype} {
   tfs.resize(size.width);
 }
 
-ScanBase::ScanBase(double t0,
+ScanBase::ScanBase(double time,
                    double dt,
                    const cv::Mat& mat,
                    const cv::Range& curr)
-    : time{t0}, dt{dt}, mat{mat}, curr{curr} {
-  CHECK_GE(t0, 0) << "Time cannot be negative";
+    : time{time}, dt{dt}, mat{mat}, curr{curr} {
+  CHECK_GE(time, 0) << "Time cannot be negative";
   CHECK_GT(dt, 0) << "Delta time must be positive";
   CHECK_EQ(cols(), curr.size()) << "Mat width mismatch";
 }
