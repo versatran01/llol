@@ -29,9 +29,9 @@ void Imshow(const std::string& name,
             const cv::Mat& mat,
             int flag = cv::WINDOW_NORMAL | cv::WINDOW_KEEPRATIO);
 
-void MeanCovar2Marker(const Eigen::Vector3d& mean,
-                      Eigen::Vector3d eigvals,
-                      Eigen::Matrix3d eigvecs,
+void MeanCovar2Marker(const Vector3d& mean,
+                      Vector3d eigvals,
+                      Matrix3d eigvecs,
                       visualization_msgs::Marker& marker);
 
 void Grid2Markers(const SweepGrid& grid,

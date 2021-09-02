@@ -13,9 +13,9 @@ namespace sv {
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
 
-void MeanCovar2Marker(const Eigen::Vector3d& mean,
-                      Eigen::Vector3d eigvals,
-                      Eigen::Matrix3d eigvecs,
+void MeanCovar2Marker(const Vector3d& mean,
+                      Vector3d eigvals,
+                      Matrix3d eigvecs,
                       Marker& marker) {
   MakeRightHanded(eigvals, eigvecs);
   const Eigen::Quaterniond quat(eigvecs);
@@ -41,7 +41,7 @@ void Grid2Markers(const SweepGrid& grid,
 
   markers.resize(grid.total() * 2 + 1);
 
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> es;
+  Eigen::SelfAdjointEigenSolver<Matrix3d> es;
   auto& line_mk = markers.back();
   line_mk.header = header;
   line_mk.ns = "match";
@@ -189,7 +189,7 @@ void Sweep2Cloud(const LidarSweep& sweep,
                           if (std::isnan(xyzr[0])) {
                             pc.x = pc.y = pc.z = pc.intensity = kNaNF;
                           } else {
-                            Eigen::Map<const Eigen::Vector3f> xyz(&xyzr[0]);
+                            Eigen::Map<const Vector3f> xyz(&xyzr[0]);
                             pc.getArray3fMap() = tf * xyz;
                             pc.intensity = intensity;
                           }

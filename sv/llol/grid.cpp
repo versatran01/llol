@@ -183,7 +183,7 @@ void SweepGrid::Interp(const Trajectory& traj) {
   for (int gc = 0; gc < tfs.size(); ++gc) {
     // Note that the starting point of traj is where curr ends, so we need to
     // offset by curr.end to find the corresponding traj segment
-    const int tc = ColMod(gc - curr.end, cols());
+    const int tc = WrapCols(gc - curr.end, cols());
     const auto& st0 = traj.At(tc);
     const auto& st1 = traj.At(tc + 1);
 

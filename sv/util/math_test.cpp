@@ -70,6 +70,17 @@ TEST(MathTest, TestMeanCovar) {
   }
 }
 
+TEST(MathTest, TestWrapCols) {
+  EXPECT_EQ(WrapCols(0 - 64, 64), 0);
+  EXPECT_EQ(WrapCols(1 - 64, 64), 1);
+  EXPECT_EQ(WrapCols(63 - 64, 64), 63);
+
+  EXPECT_EQ(WrapCols(0 - 2, 64), 62);
+  EXPECT_EQ(WrapCols(1 - 2, 64), 63);
+  EXPECT_EQ(WrapCols(2 - 2, 64), 0);
+  EXPECT_EQ(WrapCols(63 - 2, 64), 61);
+}
+
 void BM_Covariance(benchmark::State& state) {
   const auto X = Eigen::Matrix3Xd::Random(3, state.range(0)).eval();
 

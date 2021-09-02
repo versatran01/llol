@@ -9,7 +9,6 @@ namespace sv {
 
 using SO3d = Sophus::SO3d;
 using SE3d = Sophus::SE3d;
-using Vector3d = Eigen::Vector3d;
 using Quaterniond = Eigen::Quaterniond;
 
 ImuBias::ImuBias(double acc_bias_std, double gyr_bias_std) {
@@ -164,8 +163,7 @@ int ImuQueue::UpdateBias(const std::vector<NavState>& states) {
 
     const auto& st0 = states.at(ist);
     const auto& st1 = states.at(ist + 1);
-    const Eigen::Vector3d gyr_hat =
-        (st0.rot.inverse() * st1.rot).log() / dt_state;
+    const Vector3d gyr_hat = (st0.rot.inverse() * st1.rot).log() / dt_state;
     // w = w_m - b_w -> b_w = w_m - w
     //    bw.Add(imu.gyr - gyr_hat);
     bw.Add(imu.gyr - gyr_hat);

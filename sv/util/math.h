@@ -7,6 +7,12 @@
 
 namespace sv {
 
+using Vector3f = Eigen::Vector3f;
+using Matrix3f = Eigen::Matrix3f;
+using Vector3d = Eigen::Vector3d;
+using Matrix3d = Eigen::Matrix3d;
+using MatrixXd = Eigen::MatrixXd;
+
 static constexpr auto kNaNF = std::numeric_limits<float>::quiet_NaN();
 static constexpr auto kPiF = static_cast<float>(M_PI);
 static constexpr auto kTauF = static_cast<float>(M_PI * 2);
@@ -162,12 +168,14 @@ using MeanCovar3d = MeanCovar<double, 3>;
 /// @details sometimes eigvecs has det -1 (reflection), this makes it a rotation
 /// @ref
 /// https://docs.ros.org/en/noetic/api/rviz/html/c++/covariance__visual_8cpp_source.html
-void MakeRightHanded(Eigen::Vector3d& eigvals, Eigen::Matrix3d& eigvecs);
+void MakeRightHanded(Vector3d& eigvals, Matrix3d& eigvecs);
 
 /// @brief Computes matrix square root using Cholesky
 template <typename T, int N>
 Eigen::Matrix<T, N, N> MatrixSqrtUtU(const Eigen::Matrix<T, N, N>& A) {
   return A.template selfadjointView<Eigen::Upper>().llt().matrixU();
 }
+
+inline int WrapCols(int c, int cols) { return c < 0 ? c + cols : c; }
 
 }  // namespace sv

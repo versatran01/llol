@@ -76,13 +76,13 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 
     const auto& t = tf_i_l.transform.translation;
     const auto& q = tf_i_l.transform.rotation;
-    const Eigen::Vector3d t_i_l{t.x, t.y, t.z};
+    const Vector3d t_i_l{t.x, t.y, t.z};
     const Eigen::Quaterniond q_i_l{q.w, q.x, q.y, q.z};
 
     // Just use current acc
     ROS_INFO_STREAM("buffer size: " << imuq_.size());
     const auto imu_mean = imuq_.CalcMean();
-    traj_.InitExtrinsic({q_i_l, t_i_l}, imu.acc, 9.80184);
+    traj_.Init({q_i_l, t_i_l}, imu.acc, 9.80184);
     //    imuq_.bias.gyr = imu_mean.gyr;
     //    imuq_.bias.gyr_var = imu_mean.gyr.array().square();
     ROS_INFO_STREAM(traj_);
@@ -215,7 +215,7 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   geometry_msgs::PoseStamped pose;
   pose.header.stamp = path.header.stamp;
   pose.header.frame_id = path.header.frame_id;
-  SE3dToMsg(traj_.LidarPose(), pose.pose);
+  SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
   path.poses.push_back(pose);
   pub_path_.publish(path);
 
@@ -251,6 +251,8 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Imu.Integrate");
     const auto t0 = grid_.time_begin();
     const auto dt = grid_.dt;
+
+    // Predict the segment of traj corresponding to current grid
     n_imus = traj_.Predict(imuq_, t0, dt, grid_.curr.size());
   }
   ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
@@ -268,13 +270,30 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 void OdomNode::PostProcess(const LidarScan& scan) {
   int n_added = 0;
   {  // Add sweep to pano
+    // Note that at this point the new scan is not yet added to the sweep
     auto _ = tm_.Scoped("Pano.Add");
     n_added = pano_.Add(sweep_, scan.curr, tbb_);
   }
-  ROS_INFO_STREAM(fmt::format("[Pano.Add] Num added: {} / {} / {:02.2f}%",
-                              n_added,
-                              sweep_.total(),
-                              100.0 * n_added / sweep_.total()));
+  ROS_INFO_STREAM(
+      fmt::format("[Pano.Add] Num added: {} / {} / {:02.2f}%, pano: {}",
+                  n_added,
+                  sweep_.total(),
+                  100.0 * n_added / sweep_.total(),
+                  pano_.num_added));
+
+  if (pano_.num_added > pano_.max_cnt) {
+    ROS_WARN_STREAM("Render pano at new location");
+    // TODO (chao): need to think about how to run this in background without
+    // interfering with odom
+    // TODO (chao): also need better criteria for Render()
+    auto _ = tm_.Scoped("Pano.Render");
+    // Render pano at the latest lidar pose wrt pano (T_p1_p2 = T_p1_lidar)
+    const auto T_p2_p1 = traj_.TfPanoLidar().inverse();
+    pano_.Render(T_p2_p1.cast<float>(), tbb_);
+    // Once rendering is done we need to update traj accordingly
+    traj_.Update(T_p2_p1);
+    ROS_INFO_STREAM("Updated traj pose:\n " << traj_.TfPanoLidar().matrix3x4());
+  }
 
   int n_points = 0;
   {  // Add scan to sweep
@@ -291,9 +310,6 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     sweep_.Interp(traj_, tbb_);
   }
 
-  // Update traj starting point
-  traj_.Rotate(grid_.curr.size());
-
   if (vis_) {
     const double max_range = 32.0;
     Imshow("sweep",
@@ -305,6 +321,14 @@ void OdomNode::PostProcess(const LidarScan& scan) {
             disps[0], 1.0 / DepthPixel::kScale / max_range, cv::COLORMAP_PINK));
     Imshow("count",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
+    //    const auto& disps2 = pano_.DrawRangeCount2();
+    //    Imshow("pano2",
+    //           ApplyCmap(disps2[0],
+    //                     1.0 / DepthPixel::kScale / max_range,
+    //                     cv::COLORMAP_PINK));
+    //    Imshow("count2",
+    //           ApplyCmap(disps2[1], 1.0 / pano_.max_cnt,
+    //           cv::COLORMAP_VIRIDIS));
   }
 }
 

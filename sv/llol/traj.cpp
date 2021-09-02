@@ -9,7 +9,6 @@ namespace sv {
 
 using SO3d = Sophus::SO3d;
 using SE3d = Sophus::SE3d;
-using Vector3d = Eigen::Vector3d;
 using Quaterniond = Eigen::Quaterniond;
 
 std::string Trajectory::Repr() const {
@@ -22,17 +21,15 @@ std::string Trajectory::Repr() const {
       T_odom_pano.matrix3x4());
 }
 
-void Trajectory::InitExtrinsic(const SE3d& T_i_l,
-                               const Vector3d& acc,
-                               double g_norm) {
+void Trajectory::Init(const SE3d& tf_i_l, const Vector3d& acc, double g_norm) {
   CHECK(!states.empty());
 
-  T_imu_lidar = T_i_l;
+  T_imu_lidar = tf_i_l;
   // set all states to T_l_i since we want first sweep frame to align with pano
-  const auto T_l_i = T_i_l.inverse();
+  const auto tf_l_i = tf_i_l.inverse();
   for (auto& s : states) {
-    s.rot = T_l_i.so3();
-    s.pos = T_l_i.translation();
+    s.rot = tf_l_i.so3();
+    s.pos = tf_l_i.translation();
   }
 
   // We want to initialized gravity vector with first imu measurement but it
@@ -44,9 +41,14 @@ void Trajectory::InitExtrinsic(const SE3d& T_i_l,
 }
 
 int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
+  // At the beginning of predict, the starting state of the trajectory is the
+  // starting col of the previous grid. Since we add a new scan to the grid, the
+  // starting point is shifted by n. We need to adjust the states such that the
+  // new starting point matches the current grid.
+  PopOldest(n);
+
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
-  LOG(INFO) << "Found imu in buffer index: " << ibuf;
   if (ibuf < 0) {
     LOG(FATAL) << fmt::format(
         "No imu found after {}. Imu buffer size is {}, and the first imu in "
@@ -88,15 +90,33 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
   return ibuf - ibuf0 + 1;
 }
 
-void Trajectory::Rotate(int n) {
+void Trajectory::PopOldest(int n) {
   CHECK_LE(0, n);
   CHECK_LT(n, size());
   std::rotate(states.begin(), states.begin() + n, states.end());
 }
 
-SE3d Trajectory::LidarPose() const {
-  const Sophus::SE3d T_pano_imu{states.back().rot, states.back().pos};
-  return T_odom_pano * T_pano_imu * T_imu_lidar;
+void Trajectory::Update(const Sophus::SE3d& tf_p2_p1) {
+  // 1. Update all states into the new pano frame (identity)
+  // T_p2_i = T_p2_p1 * T_p1_i
+  //  = [R_21, p_21] * [R_1i, p_1i] = [R_21 * R_1i, R_21 * p_1i + p_21]
+  for (auto& st : states) {
+    st.rot = tf_p2_p1.so3() * st.rot;
+    st.pos = tf_p2_p1.so3() * st.pos + tf_p2_p1.translation();
+  }
+  // 2. Update T_odom_pano
+  // T_o_p2 = T_o_p1 * T_p1_p2
+  T_odom_pano = T_odom_pano * tf_p2_p1.inverse();
+  // 3. Update gravity in pano frame (rotation only)
+  // g_p2 = R_p2_p1 * g_p1
+  g_pano = tf_p2_p1.so3() * g_pano;
 }
+
+SE3d Trajectory::TfPanoLidar() const {
+  const Sophus::SE3d T_pano_imu{states.back().rot, states.back().pos};
+  return T_pano_imu * T_imu_lidar;
+}
+
+SE3d Trajectory::TfOdomLidar() const { return T_odom_pano * TfPanoLidar(); }
 
 }  // namespace sv

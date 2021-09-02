@@ -21,13 +21,13 @@ void PointMatch::Reset() {
 }
 
 void PointMatch::CalcSqrtInfo(float lambda) {
-  Eigen::Matrix3f cov = mc_p.Covar();
+  auto cov = mc_p.Covar();
   if (lambda > 0) cov.diagonal().array() += lambda;
   U = MatrixSqrtUtU(cov.inverse().eval());
 }
 
-void PointMatch::CalcSqrtInfo(const Eigen::Matrix3f& R_p_g, float lambda) {
-  Eigen::Matrix3f cov = mc_p.Covar();
+void PointMatch::CalcSqrtInfo(const Matrix3f& R_p_g, float lambda) {
+  auto cov = mc_p.Covar();
   cov.noalias() += R_p_g * mc_g.Covar() * R_p_g.transpose();
   if (lambda > 0) cov.diagonal().array() += lambda;
   U = MatrixSqrtUtU(cov.inverse().eval());

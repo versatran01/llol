@@ -36,7 +36,7 @@ void LidarSweep::Interp(const Trajectory& traj, int gsize) {
           // ends, so we need to offset by curr.end to find the
           // corresponding traj segment
 
-          const int tc = ColMod(gc - curr_g.end, num_cells);
+          const int tc = WrapCols(gc - curr_g.end, num_cells);
           const auto& st0 = traj.At(tc);
           const auto& st1 = traj.At(tc + 1);
 

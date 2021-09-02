@@ -40,11 +40,11 @@ bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
           const auto pt_p_hat = tf_p_g * pt_g;
 
           const int ri = kResidualDim * i;
-          Eigen::Map<Eigen::Vector3d> r(_r + ri);
+          Eigen::Map<Vector3d> r(_r + ri);
           r = U * (pt_p - eT * pt_p_hat);
 
           if (_J) {
-            Eigen::Map<Eigen::MatrixXd> J(_J, NumResiduals(), kNumParams);
+            Eigen::Map<MatrixXd> J(_J, NumResiduals(), kNumParams);
             J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
             J.block<3, 3>(ri, Block::kP0 * 3) = -U;
           }
@@ -73,11 +73,11 @@ bool GicpLinearCost::operator()(const double* _x,
           const double s = (c + 0.5) / pgrid->cols();
 
           const int ri = kResidualDim * i;
-          Eigen::Map<Eigen::Vector3d> r(_r + ri);
+          Eigen::Map<Vector3d> r(_r + ri);
           r = U * (pt_p - (eR * pt_p_hat + s * es.p0()));
 
           if (_J) {
-            Eigen::Map<Eigen::MatrixXd> J(_J, NumResiduals(), kNumParams);
+            Eigen::Map<MatrixXd> J(_J, NumResiduals(), kNumParams);
             J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
             J.block<3, 3>(ri, Block::kP0 * 3) = -s * U;
           }

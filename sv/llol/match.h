@@ -14,7 +14,7 @@ struct PointMatch {
   MeanCovar3f mc_g{};              // 52 grid mean covar
   cv::Point px_p{kBadPx, kBadPx};  // 8 pano pixel coord
   MeanCovar3f mc_p{};              // 52 pano mean covar
-  Eigen::Matrix3f U{};             // 36 sqrt of info
+  Matrix3f U{};                    // 36 sqrt of info
   float scale{1.0};                // 4 scale of this match
 
   /// @brief Whether this match is good

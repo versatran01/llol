@@ -37,9 +37,10 @@ struct PanoParams {
 /// @class Depth Panorama
 struct DepthPano {
   /// Params
-  int max_cnt{10};
-  float range_ratio{0.1F};
-  float min_range{0.5F};
+  int max_cnt{};
+  float range_ratio{};
+  float min_range{};
+  float num_added{};  // number of pano added, float since we could add partial
 
   /// Data
   LidarModel model;
@@ -70,9 +71,10 @@ struct DepthPano {
   bool FuseDepth(const cv::Point& px, float rg);
 
   /// @brief Render pano at a new location
-  int Render(const Sophus::SE3f& tf_2_1, int gsize = 0);
-  int RenderRow(const Sophus::SE3f& tf_2_1, int row);
-  bool UpdateBuffer(const cv::Point& px, float rg);
+  int Render(const Sophus::SE3f& tf_p2_p1, int gsize = 0);
+  int RenderRow(const Sophus::SE3f& tf_p2_p1, int row);
+  bool UpdateBuffer(const cv::Point& px, float rg, int cnt);
+  void SwapBuffer();
 
   /// @brief info
   int rows() const { return dbuf.rows; }
@@ -81,14 +83,16 @@ struct DepthPano {
   size_t total() const { return dbuf.total(); }
   cv::Size size() const noexcept { return model.size; }
 
-  const std::vector<cv::Mat>& DrawRangeCount() const;
-
   /// @brief Compute mean and covar on a window centered at px given range
   /// @return sum(cnt_i) / max_cnt
   float MeanCovarAt(const cv::Point& px,
                     const cv::Size& size,
                     float rg,
                     MeanCovar3f& mc) const;
+
+  /// @brief Viz
+  const std::vector<cv::Mat>& DrawRangeCount() const;
+  const std::vector<cv::Mat>& DrawRangeCount2() const;
 };
 
 }  // namespace sv
