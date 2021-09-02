@@ -84,10 +84,11 @@ struct DepthPano {
   const std::vector<cv::Mat>& DrawRangeCount() const;
 
   /// @brief Compute mean and covar on a window centered at px given range
-  void MeanCovarAt(const cv::Point& px,
-                   const cv::Size& size,
-                   float rg,
-                   MeanCovar3f& mc) const;
+  /// @return sum(cnt_i) / max_cnt
+  float MeanCovarAt(const cv::Point& px,
+                    const cv::Size& size,
+                    float rg,
+                    MeanCovar3f& mc) const;
 };
 
 }  // namespace sv

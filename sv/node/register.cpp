@@ -11,16 +11,16 @@ void OdomNode::Register() {
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
   using Cost = GicpRigidCost;
+  static Cost cost(grid_, tbb_);
 
   Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
   err_sum.setZero();
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
-  //  TinySolver<AdCost<Cost>> solver;
-  TinySolver2<Cost> solver;
-  solver.options.max_num_iterations = gicp_.iters.second;
-  solver.options.min_eigenvalue = 0.05;
-
-  traj_updated_ = false;
+  static TinySolver2<Cost> solver;
+  auto& opts = solver.options;
+  opts.max_num_iterations = gicp_.iters.second;
+  opts.gradient_tolerance = 1e-8;
+  opts.min_eigenvalue = 0.01;
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
@@ -44,8 +44,7 @@ void OdomNode::Register() {
 
     // Build
     t_build.Resume();
-    Cost cost(grid_, tbb_);
-    //    AdCost<Cost> adcost(cost);
+    cost.Update();
     t_build.Stop(false);
 
     // Solve
@@ -64,8 +63,6 @@ void OdomNode::Register() {
       st.rot = eR * st.rot;
       st.pos = eR * st.pos + es.p0();
     }
-
-    traj_updated_ = true;
 
     if (vis_) {
       // display good match
@@ -99,14 +96,18 @@ void OdomNode::Register2() {
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
   using Cost = GicpLinearCost;
+  static Cost cost(grid_, tbb_);
 
   Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
   err_sum.setZero();
 
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
-  //  TinySolver<AdCost<Cost>> solver;
-  TinySolver2<Cost> solver;
-  solver.options.max_num_iterations = gicp_.iters.second;
+
+  static TinySolver2<Cost> solver;
+  auto& opts = solver.options;
+  opts.max_num_iterations = gicp_.iters.second;
+  opts.gradient_tolerance = 1e-8;
+  opts.min_eigenvalue = 0.01;
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
@@ -130,10 +131,8 @@ void OdomNode::Register2() {
 
     // Build
     t_build.Resume();
-    Cost cost(grid_, tbb_);
-    //    AdCost<Cost> adcost(cost);
+    cost.Update();
     t_build.Stop(false);
-    ROS_INFO_STREAM("Num residuals: " << cost.NumResiduals());
 
     // Solve
     t_solve.Resume();

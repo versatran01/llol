@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ceres/tiny_solver_autodiff_function.h>
-#include <glog/logging.h>
 #include <tbb/parallel_for.h>
 
 #include "sv/llol/grid.h"
@@ -10,13 +9,17 @@
 namespace sv {
 
 struct GicpCost {
+ public:
   using Scalar = double;
   static constexpr int kResidualDim = 3;
 
   GicpCost(const SweepGrid& grid, int gsize = 0);
   virtual ~GicpCost() noexcept = default;
-  virtual int NumResiduals() const { return matches.size() * kResidualDim; }
 
+  virtual int NumResiduals() const { return matches.size() * kResidualDim; }
+  void Update();
+
+ protected:
   int gsize_{};
   const SweepGrid* const pgrid;
   std::vector<PointMatch> matches;
@@ -24,6 +27,7 @@ struct GicpCost {
 
 /// @brief Gicp with rigid transformation
 struct GicpRigidCost final : public GicpCost {
+ public:
   static constexpr int kNumParams = 6;
   enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
   enum Block { kR0, kP0 };
@@ -64,7 +68,7 @@ struct GicpRigidCost final : public GicpCost {
             const auto U = match.U.cast<double>().eval();
             const auto pt_p = match.mc_p.mean.cast<double>().eval();
             const auto pt_g = match.mc_g.mean.cast<double>().eval();
-            const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
+            const auto tf_p_g = pgrid->TfAt(c).cast<double>();
             const auto pt_p_hat = tf_p_g * pt_g;
 
             Eigen::Map<Vec3> r(_r + kResidualDim * i);
@@ -78,12 +82,11 @@ struct GicpRigidCost final : public GicpCost {
 
 /// @brief Linear interpolation in translation error state
 struct GicpLinearCost final : public GicpCost {
+ public:
   static constexpr int kNumParams = 6;
   enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
   enum Block { kR0, kP0 };
 
-  //  const Trajectory* ptraj;
-  //  ImuPreintegration preint;
   using GicpCost::GicpCost;
 
   template <typename T>
@@ -119,7 +122,7 @@ struct GicpLinearCost final : public GicpCost {
             const auto U = match.U.cast<double>().eval();
             const auto pt_p = match.mc_p.mean.cast<double>().eval();
             const auto pt_g = match.mc_g.mean.cast<double>().eval();
-            const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
+            const auto tf_p_g = pgrid->TfAt(c).cast<double>();
             const auto pt_p_hat = tf_p_g * pt_g;
             const double s = (c + 0.5) / pgrid->cols();
 

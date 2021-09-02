@@ -67,7 +67,6 @@ void Grid2Markers(const SweepGrid& grid,
       pano_mk.ns = "pano";
       pano_mk.id = i;
       pano_mk.type = Marker::SPHERE;
-      pano_mk.color.a = alpha;
       pano_mk.color.g = 1.0;
 
       grid_mk.header = header;
@@ -79,6 +78,7 @@ void Grid2Markers(const SweepGrid& grid,
 
       if (match.Ok()) {
         pano_mk.action = Marker::ADD;
+        pano_mk.color.a = match.scale;  // use scale for alpha
         const auto pt_p = match.mc_p.mean.cast<double>().eval();
         auto pano_cov = match.mc_p.Covar().cast<double>().eval();
         pano_cov.diagonal().array() += eps;
@@ -87,7 +87,7 @@ void Grid2Markers(const SweepGrid& grid,
 
         grid_mk.action = Marker::ADD;
         const auto pt_g =
-            (grid.tfs.at(c) * match.mc_g.mean).cast<double>().eval();
+            (grid.TfAt(c) * match.mc_g.mean).cast<double>().eval();
         auto grid_cov = match.mc_g.Covar().cast<double>().eval();
         grid_cov.diagonal().array() += eps;
         es.compute(grid_cov);
@@ -183,7 +183,7 @@ void Sweep2Cloud(const LidarSweep& sweep,
                               (sweep.curr.start <= c && c < sweep.curr.end);
                           float intensity = col_in_curr ? 1.0 : 0.5;
 
-                          const auto& tf = sweep.tfs.at(c);
+                          const auto& tf = sweep.TfAt(c);
                           const auto& xyzr = sweep.XyzrAt({c, r});
                           auto& pc = cloud.at(c, r);
                           if (std::isnan(xyzr[0])) {

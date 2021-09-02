@@ -216,6 +216,10 @@ class TinySolver2 {
       eigen_solver_.compute(jtj_);
       const auto& eigvals = eigen_solver_.eigenvalues();
 
+      if (eigvals[0] < 0.05) {
+        LOG(WARNING) << "Min eigen values too small: " << eigvals[0];
+      }
+
       // Determine a number m of eigvals smaller than a threshold
       const int n = dx_.rows();
       int m = 0;

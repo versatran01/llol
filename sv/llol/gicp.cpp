@@ -15,11 +15,12 @@ bool PointInSize(const cv::Point& p, const cv::Size& size) {
 
 /// GicpSolver =================================================================
 GicpSolver::GicpSolver(const GicpParams& params)
-    : iters{params.outer, params.inner}, cov_lambda{params.cov_lambda} {
+    : iters{params.outer, params.inner},
+      cov_lambda{params.cov_lambda},
+      max_dist{params.half_rows / 2, params.half_rows / 2} {
   pano_win.height = params.half_rows * 2 + 1;
   pano_win.width = params.half_rows * 4 + 1;
   pano_min_pts = (params.half_rows + 1) * pano_win.width;
-  max_dist = pano_win / 4;
 }
 
 std::string GicpSolver::Repr() const {
@@ -65,10 +66,9 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   if (!match.GridOk()) return 0;
 
   // Transform to pano frame
-  // TODO (chao): move this transform somewhere else
-  const auto& T_p_g = grid.tfs.at(px_g.x);
-  const auto pt_p = T_p_g * match.mc_g.mean;
-  const auto rg_p = pt_p.norm();
+  const auto& T_p_g = grid.TfAt(px_g.x);
+  const auto pt_p = T_p_g * match.mc_g.mean;  // grid point in pano frame
+  const auto rg_p = pt_p.norm();  // range of grid point in pano frame
 
   // Project to pano
   const auto px_p = pano.model.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
@@ -88,15 +88,19 @@ int GicpSolver::MatchCell(SweepGrid& grid,
 
   // Compute mean covar around pano point
   match.px_p = px_p;
-  pano.MeanCovarAt(px_p, pano_win, rg_p, match.mc_p);
+  const auto weight = pano.MeanCovarAt(px_p, pano_win, rg_p, match.mc_p);
+  //  LOG(INFO) << fmt::format(
+  //      "n: {}, weight: {}", match.mc_p.n, weight / pano_min_pts);
 
-  // if we don't have enough points also reset and return
+  // if we don't have enough points also reset and return 0
   if (match.mc_p.n < pano_min_pts) {
     match.ResetPano();
     return 0;
   }
   // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
   match.CalcSqrtInfo(cov_lambda);
+  match.scale = weight / pano_win.area();  // we kept this for visualizaiton
+  match.U *= std::sqrt(match.scale);
   //  match.CalcSqrtInfo(T_p_g.rotationMatrix(), cov_lambda);
   return 1;
 }

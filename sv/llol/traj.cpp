@@ -46,6 +46,7 @@ void Trajectory::InitExtrinsic(const SE3d& T_i_l,
 int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
+  LOG(INFO) << "Found imu in buffer index: " << ibuf;
   if (ibuf < 0) {
     LOG(FATAL) << fmt::format(
         "No imu found after {}. Imu buffer size is {}, and the first imu in "

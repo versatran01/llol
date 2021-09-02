@@ -35,6 +35,7 @@ struct ScanBase {
 
   double time_begin() const { return time - dt * cols(); }
   double time_end() const { return time; }
+  const Sophus::SE3f& TfAt(int c) const { return tfs.at(c); }
 
   /// @brief Update view (curr and span) given new curr
   void UpdateView(const cv::Range& new_curr);

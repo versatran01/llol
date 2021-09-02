@@ -3,8 +3,18 @@
 namespace sv {
 
 GicpCost::GicpCost(const SweepGrid& grid, int gsize) : pgrid{&grid} {
+  // we don't want to use grainsize of 1 or 2, because each residual is 3
+  // doubles which is 3 * 8 = 24. However a cache line is typically 64 bytes so
+  // we need at least 3 residuals (3 * 3 * 8 = 72 bytes) to fill one cache line
+  gsize_ = gsize <= 0 ? matches.size() : gsize + 2;
+  matches.reserve(grid.total() / 2);
+}
+
+void GicpCost::Update() {
   // Collect all good matches
-  matches.reserve(grid.total() / 4);
+
+  matches.clear();
+  const auto& grid = *pgrid;
   for (int r = 0; r < grid.rows(); ++r) {
     for (int c = 0; c < grid.cols(); ++c) {
       const auto& match = grid.MatchAt({c, r});
@@ -12,11 +22,6 @@ GicpCost::GicpCost(const SweepGrid& grid, int gsize) : pgrid{&grid} {
       matches.push_back(match);
     }
   }
-
-  // we don't want to use grainsize of 1 or 2, because each residual is 3
-  // doubles which is 3 * 8 = 24. However a cache line is typically 64 bytes so
-  // we need at least 3 residuals (3 * 3 * 8 = 72 bytes) to fill one cache line
-  gsize_ = gsize <= 0 ? matches.size() : gsize + 2;
 }
 
 bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
@@ -31,7 +36,7 @@ bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
           const auto U = match.U.cast<double>().eval();
           const auto pt_p = match.mc_p.mean.cast<double>().eval();
           const auto pt_g = match.mc_g.mean.cast<double>().eval();
-          const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
+          const auto tf_p_g = pgrid->TfAt(c).cast<double>();
           const auto pt_p_hat = tf_p_g * pt_g;
 
           const int ri = kResidualDim * i;
@@ -63,7 +68,7 @@ bool GicpLinearCost::operator()(const double* _x,
           const auto U = match.U.cast<double>().eval();
           const auto pt_p = match.mc_p.mean.cast<double>().eval();
           const auto pt_g = match.mc_g.mean.cast<double>().eval();
-          const auto tf_p_g = pgrid->tfs.at(c).cast<double>();
+          const auto tf_p_g = pgrid->TfAt(c).cast<double>();
           const auto pt_p_hat = tf_p_g * pt_g;
           const double s = (c + 0.5) / pgrid->cols();
 
