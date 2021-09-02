@@ -66,7 +66,7 @@ void IntegrateEuler(const NavState& s0,
 NavState IntegrateMidpoint(const NavState& s0,
                            const ImuData& imu0,
                            const ImuData& imu1,
-                           const Vector3d& g_w) {
+                           const Vector3d& g) {
   NavState s1 = s0;
   const auto dt = imu1.time - imu0.time;
   CHECK_GT(dt, 0);
@@ -82,7 +82,7 @@ NavState IntegrateMidpoint(const NavState& s0,
   // acc
   const Vector3d a0 = s0.rot * imu0.acc;
   const Vector3d a1 = s1.rot * imu1.acc;
-  const Vector3d a = (a0 + a1) * 0.5 + g_w;
+  const Vector3d a = (a0 + a1) * 0.5 + g;
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt2;
 

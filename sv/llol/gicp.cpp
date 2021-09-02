@@ -4,6 +4,7 @@
 #include <tbb/blocked_range.h>
 #include <tbb/parallel_reduce.h>
 
+#include "sv/llol/cost.h"
 #include "sv/util/ocv.h"
 
 namespace sv {
@@ -98,6 +99,24 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   match.CalcSqrtInfo(cov_lambda);
   //  match.CalcSqrtInfo(T_p_g.rotationMatrix(), cov_lambda);
   return 1;
+}
+
+void GicpSolver::Optimize(Trajectory& traj,
+                          SweepGrid& grid,
+                          const DepthPano& pano,
+                          int gsize) {
+  using ErrorVec = Eigen::Matrix<double, GicpLinearCost::kNumParams, 1>;
+  ErrorVec err_sum;
+  err_sum.setZero();
+  ErrorVec err;
+
+  for (int i = 0; i < iters.first; ++i) {
+    err.setZero();
+
+    // Update grid tfs for matching
+    grid.Interp(traj);
+    const auto n_matches = Match(grid, pano);
+  }
 }
 
 }  // namespace sv

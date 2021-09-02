@@ -164,7 +164,7 @@ cc_bench(
 cc_library(
   NAME llol_gicp
   SRCS "llol/gicp.cpp"
-  DEPS sv_llol_grid sv_llol_pano sv_util_ocv sv_tbb)
+  DEPS sv_llol_cost sv_llol_pano sv_util_ocv sv_tbb)
 cc_test(
   NAME llol_gicp_test
   SRCS "llol/gicp_test.cpp"

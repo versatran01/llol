@@ -14,7 +14,7 @@ int LidarSweep::Add(const LidarScan& scan) {
   CHECK_EQ(scan.rows(), rows());
   CHECK_LE(scan.cols(), cols());
 
-  UpdateTime(scan.t0, scan.dt);
+  UpdateTime(scan.time, scan.dt);
   UpdateView(scan.curr);
 
   // copy to storage
@@ -64,7 +64,7 @@ cv::Mat LidarSweep::DrawRange() const {
 
 std::string LidarSweep::Repr() const {
   return fmt::format("LidarSweep( t0={}, dt={}, xyzr={}, col_range={})",
-                     t0,
+                     time,
                      dt,
                      sv::Repr(mat),
                      sv::Repr(curr));

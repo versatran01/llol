@@ -10,7 +10,7 @@ TEST(ScanTest, TestDefault) {
   LidarSweep ls;
   std::cout << ls << "\n";
 
-  EXPECT_EQ(ls.t0, 0);
+  EXPECT_EQ(ls.time, 0);
   EXPECT_EQ(ls.dt, 0);
   EXPECT_EQ(ls.empty(), true);
 }

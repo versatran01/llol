@@ -50,7 +50,7 @@ cv::Vec2i SweepGrid::Add(const LidarScan& scan, int gsize) {
 int SweepGrid::Score(const LidarScan& scan, int gsize) {
   // Note that we udpate in Score() instead of Add(), and check consistency in
   // Filter()
-  UpdateTime(scan.t0, scan.dt * cell_size.width);
+  UpdateTime(scan.time, scan.dt * cell_size.width);
   UpdateView(scan.curr / cell_size.width);
 
   gsize = gsize <= 0 ? rows() : gsize;

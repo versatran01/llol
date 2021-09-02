@@ -46,7 +46,14 @@ void Trajectory::InitExtrinsic(const SE3d& T_i_l,
 int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
-  CHECK_GE(ibuf, 0);
+  if (ibuf < 0) {
+    LOG(FATAL) << fmt::format(
+        "No imu found after {}. Imu buffer size is {}, and the first imu in "
+        "buffer has time {}",
+        t0,
+        imuq.size(),
+        imuq.RawAt(0).time);
+  }
   const int ibuf0 = ibuf;
 
   // Now try to fill in the last n poses
@@ -86,7 +93,7 @@ void Trajectory::Rotate(int n) {
   std::rotate(states.begin(), states.begin() + n, states.end());
 }
 
-SE3d Trajectory::GetLidarPoseOdom() const {
+SE3d Trajectory::LidarPose() const {
   const Sophus::SE3d T_pano_imu{states.back().rot, states.back().pos};
   return T_odom_pano * T_pano_imu * T_imu_lidar;
 }

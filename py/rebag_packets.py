@@ -2,9 +2,8 @@ import rosbag
 from tqdm import tqdm
 from pathlib import Path
 
-name = "02_long_experiment"
-out_bag_file = f"/home/chao/Documents/{name}.bag"
-bag_dir = f"/home/chao/Workspace/dataset/newer_college/{name}"
+out_bag_file = f"/home/chao/Documents/morgown.bag"
+bag_dir = f"/home/chao/Downloads"
 bag_dir = Path(bag_dir)
 
 in_bag_files = []

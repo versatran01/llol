@@ -36,7 +36,10 @@ struct GicpSolver {
   int MatchCell(SweepGrid& grid, const DepthPano& pano, const cv::Point& px_g);
 
   /// @brief Optimize
-  void Optimize();
+  void Optimize(Trajectory& traj,
+                SweepGrid& grid,
+                const DepthPano& pano,
+                int gsize = 0);
 };
 
 }  // namespace sv

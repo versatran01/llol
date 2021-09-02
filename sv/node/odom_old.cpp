@@ -190,8 +190,8 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 }
 
 void OdomNode::IntegrateImu() {
-  const auto t_sweep_0 = sweep_.t0;
-  const auto t_sweep_1 = sweep_.t0 + sweep_.size().width * sweep_.dt;
+  const auto t_sweep_0 = sweep_.time;
+  const auto t_sweep_1 = sweep_.time + sweep_.size().width * sweep_.dt;
 
   // Find the segment of imu data that is within the sweep time span
   const auto imu_range = GetImusFromBuffer(imu_buf_, t_sweep_0, t_sweep_1);
@@ -214,7 +214,7 @@ void OdomNode::IntegrateImu() {
 
     // Initialize first state using the last of the previous nominal state
     preint_.push_back({});
-    preint_[0].time = sweep_.t0;
+    preint_[0].time = sweep_.time;
     preint_[0].rot = grid_.tfs.back().so3().cast<double>();
 
     // For now only consider rotation, so pos and vel are integrated but
@@ -261,7 +261,7 @@ void OdomNode::IntegrateImu() {
     int i = 0;
     for (int c = 0; c < grid_.size().width; ++c) {
       // Get time of the end of this cell
-      const auto t_cell_end = sweep_.t0 + dt_cell * (c + 1);
+      const auto t_cell_end = sweep_.time + dt_cell * (c + 1);
 
       // try to find which interval this time belongs to
       if (t_cell_end > preint_[i + 1].time) ++i;

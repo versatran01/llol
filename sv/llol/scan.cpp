@@ -14,16 +14,16 @@ ScanBase::ScanBase(double t0,
                    double dt,
                    const cv::Mat& mat,
                    const cv::Range& curr)
-    : t0{t0}, dt{dt}, mat{mat}, curr{curr} {
+    : time{t0}, dt{dt}, mat{mat}, curr{curr} {
   CHECK_GE(t0, 0) << "Time cannot be negative";
   CHECK_GT(dt, 0) << "Delta time must be positive";
   CHECK_EQ(cols(), curr.size()) << "Mat width mismatch";
 }
 
-void ScanBase::UpdateTime(double new_t0, double new_dt) {
-  CHECK_LE(t0, new_t0);
-  t0 = new_t0;
-  t0 = new_t0;
+void ScanBase::UpdateTime(double new_time, double new_dt) {
+  CHECK_LE(time, new_time);
+  time = new_time;
+  time = new_time;
   if (dt == 0) {
     dt = new_dt;
   } else {
@@ -43,11 +43,11 @@ LidarScan::LidarScan(const cv::Size& size) : ScanBase{size, kDtype} {
   mat.setTo(kNaNF);
 }
 
-LidarScan::LidarScan(double t0,
+LidarScan::LidarScan(double time,
                      double dt,
                      const cv::Mat& xyzr,
                      const cv::Range& curr)
-    : ScanBase{t0, dt, xyzr, curr} {
+    : ScanBase{time, dt, xyzr, curr} {
   CHECK_EQ(xyzr.type(), kDtype) << "Mat type mismatch";
 }
 

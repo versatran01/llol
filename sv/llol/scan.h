@@ -11,8 +11,8 @@ inline int ColMod(int c, int cols) { return c < 0 ? c + cols : c; }
 
 struct ScanBase {
   // start and delta time
-  double t0{};
-  double dt{};
+  double time{};  // time of the last column
+  double dt{};    // delta time between two columns
 
   // Scan related data
   cv::Mat mat;                    // storage
@@ -33,10 +33,13 @@ struct ScanBase {
   int channels() const { return mat.channels(); }
   cv::Size size() const { return {mat.cols, mat.rows}; }
 
+  double time_begin() const { return time - dt * cols(); }
+  double time_end() const { return time; }
+
   /// @brief Update view (curr and span) given new curr
   void UpdateView(const cv::Range& new_curr);
   /// @brief Update time (t0 and dt) given new time
-  void UpdateTime(double new_t0, double new_dt);
+  void UpdateTime(double new_time, double new_dt);
 };
 
 /// @struct Lidar Scan like an image, with pixel (x,y,z,r)
@@ -48,7 +51,7 @@ struct LidarScan : public ScanBase {
   /// @brief Ctor for allocating storage
   explicit LidarScan(const cv::Size& size);
   /// @brief Ctor for incoming lidar scan
-  LidarScan(double t0, double dt, const cv::Mat& xyzr, const cv::Range& curr);
+  LidarScan(double time, double dt, const cv::Mat& xyzr, const cv::Range& curr);
 
   /// @brief At
   float RangeAt(const cv::Point& px) const { return mat.at<PixelT>(px)[3]; }

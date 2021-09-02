@@ -215,7 +215,7 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   geometry_msgs::PoseStamped pose;
   pose.header.stamp = path.header.stamp;
   pose.header.frame_id = path.header.frame_id;
-  SE3dToMsg(traj_.GetLidarPoseOdom(), pose.pose);
+  SE3dToMsg(traj_.LidarPose(), pose.pose);
   path.poses.push_back(pose);
   pub_path_.publish(path);
 
@@ -249,7 +249,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   int n_imus{};
   {  // Integarte imu to fill nominal traj
     auto _ = tm_.Scoped("Imu.Integrate");
-    const auto t0 = grid_.t0;
+    const auto t0 = grid_.time_begin();
     const auto dt = grid_.dt;
     n_imus = traj_.Predict(imuq_, t0, dt, grid_.curr.size());
   }
