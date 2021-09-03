@@ -11,17 +11,17 @@ void OdomNode::Register() {
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
   using Cost = GicpRigidCost;
-  static Cost cost(grid_, tbb_);
+  static Cost cost(tbb_);
 
-  Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
-  err_sum.setZero();
-  Eigen::Matrix<double, Cost::kNumParams, 1> err;
   static TinySolver2<Cost> solver;
   auto& opts = solver.options;
   opts.max_num_iterations = gicp_.iters.second;
   opts.gradient_tolerance = 1e-8;
   opts.min_eigenvalue = 0.01;
 
+  Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
+  err_sum.setZero();
+  Eigen::Matrix<double, Cost::kNumParams, 1> err;
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
     ROS_INFO_STREAM("Icp iteration: " << i);
@@ -44,7 +44,7 @@ void OdomNode::Register() {
 
     // Build
     t_build.Resume();
-    cost.Update();
+    cost.UpdateMatches(grid_);
     t_build.Stop(false);
 
     // Solve
@@ -96,12 +96,8 @@ void OdomNode::Register2() {
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
   using Cost = GicpLinearCost;
-  static Cost cost(grid_, tbb_);
-
-  Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
-  err_sum.setZero();
-
-  Eigen::Matrix<double, Cost::kNumParams, 1> err;
+  static Cost cost(tbb_);
+  cost.UpdatePreint(traj_, imuq_);
 
   static TinySolver2<Cost> solver;
   auto& opts = solver.options;
@@ -109,6 +105,9 @@ void OdomNode::Register2() {
   opts.gradient_tolerance = 1e-8;
   opts.min_eigenvalue = 0.01;
 
+  Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
+  err_sum.setZero();
+  Eigen::Matrix<double, Cost::kNumParams, 1> err;
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
     ROS_INFO_STREAM("Icp iter: " << i);
@@ -131,7 +130,7 @@ void OdomNode::Register2() {
 
     // Build
     t_build.Resume();
-    cost.Update();
+    cost.UpdateMatches(grid_);
     t_build.Stop(false);
 
     // Solve
@@ -143,6 +142,9 @@ void OdomNode::Register2() {
     // Update state
     // accumulate e
     err_sum += err;
+    ROS_WARN_STREAM("err_sum: " << err_sum.transpose()
+                                << " , rot: " << err_sum.head<3>().norm()
+                                << ", trans: " << err_sum.tail<3>().norm());
 
     const Cost::State<double> es(err.data());
     const auto eR = Sophus::SO3d::exp(es.r0());

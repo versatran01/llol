@@ -258,7 +258,7 @@ void ImuPreintegration::Integrate(double dt,
   // vins-mono eq 7
   const auto dgamma = SO3d::exp(w * dt);
   const Vector3d dbeta = ga * dt;
-  const Vector3d dalpha = beta * dt + ga * dt2 * 0.5;
+  const Vector3d dalpha = beta * dt + 0.5 * ga * dt2;
 
   // vins-mono eq 9
   // Ft =

@@ -23,8 +23,8 @@ pano:
   rows: 256
   cols: 1024
   vfov: 0.0
-  max_cnt: 16
+  max_cnt: 20
   min_range: 0.5
   range_ratio: 0.1
-  align_gravity: False
-rigid: True
+  align_gravity: True
+rigid: False

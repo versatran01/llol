@@ -13,16 +13,20 @@ struct GicpCost {
   using Scalar = double;
   static constexpr int kResidualDim = 3;
 
-  GicpCost(const SweepGrid& grid, int gsize = 0);
+  GicpCost(int gsize = 0);
   virtual ~GicpCost() noexcept = default;
 
-  virtual int NumResiduals() const { return matches.size() * kResidualDim; }
-  void Update();
+  virtual int NumResiduals() const;
+  void UpdateMatches(const SweepGrid& grid);
+  void UpdatePreint(const Trajectory& traj, const ImuQueue& imuq);
 
- protected:
   int gsize_{};
-  const SweepGrid* const pgrid;
+
+  const SweepGrid* pgrid{nullptr};
   std::vector<PointMatch> matches;
+
+  const Trajectory* ptraj{nullptr};
+  ImuPreintegration preint;
 };
 
 /// @brief Gicp with rigid transformation
@@ -86,7 +90,6 @@ struct GicpLinearCost final : public GicpCost {
   static constexpr int kNumParams = 6;
   enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
   enum Block { kR0, kP0 };
-
   using GicpCost::GicpCost;
 
   template <typename T>

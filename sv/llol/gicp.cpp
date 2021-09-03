@@ -18,8 +18,8 @@ GicpSolver::GicpSolver(const GicpParams& params)
     : iters{params.outer, params.inner},
       cov_lambda{params.cov_lambda},
       max_dist{params.half_rows / 2, params.half_rows / 2} {
-  pano_win.height = params.half_rows * 2 + 1;
-  pano_win.width = params.half_rows * 4 + 1;
+  pano_win.height = params.half_rows * 2 + 1;  // 5
+  pano_win.width = pano_win.height * 2 + 1;    // 11
   pano_min_pts = (params.half_rows + 1) * pano_win.width;
 }
 
