@@ -32,7 +32,7 @@ struct PanoParams {
   int max_cnt{10};
   float min_range{0.5F};
   float range_ratio{0.1F};
-  bool gravity_align{false};
+  bool align_gravity{false};
 };
 
 /// @class Depth Panorama
@@ -41,7 +41,7 @@ struct DepthPano {
   int max_cnt{};
   float min_range{};
   float range_ratio{};
-  bool gravity_align{};
+  bool align_gravity{};
   float num_added{};  // number of pano added, float since we could add partial
 
   /// Data

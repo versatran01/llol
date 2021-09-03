@@ -9,9 +9,9 @@ imuq:
   gyr_bias_std: 0.0002
 grid:
   cell_rows: 2
-  cell_cols: 16
-  max_curve: 0.01
-  max_var: 0.01
+  cell_cols: 8
+  max_curve: 0.02
+  max_var: 0.02
   nms: True
 gicp:
   outer: 2
@@ -26,5 +26,5 @@ pano:
   max_cnt: 16
   min_range: 0.5
   range_ratio: 0.1
-  gravity_align: true
-rigid: False
+  align_gravity: False
+rigid: True

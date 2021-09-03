@@ -281,7 +281,8 @@ void OdomNode::PostProcess(const LidarScan& scan) {
                   100.0 * n_added / sweep_.total(),
                   pano_.num_added));
 
-  const auto T_p2_p1 = traj_.TfPanoLidar().inverse();
+  auto T_p2_p1 = traj_.TfPanoLidar().inverse();
+  if (pano_.align_gravity) T_p2_p1.so3() = Sophus::SO3d{};
   if (pano_.ShouldRender(T_p2_p1)) {
     ROS_ERROR_STREAM("Render pano at new location n: "
                      << pano_.num_added << ", max: " << pano_.max_cnt);

@@ -68,7 +68,7 @@ DepthPano InitPano(const ros::NodeHandle& pnh) {
   pp.max_cnt = pnh.param<int>("max_cnt", pp.max_cnt);
   pp.min_range = pnh.param<double>("min_range", pp.min_range);
   pp.range_ratio = pnh.param<double>("range_ratio", pp.range_ratio);
-  pp.gravity_align = pnh.param<bool>("gravity_align", pp.gravity_align);
+  pp.align_gravity = pnh.param<bool>("align_gravity", pp.align_gravity);
   return DepthPano({pano_cols, pano_rows}, pp);
 }
 
