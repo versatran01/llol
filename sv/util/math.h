@@ -23,6 +23,7 @@ static constexpr auto kTauD = static_cast<double>(M_PI * 2);
 /// @brief Make skew symmetric matrix
 template <typename T>
 Eigen::Matrix3<T> Hat3(const Eigen::Vector3<T>& w) {
+  static_assert(std::is_floating_point_v<T>, "T must be floating point");
   Eigen::Matrix3<T> S;
   S << T(0.0),  -w(2),  w(1),
        w(2),    T(0.0), -w(0),
@@ -170,12 +171,13 @@ using MeanCovar3d = MeanCovar<double, 3>;
 /// https://docs.ros.org/en/noetic/api/rviz/html/c++/covariance__visual_8cpp_source.html
 void MakeRightHanded(Vector3d& eigvals, Matrix3d& eigvecs);
 
-/// @brief Computes matrix square root using Cholesky
+/// @brief Computes matrix square root using Cholesky A = LL' = U'U
 template <typename T, int N>
 Eigen::Matrix<T, N, N> MatrixSqrtUtU(const Eigen::Matrix<T, N, N>& A) {
   return A.template selfadjointView<Eigen::Upper>().llt().matrixU();
 }
 
+/// @brief Basically c % cols
 inline int WrapCols(int c, int cols) { return c < 0 ? c + cols : c; }
 
 }  // namespace sv
