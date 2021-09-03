@@ -71,6 +71,8 @@ struct DepthPano {
   bool FuseDepth(const cv::Point& px, float rg);
 
   /// @brief Render pano at a new location
+  /// @note frame difference, ones is T_p1_p2, the other is T_p2_p1
+  bool ShouldRender(const Sophus::SE3d& tf_p1_p2);
   int Render(const Sophus::SE3f& tf_p2_p1, int gsize = 0);
   int RenderRow(const Sophus::SE3f& tf_p2_p1, int row);
   bool UpdateBuffer(const cv::Point& px, float rg, int cnt);

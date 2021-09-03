@@ -22,12 +22,6 @@ std::string StatsManager::ReportStats(const std::string& name,
   return str;
 }
 
-void StatsManager::Counter::Commit() {
-  if (!stats_.ok()) return;  // Noop if there's no stats to commit
-  manager_->Update(name_, stats_);
-  stats_ = StatsT{};  // reset stats
-}
-
 StatsManager& GlobalStatsManager() {
   static StatsManager sm{};
   return sm;
@@ -67,8 +61,8 @@ std::string TimerManager::ReportStats(const std::string& name,
   std::string str =
       fmt::format(fmt::fg(fmt::color::light_sky_blue), "[{:<16}]", name);
   str += fmt::format(
-      " n: {:<8} | sum: {:<12} | min: {:<12} | max: {:<12} | mean: {:<12} | "
-      "last: {:<12} |",
+      " n: {:<8} | sum: {:<14} | min: {:<14} | max: {:<14} | mean: {:<14} | "
+      "last: {:<14} |",
       stats.count(),
       stats.sum(),
       stats.min(),

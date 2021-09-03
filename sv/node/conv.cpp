@@ -87,7 +87,9 @@ Trajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
 }
 
 ImuQueue InitImuq(const ros::NodeHandle& pnh) {
-  ImuQueue imuq;
+  const auto buf_size = pnh.param<int>("buffer_size", 20);
+  ImuQueue imuq(buf_size);
+
   const auto dt = 1.0 / pnh.param<double>("imu_rate", 100.0);
   const auto acc_noise = pnh.param<double>("acc_noise", 1e-2);
   const auto gyr_noise = pnh.param<double>("gyr_noise", 1e-3);

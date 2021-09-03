@@ -116,6 +116,20 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   }
 }
 
+bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p1_p2) {
+  if (num_added <= max_cnt) return false;
+
+  // TODO (chao): compare to average scene depth?
+  const bool trans_too_big = tf_p1_p2.translation().squaredNorm() > 1;
+
+  // cos_rp is just col z of rotation dot with e_z, which is just R22
+  const auto R22 = tf_p1_p2.rotationMatrix()(2, 2);
+  const auto cos_max_rp = std::cos(model.elev_max * 2.0 / 3.0);
+  const bool rot_too_big = R22 < cos_max_rp;
+
+  return rot_too_big | trans_too_big;
+}
+
 int DepthPano::Render(const Sophus::SE3f& tf_p2_p1, int gsize) {
   // clear pano2
   dbuf2.setTo(0);

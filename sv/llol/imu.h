@@ -92,6 +92,9 @@ struct ImuNoise {
 int FindNextImu(const ImuBuffer& buf, double t);
 
 struct ImuQueue {
+  ImuQueue() = default;
+  explicit ImuQueue(int buffer_size) : buf(buffer_size) {}
+
   ImuBias bias;
   ImuNoise noise;
   ImuBuffer buf{20};

@@ -95,34 +95,8 @@ class StatsManager final : public StatsManagerBase<double> {
  public:
   using StatsManagerBase::StatsManagerBase;
 
-  class Counter {
-   public:
-    /// @brief Timer starts on construction
-    Counter(std::string name, StatsManager* manager)
-        : name_{name}, manager_{manager} {}
-    ~Counter() noexcept { Commit(); }
-
-    /// Disable copy, allow move
-    Counter(const Counter&) = delete;
-    Counter& operator=(const Counter&) = delete;
-    Counter(Counter&&) noexcept = default;
-    Counter& operator=(Counter&&) = default;
-
-    /// @brief Add a value to counter
-    void Add(double x) { stats_.Add(x); }
-
-    /// @brief Commit changes to manager, potentially expensive since it needs
-    /// to acquire a lock
-    void Commit();
-
-   private:
-    StatsT stats_;           // local stats
-    std::string name_;       // name of timer
-    StatsManager* manager_;  // ref to manager
-  };
-
-  /// @brief Start a Counter by name, need to manually add the value
-  Counter Manual(std::string name) { return {std::move(name), this}; }
+  /// @brief Get stats by name
+  StatsT& Get(std::string_view name) { return stats_dict_[name]; }
 
   std::string ReportStats(const std::string& name,
                           const StatsT& stats) const override;

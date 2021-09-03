@@ -101,14 +101,14 @@ cv::Vec2f LidarScan::ScoreAt(const cv::Point& px, int width) const {
 cv::Mat MakeTestXyzr(const cv::Size& size) {
   cv::Mat xyzr = cv::Mat::zeros(size, LidarScan::kDtype);
 
-  const float azim_delta = M_PI * 2 / size.width;
-  const float elev_max = M_PI_4;
+  const float azim_delta = kPiF * 2 / size.width;
+  const float elev_max = kPiF / 4;
   const float elev_delta = elev_max * 2 / (size.height - 1);
 
   for (int i = 0; i < xyzr.rows; ++i) {
     for (int j = 0; j < xyzr.cols; ++j) {
       const float elev = elev_max - i * elev_delta;
-      const float azim = M_PI * 2 - j * azim_delta;
+      const float azim = kTauF - j * azim_delta;
 
       auto& p = xyzr.at<cv::Vec4f>(i, j);
       p[0] = std::cos(elev) * std::cos(azim);

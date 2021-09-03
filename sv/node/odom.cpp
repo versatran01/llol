@@ -281,18 +281,20 @@ void OdomNode::PostProcess(const LidarScan& scan) {
                   100.0 * n_added / sweep_.total(),
                   pano_.num_added));
 
-  if (pano_.num_added > pano_.max_cnt) {
-    ROS_WARN_STREAM("Render pano at new location");
+  // If roll and pitch exceeds 2/3 of pano max_elev
+  const auto T_p1_p2 = traj_.TfPanoLidar();
+  if (pano_.ShouldRender(T_p1_p2)) {
+    ROS_ERROR_STREAM("Render pano at new location n: "
+                     << pano_.num_added << ", max: " << pano_.max_cnt);
+
     // TODO (chao): need to think about how to run this in background without
     // interfering with odom
-    // TODO (chao): also need better criteria for Render()
     auto _ = tm_.Scoped("Pano.Render");
     // Render pano at the latest lidar pose wrt pano (T_p1_p2 = T_p1_lidar)
-    const auto T_p2_p1 = traj_.TfPanoLidar().inverse();
+    const auto T_p2_p1 = T_p1_p2.inverse();
     pano_.Render(T_p2_p1.cast<float>(), tbb_);
     // Once rendering is done we need to update traj accordingly
     traj_.Update(T_p2_p1);
-    ROS_INFO_STREAM("Updated traj pose:\n " << traj_.TfPanoLidar().matrix3x4());
   }
 
   int n_points = 0;

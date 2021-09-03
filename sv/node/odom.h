@@ -54,6 +54,7 @@ struct OdomNode {
   GicpSolver gicp_;
 
   TimerManager tm_{"llol"};
+  StatsManager sm_{"llol"};
 
   /// Methods
   OdomNode(const ros::NodeHandle& pnh);
