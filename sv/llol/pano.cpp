@@ -13,18 +13,21 @@ namespace sv {
 
 DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
     : max_cnt{params.max_cnt},
-      range_ratio{params.range_ratio},
       min_range{params.min_range},
+      range_ratio{params.range_ratio},
+      gravity_align{params.gravity_align},
       model{size, params.vfov},
       dbuf{size, CV_16UC2},
       dbuf2{size, CV_16UC2} {}
 
 std::string DepthPano::Repr() const {
   return fmt::format(
-      "DepthPano(max_cnt={}, range_ratio={}, model={}, dbuf={}, "
-      "pixel=(scale={}, max_range={})",
+      "DepthPano(max_cnt={}, min_range={}, range_ratio={}, gravity_align={}, "
+      "model={}, dbuf={}, pixel=(scale={}, max_range={})",
       max_cnt,
+      min_range,
       range_ratio,
+      gravity_align,
       model.Repr(),
       sv::Repr(dbuf),
       DepthPixel::kScale,
@@ -116,24 +119,31 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   }
 }
 
-bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p1_p2) {
+bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1) {
   if (num_added <= max_cnt) return false;
 
   // TODO (chao): compare to average scene depth?
-  const bool trans_too_big = tf_p1_p2.translation().squaredNorm() > 1;
+  const bool trans_too_big = tf_p2_p1.translation().squaredNorm() > 1;
+  if (trans_too_big) return true;
+
+  // Do not check rotation if pano is gravity aligned
+  if (gravity_align) return false;
 
   // cos_rp is just col z of rotation dot with e_z, which is just R22
-  const auto R22 = tf_p1_p2.rotationMatrix()(2, 2);
+  const auto R22 = tf_p2_p1.rotationMatrix()(2, 2);
   const auto cos_max_rp = std::cos(model.elev_max * 2.0 / 3.0);
   const bool rot_too_big = R22 < cos_max_rp;
 
-  return rot_too_big | trans_too_big;
+  return rot_too_big;
 }
 
-int DepthPano::Render(const Sophus::SE3f& tf_p2_p1, int gsize) {
+int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
   // clear pano2
   dbuf2.setTo(0);
   gsize = gsize <= 0 ? rows() : gsize;
+
+  // Do not change rotation if pano is gravity aligned
+  if (gravity_align) tf_p2_p1.so3() = Sophus::SO3f{};
 
   const int n = tbb::parallel_reduce(
       tbb::blocked_range<int>(0, rows(), gsize),

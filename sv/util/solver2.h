@@ -216,10 +216,6 @@ class TinySolver2 {
       eigen_solver_.compute(jtj_);
       const auto& eigvals = eigen_solver_.eigenvalues();
 
-      if (eigvals[0] < 0.05) {
-        LOG(WARNING) << "Min eigen values too small: " << eigvals[0];
-      }
-
       // Determine a number m of eigvals smaller than a threshold
       const int n = dx_.rows();
       int m = 0;
@@ -228,7 +224,9 @@ class TinySolver2 {
       }
       // Obiviously if all eigenvalues are good then no need for remapping
       need_remap = m > 0;
+      summary.degenerate_directions = m;
       if (need_remap) {
+        LOG(WARNING) << "Minimum eigenvalue is too small: " << eigvals[0];
         // Construct Vf^-1 * Vu
         const auto& Vf = eigen_solver_.eigenvectors();
         Vf_inv_Vu_.setZero();

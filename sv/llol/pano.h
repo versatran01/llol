@@ -32,14 +32,16 @@ struct PanoParams {
   int max_cnt{10};
   float min_range{0.5F};
   float range_ratio{0.1F};
+  bool gravity_align{false};
 };
 
 /// @class Depth Panorama
 struct DepthPano {
   /// Params
   int max_cnt{};
-  float range_ratio{};
   float min_range{};
+  float range_ratio{};
+  bool gravity_align{};
   float num_added{};  // number of pano added, float since we could add partial
 
   /// Data
@@ -72,11 +74,10 @@ struct DepthPano {
 
   /// @brief Render pano at a new location
   /// @note frame difference, ones is T_p1_p2, the other is T_p2_p1
-  bool ShouldRender(const Sophus::SE3d& tf_p1_p2);
-  int Render(const Sophus::SE3f& tf_p2_p1, int gsize = 0);
+  bool ShouldRender(const Sophus::SE3d& tf_p2_p1);
+  int Render(Sophus::SE3f tf_p2_p1, int gsize = 0);
   int RenderRow(const Sophus::SE3f& tf_p2_p1, int row);
   bool UpdateBuffer(const cv::Point& px, float rg, int cnt);
-  void SwapBuffer();
 
   /// @brief info
   int rows() const { return dbuf.rows; }

@@ -156,6 +156,7 @@ struct SolverSummary {
   double final_cost = -1;         // 1/2 ||f(x)||^2
   double gradient_max_norm = -1;  // max(J'f(x))
   int iterations = -1;
+  int degenerate_directions = 0;
   SolverStatus status = SolverStatus::HIT_MAX_ITERATIONS;
 
   std::string Report() const;

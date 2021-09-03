@@ -24,5 +24,7 @@ pano:
   cols: 1024
   vfov: 0.0
   max_cnt: 16
+  min_range: 0.5
   range_ratio: 0.1
+  gravity_align: true
 rigid: False
