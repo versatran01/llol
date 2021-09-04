@@ -22,7 +22,7 @@ struct GicpCost {
   const SweepGrid* pgrid{nullptr};
   std::vector<PointMatch> matches;
 
-  double imu_scale{20.0};
+  double imu_scale{10.0};
   const Trajectory* ptraj{nullptr};
   ImuPreintegration preint;
 };
@@ -77,29 +77,29 @@ struct GicpLinearCost final : public GicpCost {
   bool operator()(const double* _x, double* _r, double* _J) const;
 };
 
-struct GicpLinearCost2 final : public GicpCost {
- public:
-  static constexpr int kNumParams = 9;
-  enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
-  enum Block { kR0, kP0, kP1 };
-  using GicpCost::GicpCost;
+// struct GicpLinearCost2 final : public GicpCost {
+// public:
+//  static constexpr int kNumParams = 9;
+//  enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
+//  enum Block { kR0, kP0, kP1 };
+//  using GicpCost::GicpCost;
 
-  template <typename T>
-  struct State {
-    static constexpr int kBlockSize = 3;
-    using Vec3 = Eigen::Matrix<T, kBlockSize, 1>;
-    using Vec3CMap = Eigen::Map<const Vec3>;
+//  template <typename T>
+//  struct State {
+//    static constexpr int kBlockSize = 3;
+//    using Vec3 = Eigen::Matrix<T, kBlockSize, 1>;
+//    using Vec3CMap = Eigen::Map<const Vec3>;
 
-    State(const T* const _x) : x{_x} {}
-    auto r0() const { return Vec3CMap{x + Block::kR0 * kBlockSize}; }
-    auto p0() const { return Vec3CMap{x + Block::kP0 * kBlockSize}; }
-    auto p1() const { return Vec3CMap{x + Block::kP1 * kBlockSize}; }
+//    State(const T* const _x) : x{_x} {}
+//    auto r0() const { return Vec3CMap{x + Block::kR0 * kBlockSize}; }
+//    auto p0() const { return Vec3CMap{x + Block::kP0 * kBlockSize}; }
+//    auto p1() const { return Vec3CMap{x + Block::kP1 * kBlockSize}; }
 
-    const T* const x{nullptr};
-  };
+//    const T* const x{nullptr};
+//  };
 
-  bool operator()(const double* _x, double* _r, double* _J) const;
-};
+//  bool operator()(const double* _x, double* _r, double* _J) const;
+//};
 
 // struct ImuCost {
 //  static constexpr int kNumParams = 24;

@@ -54,20 +54,21 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
 
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
-  if (ibuf < 0) {
-    LOG(FATAL) << fmt::format(
-        "No imu found after {}. Imu buffer size is {}, and the first imu in "
-        "buffer has time {}",
-        t0,
-        imuq.size(),
-        imuq.RawAt(0).time);
-  }
+  CHECK_GE(ibuf, 0) << fmt::format(
+      "No imu found after {}. Imu buffer size is {}, and the first imu in "
+      "buffer has time {}",
+      t0,
+      imuq.size(),
+      imuq.RawAt(0).time);
+
   const int ibuf0 = ibuf;
 
   // Now try to fill in the last n poses
   const int ist0 = size() - n - 1;
   CHECK_GE(ist0, 0);
-  At(ist0).time = t0;
+  auto& st0 = At(ist0);
+  st0.time = t0;
+  //  st0.vel.setZero();
 
   for (int i = ist0 + 1; i < size(); ++i) {
     const auto ti = t0 + dt * i;
@@ -82,14 +83,18 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
 
     const auto imu = imuq.DebiasedAt(ibuf);
 
-    // TODO (chao): for now assume translation stays the same
     const auto& prev = At(i - 1);
     auto& curr = At(i);
-    //    IntegrateEuler(prev, imu, gravity, dt, curr);
-    curr.time = prev.time + dt;
-    // For do not propagate translation
-    curr.pos = At(ist0).pos;
-    curr.rot = prev.rot * SO3d::exp(imu.gyr * dt);
+
+    if (use_acc_) {
+      IntegrateEuler(prev, imu, g_pano, dt, curr);
+    } else {
+      curr.time = prev.time + dt;
+      // do not propagate translation
+      curr.pos = st0.pos;
+      curr.vel = st0.vel;
+      curr.rot = prev.rot * SO3d::exp(imu.gyr * dt);
+    }
   }
 
   return ibuf - ibuf0 + 1;

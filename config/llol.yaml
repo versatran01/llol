@@ -29,4 +29,4 @@ pano:
   min_range: 0.5
   range_ratio: 0.1
   align_gravity: true
-rigid: true
+rigid: false

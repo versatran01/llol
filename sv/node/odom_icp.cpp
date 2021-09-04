@@ -59,10 +59,19 @@ void OdomNode::IcpRigid() {
 
     const Cost::State<double> es(err.data());
     const auto eR = Sophus::SO3d::exp(es.r0());
-    for (auto& st : traj_.states) {
-      st.rot = eR * st.rot;
-      st.pos = eR * st.pos + es.p0();
+    for (auto& st1 : traj_.states) {
+      st1.rot = eR * st1.rot;
+      st1.pos = eR * st1.pos + es.p0();
+
+      if (i > 1) {
+        const auto& st0 = traj_.At(i - 1);
+        st1.vel = (st1.pos - st0.pos) / (st1.time - st0.time);
+      }
     }
+
+    ROS_WARN_STREAM("Velocity: " << traj_.states.back().vel.transpose()
+                                 << ", norm: "
+                                 << traj_.states.back().vel.norm());
 
     if (vis_) {
       // display good match
@@ -71,17 +80,6 @@ void OdomNode::IcpRigid() {
                        1.0 / gicp_.pano_win.area(),
                        cv::COLORMAP_VIRIDIS));
     }
-  }
-
-  if (traj_updated_) {
-    const Cost::State<double> ess(err_sum.data());
-    ROS_WARN_STREAM(fmt::format(
-        "err_rot: [{}], norm={:6e}", ess.r0().transpose(), ess.r0().norm()));
-
-    //    imuq_.UpdateBias(traj_.states);
-
-  } else {
-    ROS_WARN_STREAM("Trajectory not updated");
   }
 
   t_match.Commit();
