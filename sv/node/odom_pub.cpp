@@ -8,7 +8,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include "sv/node/odom.h"
+#include "sv/node/odom_node.h"
 #include "sv/node/pcl.h"
 #include "sv/node/viz.h"
 

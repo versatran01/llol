@@ -3,6 +3,7 @@
 #include <image_transport/image_transport.h>
 #include <ros/node_handle.h>
 #include <ros/subscriber.h>
+#include <tf2_ros/transform_listener.h>
 
 #include "sv/node/conv.h"
 #include "sv/util/manager.h"
@@ -15,6 +16,8 @@ struct OdomNode {
   image_transport::ImageTransport it_;
   image_transport::CameraSubscriber sub_camera_;
   ros::Subscriber sub_imu_;
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
 
   /// params
   bool vis_{true};
@@ -26,6 +29,7 @@ struct OdomNode {
   bool lidar_init_{false};
   bool traj_updated_{false};
 
+  /// frames
   std::string imu_frame_{};
   std::string lidar_frame_{};
   std::string pano_frame_{"pano"};
@@ -39,6 +43,7 @@ struct OdomNode {
   DepthPano pano_;
   GicpSolver gicp_;
 
+  /// stats
   TimerManager tm_{"llol"};
   StatsManager sm_{"llol"};
 

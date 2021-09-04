@@ -1,12 +1,11 @@
-#include "sv/node/odom.h"
-
-#include <tf2_ros/transform_listener.h>
+#include "sv/node/odom_node.h"
 
 #include "sv/node/viz.h"
 
 namespace sv {
 
-OdomNode::OdomNode(const ros::NodeHandle& pnh) : pnh_{pnh}, it_{pnh} {
+OdomNode::OdomNode(const ros::NodeHandle& pnh)
+    : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
   sub_camera_ = it_.subscribeCamera("image", 20, &OdomNode::CameraCb, this);
   sub_imu_ = pnh_.subscribe("imu", 200, &OdomNode::ImuCb, this);
 
@@ -27,9 +26,6 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh) : pnh_{pnh}, it_{pnh} {
 }
 
 void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
-  static tf2_ros::Buffer tf_buffer;
-  static tf2_ros::TransformListener tf_listener{tf_buffer};
-
   if (imu_frame_.empty()) {
     imu_frame_ = imu_msg.header.frame_id;
     ROS_INFO_STREAM("Imu frame: " << imu_frame_);
@@ -48,7 +44,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 
   // tf stuff
   try {
-    const auto tf_i_l = tf_buffer.lookupTransform(
+    const auto tf_i_l = tf_buffer_.lookupTransform(
         imu_msg.header.frame_id, lidar_frame_, ros::Time(0));
 
     const auto& t = tf_i_l.transform.translation;
@@ -79,6 +75,7 @@ void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
   ROS_INFO_STREAM(grid_);
 
   traj_ = InitTraj({pnh_, "traj"}, grid_.cols());
+  ROS_INFO_STREAM(traj_);
 
   gicp_ = InitGicp({pnh_, "gicp"});
   ROS_INFO_STREAM(gicp_);

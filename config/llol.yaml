@@ -7,6 +7,8 @@ imuq:
   gyr_noise: 0.005
   gyr_bias_noise: 0.0005
   gyr_bias_std: 0.002
+traj:
+  use_acc: false
 grid:
   cell_rows: 2
   cell_cols: 8
@@ -26,5 +28,5 @@ pano:
   max_cnt: 20
   min_range: 0.5
   range_ratio: 0.1
-  align_gravity: True
-rigid: True
+  align_gravity: true
+rigid: true

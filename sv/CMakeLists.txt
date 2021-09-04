@@ -205,7 +205,7 @@ if(catkin_FOUND AND BUILD_NODE)
 
   cc_binary(
     NAME node_odom
-    SRCS "node/odom_main.cpp" "node/odom.cpp" "node/odom_pub.cpp"
+    SRCS "node/odom_main.cpp" "node/odom_node.cpp" "node/odom_pub.cpp"
          "node/odom_icp.cpp"
     DEPS sv_node_conv sv_node_viz sv_node_pcl sv_util_manager sv_util_solver)
 endif()
