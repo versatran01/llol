@@ -28,16 +28,24 @@ class MeanVar:
         return self.var_sum / (self.n - 1)
 
 
-bagfile = "/home/chao/Workspace/dataset/bags/mrsl-static-2021-08-31-12-29-39.bag"
+bagfile = "/home/chao/Workspace/dataset/bags/static-2021-09-03-21-12-12.bag"
 imu_topic = "/os_node/imu"
 
-mv = MeanVar(3)
+mva = MeanVar(3)
+mvw = MeanVar(3)
 
 with rosbag.Bag(bagfile, "r") as bag:
     for topic, msg, t in bag.read_messages([imu_topic]):
         if topic == imu_topic:
             w = msg.angular_velocity
-            mv([w.x, w.y, w.z])
+            a = msg.linear_acceleration
+            mvw([w.x, w.y, w.z])
+            mva([a.x, a.y, a.z])
 
-print(mv.mean)
-print(mv.var)
+print("gyr")
+print(mvw.mean)
+print(np.sqrt(mvw.var))
+
+print("acc")
+print(mva.mean)
+print(np.sqrt(mva.var))

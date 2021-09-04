@@ -142,9 +142,11 @@ struct ImuPreintegration {
   /// Data
   int n{0};           // number of times integrated
   double duration{};  // duration of integration
+
   Eigen::Vector3d alpha{kVecZero3d};
   Eigen::Vector3d beta{kVecZero3d};
   Sophus::SO3d gamma{};
+
   Matrix15d F{Matrix15d::Identity()};  // State transition matrix discrete time
   Matrix15d P{Matrix15d::Zero()};      // Covariance matrix
   Matrix15d U{Matrix15d::Zero()};      // Square root information matrix

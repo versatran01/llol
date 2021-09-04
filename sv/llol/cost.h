@@ -25,6 +25,7 @@ struct GicpCost {
   const SweepGrid* pgrid{nullptr};
   std::vector<PointMatch> matches;
 
+  double imu_scale{20.0};
   const Trajectory* ptraj{nullptr};
   ImuPreintegration preint;
 };
@@ -53,35 +54,6 @@ struct GicpRigidCost final : public GicpCost {
   };
 
   bool operator()(const double* _x, double* _r, double* _J) const;
-
-  template <typename T>
-  bool operator()(const T* const _x, T* _r) const {
-    using Vec3 = Eigen::Vector3<T>;
-    using SE3 = Sophus::SE3<T>;
-    using SO3 = Sophus::SO3<T>;
-
-    const State<T> es(_x);
-    const SE3 eT{SO3::exp(es.r0()), es.p0()};
-
-    tbb::parallel_for(
-        tbb::blocked_range<int>(0, matches.size(), gsize_),
-        [&](const auto& blk) {
-          for (int i = blk.begin(); i < blk.end(); ++i) {
-            const auto& match = matches.at(i);
-            const auto c = match.px_g.x;
-            const auto U = match.U.cast<double>().eval();
-            const auto pt_p = match.mc_p.mean.cast<double>().eval();
-            const auto pt_g = match.mc_g.mean.cast<double>().eval();
-            const auto tf_p_g = pgrid->TfAt(c).cast<double>();
-            const auto pt_p_hat = tf_p_g * pt_g;
-
-            Eigen::Map<Vec3> r(_r + kResidualDim * i);
-            r = U * (pt_p - eT * pt_p_hat);
-          }
-        });
-
-    return true;
-  }
 };
 
 /// @brief Linear interpolation in translation error state
@@ -106,36 +78,30 @@ struct GicpLinearCost final : public GicpCost {
   };
 
   bool operator()(const double* _x, double* _r, double* _J) const;
+};
+
+struct GicpLinearCost2 final : public GicpCost {
+ public:
+  static constexpr int kNumParams = 9;
+  enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
+  enum Block { kR0, kP0, kP1 };
+  using GicpCost::GicpCost;
 
   template <typename T>
-  bool operator()(const T* const _x, T* _r) const {
-    using Vec3 = Eigen::Vector3<T>;
-    using SE3 = Sophus::SE3<T>;
-    using SO3 = Sophus::SO3<T>;
+  struct State {
+    static constexpr int kBlockSize = 3;
+    using Vec3 = Eigen::Matrix<T, kBlockSize, 1>;
+    using Vec3CMap = Eigen::Map<const Vec3>;
 
-    const State<T> es(_x);
-    const auto eR = SO3::exp(es.r0());
+    State(const T* const _x) : x{_x} {}
+    auto r0() const { return Vec3CMap{x + Block::kR0 * kBlockSize}; }
+    auto p0() const { return Vec3CMap{x + Block::kP0 * kBlockSize}; }
+    auto p1() const { return Vec3CMap{x + Block::kP1 * kBlockSize}; }
 
-    tbb::parallel_for(
-        tbb::blocked_range<int>(0, matches.size(), gsize_),
-        [&](const auto& blk) {
-          for (int i = blk.begin(); i < blk.end(); ++i) {
-            const auto& match = matches.at(i);
-            const auto c = match.px_g.x;
-            const auto U = match.U.cast<double>().eval();
-            const auto pt_p = match.mc_p.mean.cast<double>().eval();
-            const auto pt_g = match.mc_g.mean.cast<double>().eval();
-            const auto tf_p_g = pgrid->TfAt(c).cast<double>();
-            const auto pt_p_hat = tf_p_g * pt_g;
-            const double s = (c + 0.5) / pgrid->cols();
+    const T* const x{nullptr};
+  };
 
-            Eigen::Map<Vec3> r(_r + kResidualDim * i);
-            r = U * (pt_p - (eR * pt_p_hat + s * es.p0()));
-          }
-        });
-
-    return true;
-  }
+  bool operator()(const double* _x, double* _r, double* _J) const;
 };
 
 // struct ImuCost {
@@ -193,29 +159,6 @@ struct GicpLinearCost final : public GicpCost {
 
 //  const Trajectory* const ptraj;
 //  ImuPreintegration preint;
-//};
-
-// struct GicpAndImuCost {
-//  static constexpr int kNumParams = 6;
-
-//  GicpAndImuCost(const SweepGrid& grid, const Trajectory& traj, int gsize =
-//  0);
-
-//  int NumResiduals() const {
-//    //    return gicp_cost.NumResiduals() + imu_cost.NumResiduals();
-//    return gicp_cost.NumResiduals();
-//  }
-
-//  template <typename T>
-//  bool operator()(const T* const _x, T* _r) const {
-//    bool ok = true;
-//    ok &= gicp_cost(_x, _r);
-
-//    return ok;
-//  }
-
-//  GicpRigidCost gicp_cost;
-//  //  ImuCost imu_cost;
 //};
 
 template <typename F>

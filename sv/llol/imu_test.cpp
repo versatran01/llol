@@ -1,6 +1,7 @@
 #include "sv/llol/imu.h"
 
 #include <benchmark/benchmark.h>
+#include <glog/logging.h>
 #include <gtest/gtest.h>
 
 #include <sophus/interpolate.hpp>
@@ -52,28 +53,26 @@ TEST(ImuTest, TestImuPreintegration) {
   EXPECT_EQ(preint.duration, 5);
 }
 
-// TEST(ImuTest, TestImuPreintegration2) {
-//  Trajectory traj(4);
-//  for (int i = 0; i < 5; ++i) {
-//    ImuData imu;
-//    imu.acc = Eigen::Vector3d::Random() * 0.01;
-//    imu.gyr = Eigen::Vector3d::Random() * 0.01;
-//    imu.time = i * 0.01;
-//    traj.Add(imu);
-//  }
+TEST(ImuTest, TestImuPreintegration2) {
+  ImuQueue imuq;
+  for (int i = 0; i < 5; ++i) {
+    ImuData imu;
+    imu.acc = Eigen::Vector3d::Random() * 0.01;
+    imu.gyr = Eigen::Vector3d::Random() * 0.01;
+    imu.time = i * 0.01;
+    imuq.Add(imu);
+  }
 
-//  traj.noise = ImuNoise(0.01, 1e-3, 1e-4, 1e-4, 1e-5);
+  imuq.noise = ImuNoise(0.01, 1e-3, 1e-4, 1e-4, 1e-5);
 
-//  ImuPreintegration preint;
-//  traj.states.front().time = 0;
-//  traj.states.back().time = 0.05;
-//  preint.Compute(traj);
-//  EXPECT_EQ(preint.n, 5);
-//  EXPECT_EQ(preint.duration, 0.05);
-//  LOG(INFO) << "\n" << preint.P;
-//  LOG(INFO) << "\n" << preint.F;
-//  LOG(INFO) << "\n" << preint.U;
-//}
+  ImuPreintegration preint;
+  preint.Compute(imuq, 0, 0.05);
+  EXPECT_EQ(preint.n, 5);
+  EXPECT_EQ(preint.duration, 0.05);
+  LOG(INFO) << "\n" << preint.F;
+  LOG(INFO) << "\n" << preint.P;
+  LOG(INFO) << "\n" << preint.U;
+}
 
 void BM_InterpRot(benchmark::State& state) {
   const auto size = state.range(0);

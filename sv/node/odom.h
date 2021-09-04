@@ -67,6 +67,7 @@ struct OdomNode {
   void Init(const sensor_msgs::CameraInfo& cinfo_msg);
   void Register();
   void Register2();
+  void Register3();
   void PostProcess(const LidarScan& scan);
 };
 }  // namespace sv

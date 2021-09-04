@@ -34,10 +34,6 @@ void GicpCost::UpdatePreint(const Trajectory& traj, const ImuQueue& imuq) {
   preint.Reset();
   const int n_imus =
       preint.Compute(imuq, traj.states.front().time, traj.states.back().time);
-  LOG(INFO) << "Use imus: " << n_imus;
-  LOG(INFO) << "F: \n" << preint.F;
-  LOG(INFO) << "P: \n" << preint.P;
-  LOG(INFO) << "U: \n" << preint.U;
 }
 
 bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
@@ -113,20 +109,84 @@ bool GicpLinearCost::operator()(const double* _x,
   const Vector3d p1 = eR * st1.pos + ep;
   const auto R0 = eR * st0.rot;
 
-  const auto R0_inv = R0.inverse();
-  const Vector3d dp = st0.vel * dt + 0.5 * g * dt2;
-  const Vector3d alpha = R0_inv * (p1 - p0 - dp);
+  const auto R0_t = R0.inverse();
+  const Vector3d dp = st0.vel * dt - 0.5 * g * dt2;
+  const Vector3d alpha = R0_t * (p1 - p0 - dp);
 
   Eigen::Map<Vector3d> r_alpha(_r + gicp_residuals);
-  const Matrix3d Ua = preint.U.topLeftCorner<3, 3>() * 10;
+  const Matrix3d Ua = preint.U.topLeftCorner<3, 3>() * imu_scale;
   r_alpha = Ua * (alpha - preint.alpha);
 
   if (_J) {
-    const auto R0_inv_mat = R0_inv.matrix();
+    const auto R0_t_mat = R0_t.matrix();
     Eigen::Map<MatrixXd> J(_J, NumResiduals(), kNumParams);
     J.block<3, 3>(gicp_residuals, Block::kR0 * 3) =
-        Ua * R0_inv.matrix() * Hat3((ep - dp).eval());
-    J.block<3, 3>(gicp_residuals, Block::kP0 * 3) = Ua * R0_inv.matrix();
+        Ua * R0_t_mat * Hat3((ep - dp).eval());
+    J.block<3, 3>(gicp_residuals, Block::kP0 * 3) = Ua * R0_t_mat;
+  }
+
+  return true;
+}
+
+bool GicpLinearCost2::operator()(const double* _x,
+                                 double* _r,
+                                 double* _J) const {
+  const State<double> es(_x);
+  const auto eR = Sophus::SO3d::exp(es.r0());
+  const Vector3d dep = es.p1() - es.p0();
+
+  tbb::parallel_for(
+      tbb::blocked_range<int>(0, matches.size(), gsize_), [&](const auto& blk) {
+        for (int i = blk.begin(); i < blk.end(); ++i) {
+          const auto& match = matches.at(i);
+          const auto c = match.px_g.x;
+          const auto U = match.U.cast<double>().eval();
+          const auto pt_p = match.mc_p.mean.cast<double>().eval();
+          const auto pt_g = match.mc_g.mean.cast<double>().eval();
+          const auto tf_p_g = pgrid->TfAt(c).cast<double>();
+          const auto pt_p_hat = tf_p_g * pt_g;
+          const double s = (c + 0.5) / pgrid->cols();
+
+          const int ri = kResidualDim * i;
+          Eigen::Map<Vector3d> r(_r + ri);
+          r = U * (pt_p - (eR * pt_p_hat + es.p0() + s * dep));
+
+          if (_J) {
+            Eigen::Map<MatrixXd> J(_J, NumResiduals(), kNumParams);
+            J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
+            J.block<3, 3>(ri, Block::kP0 * 3) = -(1.0 - s) * U;
+            J.block<3, 3>(ri, Block::kP1 * 3) = -s * U;
+          }
+        }
+      });
+
+  const int gicp_residuals = matches.size() * kResidualDim;
+
+  const auto dt = preint.duration;
+  const auto dt2 = dt * dt;
+  const auto& g = ptraj->g_pano;
+  const auto& st0 = ptraj->states.front();
+  const auto& st1 = ptraj->states.back();
+
+  const Vector3d p0 = eR * st0.pos + es.p0();
+  const Vector3d p1 = eR * st1.pos + es.p1();
+  const auto R0 = eR * st0.rot;
+
+  const auto R0_t = R0.inverse();
+  const Vector3d dp = st0.vel * dt - 0.5 * g * dt2;
+  const Vector3d alpha = R0_t * (p1 - p0 - dp);
+
+  Eigen::Map<Vector3d> r_alpha(_r + gicp_residuals);
+  const Matrix3d Ua = preint.U.topLeftCorner<3, 3>() * imu_scale;
+  r_alpha = Ua * (alpha - preint.alpha);
+
+  if (_J) {
+    const auto R0_t_mat = R0_t.matrix();
+    Eigen::Map<MatrixXd> J(_J, NumResiduals(), kNumParams);
+    J.block<3, 3>(gicp_residuals, Block::kR0 * 3) =
+        Ua * R0_t_mat * Hat3((dep - dp).eval());
+    J.block<3, 3>(gicp_residuals, Block::kP0 * 3) = -Ua * R0_t_mat;
+    J.block<3, 3>(gicp_residuals, Block::kP1 * 3) = Ua * R0_t_mat;
   }
 
   return true;

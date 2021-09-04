@@ -56,7 +56,11 @@ void IntegrateEuler(const NavState& s0,
   s1.rot = s0.rot * SO3d::exp(dt * imu.gyr);
 
   // acc
-  // transform to fixed frame acc and remove gravity
+  // assuming g_w = [0,0,+g], such that when accelerometer is sitting flat on
+  // the ground the measured acceleration is [0,0,+g].
+  //
+  // a_m = a_b + R_b_w * g_w
+  // a_w = R_w_b * a_b = R_w_b * (a_m - R_b_w * g_w) = R_w_b * a_m - g_w
   const Vector3d a = s0.rot * imu.acc - g;
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt * dt;
@@ -154,6 +158,7 @@ int ImuQueue::UpdateBias(const std::vector<NavState>& states) {
   CHECK_LE(0, ibuf);
 
   MeanVar3d bw;
+  MeanVar3d ba;
 
   while (ibuf < size()) {
     // Get an imu and try to find its left and right state
@@ -164,25 +169,18 @@ int ImuQueue::UpdateBias(const std::vector<NavState>& states) {
     const auto& st0 = states.at(ist);
     const auto& st1 = states.at(ist + 1);
     const Vector3d gyr_hat = (st0.rot.inverse() * st1.rot).log() / dt_state;
-    // w = w_m - b_w -> b_w = w_m - w
-    //    bw.Add(imu.gyr - gyr_hat);
+    // w_t = w_m - b_w -> b_w = w_m - w_t
     bw.Add(imu.gyr - gyr_hat);
 
     ++ibuf;
   }
 
-  //  LOG(INFO) << "n: " << bw.n;
-  //  LOG(INFO) << "mean: " << bw.mean.transpose();
-  //  LOG(INFO) << "var: " << bw.Var();
-
-  // Simple update
+  // Simple kalman update
   const Vector3d y = bw.mean - bias.gyr;
   const Vector3d S = bias.gyr_var + bw.Var();
   const Vector3d K = bias.gyr_var.cwiseProduct(S.cwiseInverse());
   bias.gyr += K.cwiseProduct(y);
   bias.gyr_var -= K.cwiseProduct(bias.gyr_var);
-  //  LOG(INFO) << "bw: " << bias.gyr.transpose();
-  //  LOG(INFO) << "bw_var: " << bias.gyr_var.transpose();
 
   return bw.n;
 }
@@ -266,12 +264,13 @@ void ImuPreintegration::Integrate(double dt,
   // [0  0  -R*[a]x   -R   0]
   // [0  0    -[w]x    0  -I]
   // last two rows are all zeros
-  // F = I + Ft * dt
+  // Fd = I + Ft * dt
   const auto Rmat = gamma.matrix();
   F.block<3, 3>(Index::kAlpha, Index::kBeta) = kMatEye3d * dt;
   F.block<3, 3>(Index::kBeta, Index::kTheta) = -Rmat * Hat3(a) * dt;
   F.block<3, 3>(Index::kBeta, Index::kBa) = -Rmat * dt;
-  F.block<3, 3>(Index::kTheta, Index::kTheta) = kMatEye3d - Hat3(w) * dt;
+  //  F.block<3, 3>(Index::kTheta, Index::kTheta) = kMatEye3d - Hat3(w) * dt;
+  F.block<3, 3>(Index::kTheta, Index::kTheta) = SO3d::exp(-w * dt).matrix();
   F.block<3, 3>(Index::kTheta, Index::kBw) = -kMatEye3d * dt;
 
   // vins-mono eq 10
