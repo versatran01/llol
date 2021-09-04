@@ -35,7 +35,7 @@
 #include <cmath>
 
 #include "gtest/gtest.h"
-#include "sv/util/solver2.h"
+#include "sv/util/solver.h"
 
 namespace sv {
 namespace {
@@ -141,18 +141,6 @@ void TestSolver(const Function& f, const Vector& x0) {
   f(x.data(), residuals.data(), NULL);
   EXPECT_GT(residuals.squaredNorm() / 2.0, 1e-10);
 
-  TinySolver<Function> solver;
-  solver.Solve(f, &x);
-  EXPECT_NEAR(0.0, solver.summary.final_cost, 1e-10);
-}
-
-template <typename Function, typename Vector>
-void TestSolver2(const Function& f, const Vector& x0) {
-  Vector x = x0;
-  Vec2 residuals;
-  f(x.data(), residuals.data(), NULL);
-  EXPECT_GT(residuals.squaredNorm() / 2.0, 1e-10);
-
   TinySolver2<Function> solver;
   solver.Solve(f, &x);
   EXPECT_NEAR(0.0, solver.summary.final_cost, 1e-10);
@@ -160,64 +148,33 @@ void TestSolver2(const Function& f, const Vector& x0) {
 
 // A test case for when the cost function is statically sized.
 TEST(TinySolver, SimpleExample) {
-  {
-    Vec3 x0(0.76026643, -30.01799744, 0.55192142);
-    ExampleStatic f;
-    TestSolver(f, x0);
-  }
-
-  {
-    Vec3 x0(0.76026643, -30.01799744, 0.55192142);
-    ExampleStatic f;
-    TestSolver2(f, x0);
-  }
+  Vec3 x0(0.76026643, -30.01799744, 0.55192142);
+  ExampleStatic f;
+  TestSolver(f, x0);
 }
 
 // A test case for when the number of parameters is dynamically sized.
 TEST(TinySolver, ParametersDynamic) {
-  {
-    VecX x0(3);
-    x0 << 0.76026643, -30.01799744, 0.55192142;
-    ExampleParametersDynamic f;
-    TestSolver(f, x0);
-  }
-  {
-    VecX x0(3);
-    x0 << 0.76026643, -30.01799744, 0.55192142;
-    ExampleParametersDynamic f;
-    TestSolver2(f, x0);
-  }
+  VecX x0(3);
+  x0 << 0.76026643, -30.01799744, 0.55192142;
+  ExampleParametersDynamic f;
+  TestSolver(f, x0);
 }
 
 // A test case for when the number of residuals is dynamically sized.
 TEST(TinySolver, ResidualsDynamic) {
-  {
-    Vec3 x0(0.76026643, -30.01799744, 0.55192142);
-    ExampleResidualsDynamic f;
-    TestSolver(f, x0);
-  }
-  {
-    Vec3 x0(0.76026643, -30.01799744, 0.55192142);
-    ExampleResidualsDynamic f;
-    TestSolver(f, x0);
-  }
+  Vec3 x0(0.76026643, -30.01799744, 0.55192142);
+  ExampleResidualsDynamic f;
+  TestSolver(f, x0);
 }
 
 // A test case for when the number of parameters and residuals is
 // dynamically sized.
 TEST(TinySolver, ParametersAndResidualsDynamic) {
-  {
-    VecX x0(3);
-    x0 << 0.76026643, -30.01799744, 0.55192142;
-    ExampleAllDynamic f;
-    TestSolver(f, x0);
-  }
-  {
-    VecX x0(3);
-    x0 << 0.76026643, -30.01799744, 0.55192142;
-    ExampleAllDynamic f;
-    TestSolver(f, x0);
-  }
+  VecX x0(3);
+  x0 << 0.76026643, -30.01799744, 0.55192142;
+  ExampleAllDynamic f;
+  TestSolver(f, x0);
 }
 
 }  // namespace

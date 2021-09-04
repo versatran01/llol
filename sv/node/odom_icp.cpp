@@ -1,7 +1,7 @@
 #include "sv/llol/cost.h"
 #include "sv/node/odom_node.h"
 #include "sv/node/viz.h"
-#include "sv/util/solver2.h"
+#include "sv/util/solver.h"
 
 namespace sv {
 
