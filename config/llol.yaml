@@ -1,12 +1,12 @@
 imuq:
   buffer_size: 20
   imu_rate: 100.0
-  acc_noise: 0.05
-  acc_bias_noise: 0.005
-  acc_bias_std: 0.01
-  gyr_noise: 0.005
-  gyr_bias_noise: 0.0005
-  gyr_bias_std: 0.002
+  acc_noise: 0.003
+  acc_bias_noise: 0.003
+  acc_bias_std: 0.003
+  gyr_noise: 0.0003
+  gyr_bias_noise: 0.0003
+  gyr_bias_std: 0.0003
 traj:
   use_acc: false
 grid:
@@ -29,4 +29,4 @@ pano:
   min_range: 0.5
   range_ratio: 0.1
   align_gravity: true
-rigid: false
+rigid: true

@@ -91,12 +91,12 @@ ImuQueue InitImuq(const ros::NodeHandle& pnh) {
   const auto buf_size = pnh.param<int>("buffer_size", 20);
   ImuQueue imuq(buf_size);
 
-  const auto dt = 1.0 / pnh.param<double>("imu_rate", 100.0);
+  const auto rate = pnh.param<double>("imu_rate", 100.0);
   const auto acc_noise = pnh.param<double>("acc_noise", 1e-2);
   const auto gyr_noise = pnh.param<double>("gyr_noise", 1e-3);
   const auto acc_bias_noise = pnh.param<double>("acc_bias_noise", 1e-3);
   const auto gyr_bias_noise = pnh.param<double>("gyr_bias_noise", 1e-4);
-  imuq.noise = {dt, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
+  imuq.noise = {rate, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
   const auto acc_bias_std = pnh.param<double>("acc_bias_std", 1e-2);
   const auto gyr_bias_std = pnh.param<double>("gry_bias_std", 1e-3);
   imuq.bias = {acc_bias_std, gyr_bias_std};

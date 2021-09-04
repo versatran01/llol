@@ -48,6 +48,12 @@ struct ImuData {
 };
 using ImuBuffer = boost::circular_buffer<ImuData>;
 
+Sophus::SO3d IntegrateRot(const Sophus::SO3d& rot,
+                          const ImuData& imu0,
+                          const ImuData& imu1,
+                          double time,
+                          double dt);
+
 /// Integrate nav state one step, assume de-biased imu data
 /// @param s0 is current state, imu is imu data, g is gravity in fixed frame
 void IntegrateEuler(const NavState& s0,
@@ -69,7 +75,7 @@ struct ImuNoise {
   enum Index { kNa = 0, kNw = 3, kNba = 6, kNbw = 9 };
 
   ImuNoise() = default;
-  ImuNoise(double dt,
+  ImuNoise(double rate,
            double acc_noise,
            double gyr_noise,
            double acc_bias_noise,
@@ -89,7 +95,7 @@ struct ImuNoise {
 };
 
 /// @brief Get the index of the imu right after time t
-int FindNextImu(const ImuBuffer& buf, double t);
+int GetImuIndexAfterTime(const ImuBuffer& buf, double t);
 
 struct ImuQueue {
   ImuQueue() = default;
@@ -114,11 +120,11 @@ struct ImuQueue {
 
   /// @brief At
   const ImuData& RawAt(int i) const { return buf.at(i); }
-  ImuData DebiasedAt(int i) const;
+  ImuData DebiasedAt(int i) const { return buf.at(i).DeBiased(bias); }
 
   /// @brief Get index into buffer with time rgith next to t
   /// @return -1 if not found
-  int IndexAfter(double t) const;
+  int IndexAfter(double t) const { return GetImuIndexAfterTime(buf, t); }
 
   /// @brief Update bias given optimized trajectory
   int UpdateBias(const std::vector<NavState>& states);

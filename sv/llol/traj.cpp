@@ -50,50 +50,50 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
   // starting col of the previous grid. Since we add a new scan to the grid, the
   // starting point is shifted by n. We need to adjust the states such that the
   // new starting point matches the current grid.
+  // In the case of adding a full sweep, this will just make the last state the
+  // new beginning state
   PopOldest(n);
 
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
-  CHECK_GE(ibuf, 0) << fmt::format(
-      "No imu found after {}. Imu buffer size is {}, and the first imu in "
-      "buffer has time {}",
+  CHECK_GT(ibuf, 0) << fmt::format(
+      "No imu found right before {}. Imu buffer size is {}, and the first imu "
+      "in buffer has time {}",
       t0,
       imuq.size(),
       imuq.RawAt(0).time);
 
   const int ibuf0 = ibuf;
 
-  // Now try to fill in the last n poses
+  // Find the state to start prediction
   const int ist0 = size() - n - 1;
   CHECK_GE(ist0, 0);
-  auto& st0 = At(ist0);
-  st0.time = t0;
-  //  st0.vel.setZero();
+  states.at(ist0).time = t0;  // update its time
+  const auto& st0 = At(ist0);
+
+  auto imu0 = imuq.DebiasedAt(ibuf - 1);
+  auto imu1 = imuq.DebiasedAt(ibuf);
 
   for (int i = ist0 + 1; i < size(); ++i) {
     const auto ti = t0 + dt * i;
-    // increment ibuf if it is ealier than current cell time
-    if (imuq.RawAt(ibuf).time < ti) {
+    // increment ibuf if it is ealier than current cell end time
+    if (imuq.RawAt(ibuf).time < ti && ibuf < imuq.size() - 1) {
       ++ibuf;
+      imu0 = imu1;
+      imu1 = imuq.DebiasedAt(ibuf);
     }
-    // make sure it is always valid
-    if (ibuf >= imuq.size()) {
-      ibuf = imuq.size() - 1;
-    }
-
-    const auto imu = imuq.DebiasedAt(ibuf);
 
     const auto& prev = At(i - 1);
     auto& curr = At(i);
 
     if (use_acc_) {
-      IntegrateEuler(prev, imu, g_pano, dt, curr);
+      IntegrateEuler(prev, imu1, g_pano, dt, curr);
     } else {
       curr.time = prev.time + dt;
       // do not propagate translation
       curr.pos = st0.pos;
       curr.vel = st0.vel;
-      curr.rot = prev.rot * SO3d::exp(imu.gyr * dt);
+      curr.rot = IntegrateRot(prev.rot, imu0, imu1, prev.time, dt);
     }
   }
 

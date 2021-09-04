@@ -92,7 +92,7 @@ NavState IntegrateMidpoint(const NavState& s0,
   return s1;
 }
 
-int FindNextImu(const ImuBuffer& buf, double t) {
+int GetImuIndexAfterTime(const ImuBuffer& buf, double t) {
   int ibuf = -1;
   for (int i = 0; i < buf.size(); ++i) {
     if (buf.at(i).time > t) {
@@ -103,19 +103,19 @@ int FindNextImu(const ImuBuffer& buf, double t) {
   return ibuf;
 }
 
-ImuNoise::ImuNoise(double dt,
+ImuNoise::ImuNoise(double rate,
                    double acc_noise,
                    double gyr_noise,
                    double acc_bias_noise,
                    double gyr_bias_noise) {
-  CHECK_GT(dt, 0);
+  CHECK_GT(rate, 0);
 
   // Follows kalibr imu noise model
   // https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model
-  sigma2.segment<3>(kNa).setConstant(Sq(acc_noise) / dt);
-  sigma2.segment<3>(kNw).setConstant(Sq(gyr_noise) / dt);
-  sigma2.segment<3>(kNba).setConstant(Sq(acc_bias_noise) * dt);
-  sigma2.segment<3>(kNbw).setConstant(Sq(gyr_bias_noise) * dt);
+  sigma2.segment<3>(kNa).setConstant(Sq(acc_noise) * rate);
+  sigma2.segment<3>(kNw).setConstant(Sq(gyr_noise) * rate);
+  sigma2.segment<3>(kNba).setConstant(Sq(acc_bias_noise) / rate);
+  sigma2.segment<3>(kNbw).setConstant(Sq(gyr_bias_noise) / rate);
 }
 
 std::string ImuNoise::Repr() const {
@@ -143,18 +143,14 @@ void sv::ImuQueue::Add(const ImuData& imu) {
   bias.gyr_var += noise.nbw();
 }
 
-ImuData ImuQueue::DebiasedAt(int i) const { return buf.at(i).DeBiased(bias); }
-
-int ImuQueue::IndexAfter(double t) const { return FindNextImu(buf, t); }
-
 int ImuQueue::UpdateBias(const std::vector<NavState>& states) {
-  // TODO (chao): for now only update gyro bias
   const auto t0 = states.front().time;
   const auto t1 = states.back().time;
   const auto dt_state = (t1 - t0) / (states.size() - 1);
+  CHECK_GT(dt_state, 0);
 
   // Find next imu
-  int ibuf = FindNextImu(buf, t0);
+  int ibuf = GetImuIndexAfterTime(buf, t0);
   CHECK_LE(0, ibuf);
 
   MeanVar3d bw;
@@ -196,6 +192,7 @@ ImuData ImuQueue::CalcMean() const {
   return mean;
 }
 
+/// ImuPreintegration ==========================================================
 int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {
   CHECK_LT(t0, t1);
 
@@ -285,6 +282,23 @@ void ImuPreintegration::Integrate(double dt,
   gamma *= dgamma;
   duration += dt;
   ++n;
+}
+
+SO3d IntegrateRot(const SO3d& rot,
+                  const ImuData& imu0,
+                  const ImuData& imu1,
+                  double time,
+                  double dt) {
+  Vector3d omg;
+  if (time < imu0.time) {
+    omg = imu0.gyr;
+  } else if (time > imu1.time) {
+    omg = imu1.gyr;
+  } else {
+    const auto s = (time - imu0.time) / (imu1.time - imu0.time);
+    omg = (1 - s) * imu0.gyr + s * imu1.gyr;
+  }
+  return rot * SO3d::exp(omg * dt);
 }
 
 // void ImuPreintegration::Integrate(double dt,

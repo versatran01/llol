@@ -10,7 +10,7 @@ namespace sv {
 namespace {
 
 TEST(ImuTest, TestImuNoise) {
-  ImuNoise noise(0.1, 1, 2, 3, 4);
+  ImuNoise noise(10, 1, 2, 3, 4);
   std::cout << noise << std::endl;
 
   EXPECT_DOUBLE_EQ(noise.sigma2(ImuNoise::kNa), 10);
@@ -27,9 +27,10 @@ TEST(ImuTest, TestFindNextImu) {
     buffer.push_back(d);
   }
 
-  EXPECT_EQ(FindNextImu(buffer, 15), -1);
-  EXPECT_EQ(FindNextImu(buffer, 0), 1);
-  EXPECT_EQ(FindNextImu(buffer, 0.5), 1);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 0), 1);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 0.5), 1);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 1.5), 2);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 15), -1);
 }
 
 TEST(ImuTest, TestImuPreintegration) {
@@ -69,9 +70,9 @@ TEST(ImuTest, TestImuPreintegration2) {
   preint.Compute(imuq, 0, 0.05);
   EXPECT_EQ(preint.n, 5);
   EXPECT_EQ(preint.duration, 0.05);
-  LOG(INFO) << "\n" << preint.F;
-  LOG(INFO) << "\n" << preint.P;
-  LOG(INFO) << "\n" << preint.U;
+  //  LOG(INFO) << "\n" << preint.F;
+  //  LOG(INFO) << "\n" << preint.P;
+  //  LOG(INFO) << "\n" << preint.U;
 }
 
 void BM_InterpRot(benchmark::State& state) {

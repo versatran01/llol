@@ -56,6 +56,7 @@ void OdomNode::IcpRigid() {
     // Update state
     // accumulate e
     err_sum += err;
+    const Cost::State<double> ess(err_sum.data());
 
     const Cost::State<double> es(err.data());
     const auto eR = Sophus::SO3d::exp(es.r0());
@@ -69,9 +70,16 @@ void OdomNode::IcpRigid() {
       }
     }
 
-    ROS_WARN_STREAM("Velocity: " << traj_.states.back().vel.transpose()
+    ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
+                                << ", norm: " << ess.r0().norm()
+                                << ", err_trans: " << ess.p0().transpose()
+                                << ", norm: " << ess.p0().norm());
+    ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()
                                  << ", norm: "
                                  << traj_.states.back().vel.norm());
+
+    imuq_.UpdateBias(traj_.states);
+    ROS_WARN_STREAM("gyro_bias: " << imuq_.bias.gyr.transpose());
 
     if (vis_) {
       // display good match
