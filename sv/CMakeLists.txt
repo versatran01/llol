@@ -151,7 +151,7 @@ cc_bench(
 cc_library(
   NAME llol_cost
   SRCS "llol/cost.cpp"
-  DEPS sv_llol_grid Ceres::ceres)
+  DEPS sv_llol_grid )
 cc_test(
   NAME llol_cost_test
   SRCS "llol/cost_test.cpp"

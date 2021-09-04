@@ -53,25 +53,25 @@ Cost MakeCost() {
   return c;
 }
 
-TEST(CostTest, TestJacobian) {
-  Cost c = MakeCost();
+//TEST(CostTest, TestJacobian) {
+//  Cost c = MakeCost();
 
-  Eigen::Vector3d x0;
-  x0.setZero();
-  Eigen::Vector3d r0;
-  Eigen::Matrix3d J0;
-  c(x0.data(), r0.data(), J0.data());
+//  Eigen::Vector3d x0;
+//  x0.setZero();
+//  Eigen::Vector3d r0;
+//  Eigen::Matrix3d J0;
+//  c(x0.data(), r0.data(), J0.data());
 
-  Eigen::Vector3d x1;
-  x1.setZero();
-  Eigen::Vector3d r1;
-  Eigen::Matrix3d J1;
-  AdCost<Cost> adc(c);
-  adc(x1.data(), r1.data(), J1.data());
+//  Eigen::Vector3d x1;
+//  x1.setZero();
+//  Eigen::Vector3d r1;
+//  Eigen::Matrix3d J1;
+//  AdCost<Cost> adc(c);
+//  adc(x1.data(), r1.data(), J1.data());
 
-  EXPECT_TRUE(x0.isApprox(x1));
-  EXPECT_TRUE(J0.isApprox(J1));
-}
+//  EXPECT_TRUE(x0.isApprox(x1));
+//  EXPECT_TRUE(J0.isApprox(J1));
+//}
 
 void BM_CostManual(benchmark::State& state) {
   Cost c = MakeCost();
@@ -88,21 +88,21 @@ void BM_CostManual(benchmark::State& state) {
 }
 BENCHMARK(BM_CostManual);
 
-void BM_CostAutodiff(benchmark::State& state) {
-  Cost c = MakeCost();
-  AdCost<Cost> adc(c);
+//void BM_CostAutodiff(benchmark::State& state) {
+//  Cost c = MakeCost();
+//  AdCost<Cost> adc(c);
 
-  Eigen::Vector3d x0;
-  x0.setZero();
-  Eigen::Vector3d r0;
-  Eigen::Matrix3d J0;
+//  Eigen::Vector3d x0;
+//  x0.setZero();
+//  Eigen::Vector3d r0;
+//  Eigen::Matrix3d J0;
 
-  for (auto _ : state) {
-    adc(x0.data(), r0.data(), J0.data());
-    benchmark::DoNotOptimize(r0);
-  }
-}
-BENCHMARK(BM_CostAutodiff);
+//  for (auto _ : state) {
+//    adc(x0.data(), r0.data(), J0.data());
+//    benchmark::DoNotOptimize(r0);
+//  }
+//}
+//BENCHMARK(BM_CostAutodiff);
 
 }  // namespace
 }  // namespace sv

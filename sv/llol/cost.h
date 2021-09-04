@@ -1,8 +1,5 @@
 #pragma once
 
-#include <ceres/tiny_solver_autodiff_function.h>
-#include <tbb/parallel_for.h>
-
 #include "sv/llol/grid.h"
 #include "sv/llol/imu.h"
 
@@ -160,9 +157,5 @@ struct GicpLinearCost2 final : public GicpCost {
 //  const Trajectory* const ptraj;
 //  ImuPreintegration preint;
 //};
-
-template <typename F>
-using AdCost =
-    ceres::TinySolverAutoDiffFunction<F, Eigen::Dynamic, F::kNumParams>;
 
 }  // namespace sv

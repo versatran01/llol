@@ -1,6 +1,7 @@
 #include "sv/llol/cost.h"
 
 #include <glog/logging.h>
+#include <tbb/parallel_for.h>
 
 namespace sv {
 
