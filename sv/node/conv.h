@@ -1,11 +1,11 @@
 #pragma once
 
+#include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Transform.h>
 #include <ros/node_handle.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/Imu.h>
-#include <tf2_eigen/tf2_eigen.h>
 
 #include "sv/llol/gicp.h"
 #include "sv/llol/grid.h"

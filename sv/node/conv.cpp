@@ -83,8 +83,8 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
 }
 
 Trajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
-  Trajectory traj(grid_cols + 1);
-  return traj;
+  const auto use_acc = pnh.param<bool>("use_acc", false);
+  return Trajectory{grid_cols + 1, use_acc};
 }
 
 ImuQueue InitImuq(const ros::NodeHandle& pnh) {

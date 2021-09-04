@@ -198,10 +198,16 @@ if(catkin_FOUND AND BUILD_NODE)
     SRCS "node/viz.cpp"
     DEPS sv_llol_grid sv_llol_pano sv_ros1 opencv_highgui opencv_imgproc)
 
+  cc_library(
+    NAME node_pcl
+    SRCS "node/pcl.cpp"
+    DEPS sv_llol_sweep sv_llol_pano sv_ros1)
+
   cc_binary(
     NAME node_odom
-    SRCS "node/odom.cpp" "node/register.cpp"
-    DEPS sv_node_conv sv_node_viz sv_util_manager sv_util_solver)
+    SRCS "node/odom_main.cpp" "node/odom.cpp" "node/odom_pub.cpp"
+         "node/odom_icp.cpp"
+    DEPS sv_node_conv sv_node_viz sv_node_pcl sv_util_manager sv_util_solver)
 endif()
 
 # sim ==========================================================================

@@ -11,11 +11,16 @@ using SO3d = Sophus::SO3d;
 using SE3d = Sophus::SE3d;
 using Quaterniond = Eigen::Quaterniond;
 
+Trajectory::Trajectory(int size, bool use_acc) : use_acc_{use_acc} {
+  states.resize(size);
+}
+
 std::string Trajectory::Repr() const {
   return fmt::format(
-      "Trajectory(size={}, g_pano=[{}], \nT_imu_lidar=\n{}\n, "
+      "Trajectory(size={}, use_acc={}, g_pano=[{}], \nT_imu_lidar=\n{}\n, "
       "T_odom_pano=\n{}\n)",
       size(),
+      use_acc_,
       g_pano.transpose(),
       T_imu_lidar.matrix3x4(),
       T_odom_pano.matrix3x4());

@@ -1,20 +1,14 @@
 #pragma once
 
 #include <geometry_msgs/PoseArray.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 
 #include "sv/llol/grid.h"
-#include "sv/llol/pano.h"
 
 namespace sv {
-
-using CloudXYZ = pcl::PointCloud<pcl::PointXYZ>;
-using CloudXYZI = pcl::PointCloud<pcl::PointXYZI>;
 
 /// @brief Apply color map to mat
 /// @details input must be 1-channel, assume after scale the max will be 1
@@ -39,13 +33,5 @@ void Grid2Markers(const SweepGrid& grid,
                   std::vector<visualization_msgs::Marker>& markers);
 
 void Traj2PoseArray(const Trajectory& traj, geometry_msgs::PoseArray& parray);
-
-void Pano2Cloud(const DepthPano& pano,
-                const std_msgs::Header header,
-                CloudXYZ& cloud);
-
-void Sweep2Cloud(const LidarSweep& sweep,
-                 const std_msgs::Header header,
-                 CloudXYZI& cloud);
 
 }  // namespace sv

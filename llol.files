@@ -55,7 +55,11 @@ sv/node/conv.h
 sv/node/cov_viz.cpp
 sv/node/odom.cpp
 sv/node/odom.h
-sv/node/register.cpp
+sv/node/odom_icp.cpp
+sv/node/odom_main.cpp
+sv/node/odom_pub.cpp
+sv/node/pcl.cpp
+sv/node/pcl.h
 sv/node/viz.cpp
 sv/node/viz.h
 sv/sim/doctest.h

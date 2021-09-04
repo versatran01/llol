@@ -8,7 +8,7 @@ namespace sv {
 /// @todo for now only integrate gyro for rotation
 struct Trajectory {
   Trajectory() = default;
-  explicit Trajectory(int size) { states.resize(size); }
+  explicit Trajectory(int size, bool use_acc = false);
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const Trajectory& rhs) {
@@ -37,6 +37,9 @@ struct Trajectory {
 
   Sophus::SE3d TfOdomLidar() const;
   Sophus::SE3d TfPanoLidar() const;
+
+  /// Params
+  bool use_acc_{};
 
   /// Data
   Eigen::Vector3d g_pano;        // gravity vector in pano frame

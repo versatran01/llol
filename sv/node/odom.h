@@ -2,10 +2,7 @@
 
 #include <image_transport/image_transport.h>
 #include <ros/node_handle.h>
-#include <ros/publisher.h>
 #include <ros/subscriber.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_ros/transform_listener.h>
 
 #include "sv/node/conv.h"
 #include "sv/util/manager.h"
@@ -18,17 +15,6 @@ struct OdomNode {
   image_transport::ImageTransport it_;
   image_transport::CameraSubscriber sub_camera_;
   ros::Subscriber sub_imu_;
-  ros::Publisher pub_traj_;
-  ros::Publisher pub_path_;
-  ros::Publisher pub_odom_;
-  ros::Publisher pub_pose_;
-  ros::Publisher pub_pano_;
-  ros::Publisher pub_grid_;
-  ros::Publisher pub_sweep_;
-  ros::Publisher pub_imu_bias_;
-  tf2_ros::Buffer tf_buffer_;
-  tf2_ros::TransformListener tf_listener_;
-  tf2_ros::TransformBroadcaster tf_broadcaster_;
 
   /// params
   bool vis_{true};
@@ -63,11 +49,11 @@ struct OdomNode {
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
   void Publish(const std_msgs::Header& header);
 
-  void Preprocess(const LidarScan& scan);
   void Init(const sensor_msgs::CameraInfo& cinfo_msg);
-  void Register();
-  void Register2();
-  void Register3();
+  void Preprocess(const LidarScan& scan);
+  void IcpRigid();
+  void IcpLinear();
   void PostProcess(const LidarScan& scan);
 };
+
 }  // namespace sv
