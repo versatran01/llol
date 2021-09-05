@@ -120,10 +120,11 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
 }
 
 bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1) {
+  // TODO (chao): change 5 to something sensible
   if (num_added <= max_cnt + 5) return false;
 
   // TODO (chao): compare to average scene depth?
-  const bool trans_too_big = tf_p2_p1.translation().squaredNorm() > 4;
+  const bool trans_too_big = tf_p2_p1.translation().squaredNorm() > 2;
   if (trans_too_big) return true;
 
   // Do not check rotation if pano is gravity aligned
@@ -194,7 +195,7 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
 
   auto& p = dbuf2.at<DepthPixel>(px);
   if (p.raw == 0) {
-    p.SetRangeCount(rg, cnt / 2 + 1);
+    p.SetRangeCount(rg, cnt / 2 + 2);
     return true;
   }
 

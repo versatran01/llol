@@ -37,12 +37,18 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 
   if (tf_init_) return;
 
-  if (!lidar_init_) {
+  if (lidar_frame_.empty()) {
     ROS_WARN_STREAM("Lidar not initialized");
     return;
   }
 
-  // tf stuff
+  if (!imuq_.full()) {
+    ROS_WARN_STREAM(fmt::format(
+        "Imu queue not full: {}/{}", imuq_.size(), imuq_.capacity()));
+    return;
+  }
+
+  // Get tf between imu and lidar and initialize gravity direction
   try {
     const auto tf_i_l = tf_buffer_.lookupTransform(
         imu_msg.header.frame_id, lidar_frame_, ros::Time(0));
@@ -55,7 +61,16 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     // Just use current acc
     ROS_INFO_STREAM("buffer size: " << imuq_.size());
     const auto imu_mean = imuq_.CalcMean();
-    traj_.Init({q_i_l, t_i_l}, imu.acc, 9.80184);
+    const auto& imu0 = imuq_.buf.front();
+
+    ROS_INFO_STREAM("acc_first: " << imu0.acc.transpose()
+                                  << ", norm: " << imu0.acc.norm());
+    ROS_INFO_STREAM("acc_curr: " << imu.acc.transpose()
+                                 << ", norm: " << imu.acc.norm());
+    ROS_INFO_STREAM("acc_mean: " << imu_mean.acc.transpose()
+                                 << ", norm: " << imu_mean.acc.norm());
+
+    traj_.Init({q_i_l, t_i_l}, imu_mean.acc, 9.80184);
     //    imuq_.bias.gyr = imu_mean.gyr;
     //    imuq_.bias.gyr_var = imu_mean.gyr.array().square();
     ROS_INFO_STREAM(traj_);
@@ -85,19 +100,15 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                         const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
   if (lidar_frame_.empty()) {
     lidar_frame_ = image_msg->header.frame_id;
-    ROS_INFO_STREAM("Lidar frame: " << lidar_frame_);
-  }
-
-  // Allocate storage for sweep, grid and matcher
-  if (!lidar_init_) {
+    // Allocate storage for sweep, grid and matcher
     Init(*cinfo_msg);
-    lidar_init_ = true;
+    ROS_INFO_STREAM("Lidar frame: " << lidar_frame_);
     ROS_INFO_STREAM("Lidar initialized!");
   }
 
   if (!imuq_.full()) {
     ROS_WARN_STREAM(fmt::format(
-        "Imu buffer not full: {}/{}", imuq_.size(), imuq_.capacity()));
+        "Imu queue not full: {}/{}", imuq_.size(), imuq_.capacity()));
     return;
   }
 
@@ -202,7 +213,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     // Render pano at the latest lidar pose wrt pano (T_p1_p2 = T_p1_lidar)
     pano_.Render(T_p2_p1.cast<float>(), tbb_);
     // Once rendering is done we need to update traj accordingly
-    traj_.Update(T_p2_p1);
+    traj_.MoveFrame(T_p2_p1);
   }
 
   int n_points = 0;

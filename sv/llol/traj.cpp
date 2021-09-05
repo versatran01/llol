@@ -11,6 +11,22 @@ using SO3d = Sophus::SO3d;
 using SE3d = Sophus::SE3d;
 using Quaterniond = Eigen::Quaterniond;
 
+void KalmanUpdate(Vector3d& x,
+                  Vector3d& P,
+                  const Vector3d& z,
+                  const Vector3d& R) {
+  // y = z - x^
+  const Vector3d y = z - x;
+  // S = P + R
+  const Vector3d S = P + R;
+  // K = P * S^-1
+  const Vector3d K = P.cwiseQuotient(S);
+  // x = x + K * y
+  x += K.cwiseProduct(y);
+  // P = P - K * P
+  P -= K.cwiseProduct(P);
+}
+
 Trajectory::Trajectory(int size, bool use_acc) : use_acc_{use_acc} {
   states.resize(size);
 }
@@ -87,13 +103,13 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
     auto& curr = At(i);
 
     if (use_acc_) {
-      IntegrateEuler(prev, imu1, g_pano, dt, curr);
+      IntegrateState(prev, imu0, imu1, g_pano, dt, curr);
     } else {
       curr.time = prev.time + dt;
-      // do not propagate translation
+      // Assume pos and vel stay the same as the starting point
       curr.pos = st0.pos;
       curr.vel = st0.vel;
-      curr.rot = IntegrateRot(prev.rot, imu0, imu1, prev.time, dt);
+      curr.rot = IntegrateRot(prev.rot, prev.time, imu0, imu1, dt);
     }
   }
 
@@ -106,7 +122,7 @@ void Trajectory::PopOldest(int n) {
   std::rotate(states.begin(), states.begin() + n, states.end());
 }
 
-void Trajectory::Update(const Sophus::SE3d& tf_p2_p1) {
+void Trajectory::MoveFrame(const Sophus::SE3d& tf_p2_p1) {
   // 1. Update all states into the new pano frame (identity)
   // T_p2_i = T_p2_p1 * T_p1_i
   //  = [R_21, p_21] * [R_1i, p_1i] = [R_21 * R_1i, R_21 * p_1i + p_21]
@@ -120,6 +136,53 @@ void Trajectory::Update(const Sophus::SE3d& tf_p2_p1) {
   // 3. Update gravity in pano frame (rotation only)
   // g_p2 = R_p2_p1 * g_p1
   g_pano = tf_p2_p1.so3() * g_pano;
+}
+
+int Trajectory::UpdateBias(ImuQueue& imuq) {
+  const auto t0 = states.front().time;
+  const auto t1 = states.back().time;
+  const auto dt_state = (t1 - t0) / (states.size() - 1);
+  CHECK_GT(dt_state, 0);
+
+  // Find next imu
+  int ibuf = imuq.IndexAfter(t0);
+  CHECK_LE(0, ibuf);
+
+  MeanVar3d bw{};
+  MeanVar3d ba{};
+
+  while (ibuf < imuq.size()) {
+    // Get an imu and try to find its left and right state
+    const auto& imu = imuq.RawAt(ibuf);
+    const int ist = (imu.time - t0) / dt_state;
+    if (ist + 1 >= states.size()) break;
+
+    const auto& st0 = states.at(ist);
+    const auto& st1 = states.at(ist + 1);
+
+    // Compute expected gyr measurement by finite difference
+    const auto R0_t = st0.rot.inverse();
+    const Vector3d w_b = (R0_t * st1.rot).log() / dt_state;
+    // w_t = w_m - b_w -> b_w = w_m - w_t
+    const Vector3d gyr_diff = imu.gyr - w_b;
+    bw.Add(gyr_diff);
+
+    // Compute expected acc_w by finite difference
+    const Vector3d a_w = (st1.vel - st0.vel) / dt_state;
+    // Transform to expected body acc
+    const Vector3d a_b = R0_t * (a_w + g_pano);
+    const Vector3d acc_diff = imu.acc - a_b;
+    ba.Add(acc_diff);
+
+    ++ibuf;
+  }
+
+  auto& bias = imuq.bias;
+  KalmanUpdate(bias.gyr, bias.gyr_var, bw.mean, bw.Var());
+  if (use_acc_) {
+    KalmanUpdate(bias.acc, bias.acc_var, ba.mean, ba.Var());
+  }
+  return bw.n;
 }
 
 SE3d Trajectory::TfPanoLidar() const {

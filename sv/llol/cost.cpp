@@ -33,12 +33,13 @@ void GicpCost::UpdateMatches(const SweepGrid& grid) {
 void GicpCost::UpdatePreint(const Trajectory& traj, const ImuQueue& imuq) {
   ptraj = &traj;
   preint.Reset();
-  const int n_imus =
-      preint.Compute(imuq, traj.states.front().time, traj.states.back().time);
+  preint.Compute(imuq, traj.states.front().time, traj.states.back().time);
 }
 
-bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
-  const State<double> es(_x);
+bool GicpRigidCost::operator()(const double* x_ptr,
+                               double* r_ptr,
+                               double* J_ptr) const {
+  const State<double> es(x_ptr);
   const Sophus::SE3d eT{Sophus::SO3d::exp(es.r0()), es.p0()};
 
   tbb::parallel_for(
@@ -53,11 +54,11 @@ bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
           const auto pt_p_hat = tf_p_g * pt_g;
 
           const int ri = kResidualDim * i;
-          Eigen::Map<Vector3d> r(_r + ri);
+          Eigen::Map<Vector3d> r(r_ptr + ri);
           r = U * (pt_p - eT * pt_p_hat);
 
-          if (_J) {
-            Eigen::Map<MatrixXd> J(_J, NumResiduals(), kNumParams);
+          if (J_ptr) {
+            Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
             J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
             J.block<3, 3>(ri, Block::kP0 * 3) = -U;
           }
@@ -67,10 +68,10 @@ bool GicpRigidCost::operator()(const double* _x, double* _r, double* _J) const {
   return true;
 }
 
-bool GicpLinearCost::operator()(const double* _x,
-                                double* _r,
-                                double* _J) const {
-  const State<double> es(_x);
+bool GicpLinearCost::operator()(const double* x_ptr,
+                                double* r_ptr,
+                                double* J_ptr) const {
+  const State<double> es(x_ptr);
   const auto eR = Sophus::SO3d::exp(es.r0());
   const Vector3d ep = es.p0();
 
@@ -84,21 +85,27 @@ bool GicpLinearCost::operator()(const double* _x,
           const auto pt_g = match.mc_g.mean.cast<double>().eval();
           const auto tf_p_g = pgrid->TfAt(c).cast<double>();
           const auto pt_p_hat = tf_p_g * pt_g;
+          // +0.5 is because we assume point is at cell center
           const double s = (c + 0.5) / pgrid->cols();
 
           const int ri = kResidualDim * i;
-          Eigen::Map<Vector3d> r(_r + ri);
+          Eigen::Map<Vector3d> r(r_ptr + ri);
           r = U * (pt_p - (eR * pt_p_hat + s * ep));
 
-          if (_J) {
-            Eigen::Map<MatrixXd> J(_J, NumResiduals(), kNumParams);
+          if (J_ptr) {
+            Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
             J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
             J.block<3, 3>(ri, Block::kP0 * 3) = -s * U;
           }
         }
       });
 
-  const int gicp_residuals = matches.size() * kResidualDim;
+  if (ptraj == nullptr) return true;
+
+  // We don't need to zero out residual and jacobian because they are
+  // initialized to zero and assuming imu_weight doesn't change, they will stay
+  // zero so won't affect optimization
+  if (imu_weight == 0) return true;
 
   const auto dt = preint.duration;
   const auto dt2 = dt * dt;
@@ -114,13 +121,15 @@ bool GicpLinearCost::operator()(const double* _x,
   const Vector3d dp = st0.vel * dt - 0.5 * g * dt2;
   const Vector3d alpha = R0_t * (p1 - p0 - dp);
 
-  Eigen::Map<Vector3d> r_alpha(_r + gicp_residuals);
-  const Matrix3d Ua = preint.U.topLeftCorner<3, 3>() * imu_scale;
+  const int gicp_residuals = matches.size() * kResidualDim;
+  Eigen::Map<Vector3d> r_alpha(r_ptr + gicp_residuals);
+  const Matrix3d Ua = preint.U.topLeftCorner<3, 3>() * imu_weight;
+  // alpha = R0^T (p1 - p0 - v0 * dt + 0.5 * g * dt2)
   r_alpha = Ua * (alpha - preint.alpha);
 
-  if (_J) {
+  if (J_ptr) {
     const auto R0_t_mat = R0_t.matrix();
-    Eigen::Map<MatrixXd> J(_J, NumResiduals(), kNumParams);
+    Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
     J.block<3, 3>(gicp_residuals, Block::kR0 * 3) =
         Ua * R0_t_mat * Hat3((ep - dp).eval());
     J.block<3, 3>(gicp_residuals, Block::kP0 * 3) = Ua * R0_t_mat;

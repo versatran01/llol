@@ -27,6 +27,8 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   static auto pub_traj = pnh_.advertise<PoseArray>("traj", 1);
   static auto pub_pose = pnh_.advertise<PoseStamped>("pose", 1);
   static auto pub_bias = pnh_.advertise<sensor_msgs::Imu>("imu_bias", 1);
+  static auto pub_bias_std =
+      pnh_.advertise<sensor_msgs::Imu>("imu_bias_std", 1);
 
   static auto pub_pano = pnh_.advertise<CloudXYZ>("pano", 1);
   static auto pub_sweep = pnh_.advertise<CloudXYZ>("sweep", 1);
@@ -79,6 +81,12 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   tf2::toMsg(imuq_.bias.acc, imu_bias.linear_acceleration);
   tf2::toMsg(imuq_.bias.gyr, imu_bias.angular_velocity);
   pub_bias.publish(imu_bias);
+
+  sensor_msgs::Imu imu_bias_std;
+  imu_bias_std.header = imu_bias.header;
+  tf2::toMsg(imuq_.bias.acc_var.cwiseSqrt(), imu_bias_std.linear_acceleration);
+  tf2::toMsg(imuq_.bias.gyr_var.cwiseSqrt(), imu_bias_std.angular_velocity);
+  pub_bias_std.publish(imu_bias_std);
 
   // publish latest traj as path
   static Path path;

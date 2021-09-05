@@ -32,7 +32,6 @@ struct ImuBias {
 
   Eigen::Vector3d acc{kVecZero3d};
   Eigen::Vector3d gyr{kVecZero3d};
-
   Eigen::Vector3d acc_var{kVecZero3d};
   Eigen::Vector3d gyr_var{kVecZero3d};
 };
@@ -49,9 +48,9 @@ struct ImuData {
 using ImuBuffer = boost::circular_buffer<ImuData>;
 
 Sophus::SO3d IntegrateRot(const Sophus::SO3d& rot,
+                          double time,
                           const ImuData& imu0,
                           const ImuData& imu1,
-                          double time,
                           double dt);
 
 /// Integrate nav state one step, assume de-biased imu data
@@ -62,10 +61,14 @@ void IntegrateEuler(const NavState& s0,
                     double dt,
                     NavState& s1);
 
-NavState IntegrateMidpoint(const NavState& s0,
-                           const ImuData& imu0,
-                           const ImuData& imu1,
-                           const Eigen::Vector3d& g);
+/// Integrate nav state for dt, assume de-biased imu data
+/// @param s0 is current state, imu is imu data, g is gravity in fixed frame
+void IntegrateState(const NavState& s0,
+                    const ImuData& imu0,
+                    const ImuData& imu1,
+                    const Eigen::Vector3d& g,
+                    double dt,
+                    NavState& s1);
 
 /// @brief Discrete time IMU noise
 struct ImuNoise {
@@ -86,10 +89,11 @@ struct ImuNoise {
     return os << rhs.Repr();
   }
 
-  auto na() const { return Vec3CMap{sigma2.data() + Index::kNa}; }
-  auto nw() const { return Vec3CMap{sigma2.data() + Index::kNw}; }
-  auto nba() const { return Vec3CMap{sigma2.data() + Index::kNba}; }
-  auto nbw() const { return Vec3CMap{sigma2.data() + Index::kNbw}; }
+  /// d means discrete-time
+  auto nad() const { return Vec3CMap{sigma2.data() + Index::kNa}; }
+  auto nwd() const { return Vec3CMap{sigma2.data() + Index::kNw}; }
+  auto nbad() const { return Vec3CMap{sigma2.data() + Index::kNba}; }
+  auto nbwd() const { return Vec3CMap{sigma2.data() + Index::kNbw}; }
 
   Vector12d sigma2{Vector12d::Zero()};  // discrete time noise covar
 };
@@ -125,9 +129,6 @@ struct ImuQueue {
   /// @brief Get index into buffer with time rgith next to t
   /// @return -1 if not found
   int IndexAfter(double t) const { return GetImuIndexAfterTime(buf, t); }
-
-  /// @brief Update bias given optimized trajectory
-  int UpdateBias(const std::vector<NavState>& states);
 
   /// @brief Compute mean imu data
   ImuData CalcMean() const;

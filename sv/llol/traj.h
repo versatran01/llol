@@ -33,7 +33,10 @@ struct Trajectory {
   void PopOldest(int n);
 
   /// @brief Update internal state given new transform
-  void Update(const Sophus::SE3d& tf_p2_p1);
+  void MoveFrame(const Sophus::SE3d& tf_p2_p1);
+
+  /// @brief Update bias given optimized trajectory
+  int UpdateBias(ImuQueue& imuq);
 
   Sophus::SE3d TfOdomLidar() const;
   Sophus::SE3d TfPanoLidar() const;

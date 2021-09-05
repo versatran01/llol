@@ -26,7 +26,6 @@ struct OdomNode {
   bool rigid_{false};
   bool tf_init_{false};
   bool scan_init_{false};
-  bool lidar_init_{false};
   bool traj_updated_{false};
 
   /// frames

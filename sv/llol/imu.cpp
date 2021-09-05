@@ -43,6 +43,18 @@ ImuData ImuData::DeBiased(const ImuBias& bias) const {
   return out;
 }
 
+SO3d IntegrateRot(const SO3d& rot,
+                  double time,
+                  const ImuData& imu0,
+                  const ImuData& imu1,
+                  double dt) {
+  const auto time_mid = time + dt / 2.0;
+  const auto s =
+      std::clamp((time_mid - imu0.time) / (imu1.time - imu0.time), 0.0, 1.0);
+  const Vector3d omg = (1 - s) * imu0.gyr + s * imu1.gyr;
+  return rot * SO3d::exp(omg * dt);
+}
+
 void IntegrateEuler(const NavState& s0,
                     const ImuData& imu,
                     const Vector3d& g,
@@ -66,30 +78,29 @@ void IntegrateEuler(const NavState& s0,
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt * dt;
 }
 
-NavState IntegrateMidpoint(const NavState& s0,
-                           const ImuData& imu0,
-                           const ImuData& imu1,
-                           const Vector3d& g) {
-  NavState s1 = s0;
-  const auto dt = imu1.time - imu0.time;
+void IntegrateState(const NavState& s0,
+                    const ImuData& imu0,
+                    const ImuData& imu1,
+                    const Eigen::Vector3d& g,
+                    double dt,
+                    NavState& s1) {
   CHECK_GT(dt, 0);
   const auto dt2 = dt * dt;
-
-  // t
   s1.time = s0.time + dt;
 
-  // gyro
-  const auto omg_b = (imu0.gyr + imu1.gyr) * 0.5;
-  s1.rot = s0.rot * SO3d::exp(omg_b * dt);
+  const auto time_mid = s0.time + dt / 2.0;
+  const auto s =
+      std::clamp((time_mid - imu0.time) / (imu1.time - imu0.time), 0.0, 1.0);
+  // Integrate rotation first
+  const Vector3d omg = (1 - s) * imu0.gyr + s * imu1.gyr;
+  s1.rot = s0.rot * SO3d::exp(omg * dt);
 
   // acc
   const Vector3d a0 = s0.rot * imu0.acc;
   const Vector3d a1 = s1.rot * imu1.acc;
-  const Vector3d a = (a0 + a1) * 0.5 + g;
+  const Vector3d a = (1 - s) * a0 + s * a1 - g;
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt2;
-
-  return s1;
 }
 
 int GetImuIndexAfterTime(const ImuBuffer& buf, double t) {
@@ -110,8 +121,9 @@ ImuNoise::ImuNoise(double rate,
                    double gyr_bias_noise) {
   CHECK_GT(rate, 0);
 
-  // Follows kalibr imu noise model
+  // Follows kalibr imu noise model also VectorNav material
   // https://github.com/ethz-asl/kalibr/wiki/IMU-Noise-Model
+  // https://www.vectornav.com/resources/inertial-navigation-primer/specifications--and--error-budgets/specs-imuspecs
   sigma2.segment<3>(kNa).setConstant(Sq(acc_noise) * rate);
   sigma2.segment<3>(kNw).setConstant(Sq(gyr_noise) * rate);
   sigma2.segment<3>(kNba).setConstant(Sq(acc_bias_noise) / rate);
@@ -139,50 +151,14 @@ std::string ImuQueue::Repr() const {
 void sv::ImuQueue::Add(const ImuData& imu) {
   buf.push_back(imu);
   // Also propagate covariance for bias model
-  bias.acc_var += noise.nba();
-  bias.gyr_var += noise.nbw();
-}
-
-int ImuQueue::UpdateBias(const std::vector<NavState>& states) {
-  const auto t0 = states.front().time;
-  const auto t1 = states.back().time;
-  const auto dt_state = (t1 - t0) / (states.size() - 1);
-  CHECK_GT(dt_state, 0);
-
-  // Find next imu
-  int ibuf = GetImuIndexAfterTime(buf, t0);
-  CHECK_LE(0, ibuf);
-
-  MeanVar3d bw;
-  MeanVar3d ba;
-
-  while (ibuf < size()) {
-    // Get an imu and try to find its left and right state
-    const auto& imu = RawAt(ibuf);
-    const int ist = (imu.time - t0) / dt_state;
-    if (ist + 1 >= states.size()) break;
-
-    const auto& st0 = states.at(ist);
-    const auto& st1 = states.at(ist + 1);
-    const Vector3d gyr_hat = (st0.rot.inverse() * st1.rot).log() / dt_state;
-    // w_t = w_m - b_w -> b_w = w_m - w_t
-    bw.Add(imu.gyr - gyr_hat);
-
-    ++ibuf;
-  }
-
-  // Simple kalman update
-  const Vector3d y = bw.mean - bias.gyr;
-  const Vector3d S = bias.gyr_var + bw.Var();
-  const Vector3d K = bias.gyr_var.cwiseProduct(S.cwiseInverse());
-  bias.gyr += K.cwiseProduct(y);
-  bias.gyr_var -= K.cwiseProduct(bias.gyr_var);
-
-  return bw.n;
+  bias.acc_var += noise.nbad();
+  bias.gyr_var += noise.nbwd();
 }
 
 ImuData ImuQueue::CalcMean() const {
   ImuData mean;
+  // Use last imu time
+  mean.time = buf.back().time;
   for (const auto& imu : buf) {
     mean.acc += imu.acc;
     mean.gyr += imu.gyr;
@@ -282,23 +258,6 @@ void ImuPreintegration::Integrate(double dt,
   gamma *= dgamma;
   duration += dt;
   ++n;
-}
-
-SO3d IntegrateRot(const SO3d& rot,
-                  const ImuData& imu0,
-                  const ImuData& imu1,
-                  double time,
-                  double dt) {
-  Vector3d omg;
-  if (time < imu0.time) {
-    omg = imu0.gyr;
-  } else if (time > imu1.time) {
-    omg = imu1.gyr;
-  } else {
-    const auto s = (time - imu0.time) / (imu1.time - imu0.time);
-    omg = (1 - s) * imu0.gyr + s * imu1.gyr;
-  }
-  return rot * SO3d::exp(omg * dt);
 }
 
 // void ImuPreintegration::Integrate(double dt,

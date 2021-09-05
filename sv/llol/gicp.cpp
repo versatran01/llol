@@ -17,7 +17,8 @@ bool PointInSize(const cv::Point& p, const cv::Size& size) {
 GicpSolver::GicpSolver(const GicpParams& params)
     : iters{params.outer, params.inner},
       cov_lambda{params.cov_lambda},
-      max_dist{params.half_rows / 2, params.half_rows / 2} {
+      max_dist{params.half_rows / 2, params.half_rows / 2},
+      imu_weight{params.imu_weight} {
   pano_win.height = params.half_rows * 2 + 1;  // 5
   pano_win.width = params.half_rows * 4 + 1;   // 9
   pano_min_pts = (params.half_rows + 1) * pano_win.width;
@@ -26,11 +27,12 @@ GicpSolver::GicpSolver(const GicpParams& params)
 std::string GicpSolver::Repr() const {
   return fmt::format(
       "GicpSolver(outer={}, inner={}, cov_lambda={}, min_pano_pts={}, "
-      "pano_win={}, max_dist={})",
+      "imu_weight={}, pano_win={}, max_dist={})",
       iters.first,
       iters.second,
       cov_lambda,
       pano_min_pts,
+      imu_weight,
       sv::Repr(pano_win),
       sv::Repr(max_dist));
 }
