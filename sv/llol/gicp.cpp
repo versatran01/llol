@@ -102,7 +102,7 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
   match.CalcSqrtInfo(cov_lambda);
   match.scale = weight / pano_win.area();  // we kept this for visualizaiton
-  match.U *= std::sqrt(match.scale);
+  match.U *= std::sqrt(match.scale / std::log1p(rg_p));
   //  match.CalcSqrtInfo(T_p_g.rotationMatrix(), cov_lambda);
   return 1;
 }

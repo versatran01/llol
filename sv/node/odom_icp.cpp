@@ -73,7 +73,7 @@ void OdomNode::IcpRigid() {
 
   const Cost::State<double> ess(err_sum.data());
   ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
-                              << ", norm: " << ess.r0().norm() << "\n");
+                              << ", norm: " << ess.r0().norm());
   ROS_WARN_STREAM("err_pos: " << ess.p0().transpose()
                               << ", norm: " << ess.p0().norm());
   ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()
@@ -168,7 +168,7 @@ void OdomNode::IcpLinear() {
 
   const Cost::State<double> ess(err_sum.data());
   ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
-                              << ", norm: " << ess.r0().norm() << "\n");
+                              << ", norm: " << ess.r0().norm());
   ROS_WARN_STREAM("err_pos: " << ess.p0().transpose()
                               << ", norm: " << ess.p0().norm());
   ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()

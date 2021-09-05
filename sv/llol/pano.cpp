@@ -44,7 +44,8 @@ int DepthPano::Add(const LidarSweep& sweep, const cv::Range& curr, int gsize) {
   gsize = gsize <= 0 ? sweep.rows() : gsize;
 
   // increment added sweep
-  num_added += static_cast<float>(curr.size()) / cols();
+  num_added += static_cast<float>(curr.size()) / sweep.cols();
+
   return tbb::parallel_reduce(
       tbb::blocked_range<int>(0, sweep.rows(), gsize),
       0,

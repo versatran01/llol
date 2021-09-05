@@ -248,7 +248,6 @@ void ImuPreintegration::Integrate(double dt,
   F.block<3, 3>(Index::kAlpha, Index::kBeta) = kMatEye3d * dt;
   F.block<3, 3>(Index::kBeta, Index::kTheta) = -Rmat * Hat3(a) * dt;
   F.block<3, 3>(Index::kBeta, Index::kBa) = -Rmat * dt;
-  //  F.block<3, 3>(Index::kTheta, Index::kTheta) = kMatEye3d - Hat3(w) * dt;
   F.block<3, 3>(Index::kTheta, Index::kTheta) = SO3d::exp(-w * dt).matrix();
   F.block<3, 3>(Index::kTheta, Index::kBw) = -kMatEye3d * dt;
 

@@ -23,8 +23,8 @@ gicp:
   min_eigval: 0.0
   imu_weight: 1.0
 pano:
-  rows: 384
-  cols: 1536
+  rows: 256
+  cols: 1024
   vfov: 0.0
   max_cnt: 20
   min_range: 0.5
