@@ -81,9 +81,9 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   }
 
   // Check distance between new pix and old pix
-  if (PointInSize(px_p - match.px_p, max_dist) && match.PanoOk()) {
+  if (px_p == match.px_p && match.PanoOk()) {
     //  if (px_p == match.px_p && match.PanoOk()) {
-    // If new and old are close and pano match is ok
+    // If new and old are the same and pano match is ok
     // we reuse this match and there is no need to recompute
     return 1;
   }

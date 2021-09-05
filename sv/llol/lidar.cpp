@@ -3,6 +3,7 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 
+#include "sv/util/math.h"
 #include "sv/util/ocv.h"
 
 namespace sv {
@@ -55,7 +56,7 @@ cv::Point3f LidarModel::Backward(int r, int c, float rg) const {
 
 int LidarModel::ToRow(float z, float r) const {
   const float elev = std::asin(z / r);
-  return static_cast<int>((elev_max - elev) / elev_delta + 0.5F);
+  return std::round((elev_max - elev) / elev_delta);
 }
 
 int LidarModel::ToCol(float x, float y) const {

@@ -76,7 +76,7 @@ void Grid2Markers(const SweepGrid& grid,
 
       if (match.Ok()) {
         pano_mk.action = Marker::ADD;
-        pano_mk.color.a = match.scale;  // use scale for alpha
+        pano_mk.color.a = match.scale * .75;  // use scale for alpha
         const auto pt_p = match.mc_p.mean.cast<double>().eval();
         auto pano_cov = match.mc_p.Covar().cast<double>().eval();
         pano_cov.diagonal().array() += eps;
