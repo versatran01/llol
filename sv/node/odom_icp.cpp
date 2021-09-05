@@ -69,27 +69,26 @@ void OdomNode::IcpRigid() {
         st1.vel = (st1.pos - st0.pos) / (st1.time - st0.time);
       }
     }
+  }
 
-    const Cost::State<double> ess(err_sum.data());
-    ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
-                                << ", norm: " << ess.r0().norm()
-                                << ", err_trans: " << ess.p0().transpose()
-                                << ", norm: " << ess.p0().norm());
-    ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()
-                                 << ", norm: "
-                                 << traj_.states.back().vel.norm());
+  const Cost::State<double> ess(err_sum.data());
+  ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
+                              << ", norm: " << ess.r0().norm() << "\n");
+  ROS_WARN_STREAM("err_pos: " << ess.p0().transpose()
+                              << ", norm: " << ess.p0().norm());
+  ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()
+                               << ", norm: " << traj_.states.back().vel.norm());
 
-    traj_.UpdateBias(imuq_);
-    ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-    ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+  traj_.UpdateBias(imuq_);
+  ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
+  ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
 
-    if (vis_) {
-      // display good match
-      Imshow("match",
-             ApplyCmap(grid_.DrawMatch(),
-                       1.0 / gicp_.pano_win.area(),
-                       cv::COLORMAP_VIRIDIS));
-    }
+  if (vis_) {
+    // display good match
+    Imshow("match",
+           ApplyCmap(grid_.DrawMatch(),
+                     1.0 / gicp_.pano_win.area(),
+                     cv::COLORMAP_VIRIDIS));
   }
 
   t_match.Commit();
@@ -151,9 +150,6 @@ void OdomNode::IcpLinear() {
     // Update state
     // accumulate e
     err_sum += err;
-    ROS_WARN_STREAM("err_sum: " << err_sum.transpose()
-                                << " , rot: " << err_sum.head<3>().norm()
-                                << ", trans: " << err_sum.tail<3>().norm());
 
     const Cost::State<double> es(err.data());
     const auto eR = Sophus::SO3d::exp(es.r0());
@@ -168,27 +164,26 @@ void OdomNode::IcpLinear() {
         st1.vel = (st1.pos - st0.pos) / (st1.time - st0.time);
       }
     }
+  }
 
-    const Cost::State<double> ess(err_sum.data());
-    ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
-                                << ", norm: " << ess.r0().norm()
-                                << ", err_trans: " << ess.p0().transpose()
-                                << ", norm: " << ess.p0().norm());
-    ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()
-                                 << ", norm: "
-                                 << traj_.states.back().vel.norm());
+  const Cost::State<double> ess(err_sum.data());
+  ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
+                              << ", norm: " << ess.r0().norm() << "\n");
+  ROS_WARN_STREAM("err_pos: " << ess.p0().transpose()
+                              << ", norm: " << ess.p0().norm());
+  ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()
+                               << ", norm: " << traj_.states.back().vel.norm());
 
-    traj_.UpdateBias(imuq_);
-    ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-    ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+  traj_.UpdateBias(imuq_);
+  ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
+  ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
 
-    if (vis_) {
-      // display good match
-      Imshow("match",
-             ApplyCmap(grid_.DrawMatch(),
-                       1.0 / gicp_.pano_win.area(),
-                       cv::COLORMAP_VIRIDIS));
-    }
+  if (vis_) {
+    // display good match
+    Imshow("match",
+           ApplyCmap(grid_.DrawMatch(),
+                     1.0 / gicp_.pano_win.area(),
+                     cv::COLORMAP_VIRIDIS));
   }
 
   t_match.Commit();

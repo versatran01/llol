@@ -54,12 +54,12 @@ TEST(ImuTest, TestImuPreintegration) {
   EXPECT_EQ(preint.duration, 5);
 }
 
-TEST(ImuTest, TestImuPreintegration2) {
+TEST(ImuTest, TestImuPreintegrationPrint) {
   ImuQueue imuq;
   for (int i = 0; i < 10; ++i) {
     ImuData imu;
-    imu.acc = Eigen::Vector3d::Random() * 0.1;
-    imu.gyr = Eigen::Vector3d::Random() * 0.02;
+    imu.acc = Eigen::Vector3d::Ones() * 0.1;
+    imu.gyr = Eigen::Vector3d::Ones() * 0.02;
     imu.time = i * 0.01;
     imuq.Add(imu);
   }
@@ -68,6 +68,28 @@ TEST(ImuTest, TestImuPreintegration2) {
   LOG(INFO) << imuq.noise;
 
   ImuPreintegration preint;
+  preint.Compute(imuq, 0, 0.1);
+  EXPECT_EQ(preint.n, 10);
+  EXPECT_EQ(preint.duration, 0.1);
+  LOG(INFO) << "F\n" << preint.F;
+  LOG(INFO) << "P\n" << preint.P;
+  LOG(INFO) << "U\n" << preint.U;
+}
+
+TEST(ImuTest, TestImuPreintegrationPrint2) {
+  ImuQueue imuq;
+  for (int i = 0; i < 10; ++i) {
+    ImuData imu;
+    imu.acc = Eigen::Vector3d::Ones() * 0.1;
+    imu.gyr = Eigen::Vector3d::Ones() * 0.02;
+    imu.time = i * 0.01;
+    imuq.Add(imu);
+  }
+
+  imuq.noise = ImuNoise(100.0, 1e-3, 1e-4, 1e-4, 1e-5);
+  LOG(INFO) << imuq.noise;
+
+  ImuPreintegration2 preint;
   preint.Compute(imuq, 0, 0.1);
   EXPECT_EQ(preint.n, 10);
   EXPECT_EQ(preint.duration, 0.1);

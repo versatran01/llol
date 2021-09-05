@@ -71,8 +71,11 @@ TEST(LidarTest, TestToRow) {
 TEST(LidarTest, TestToCol) {
   const LidarModel lm{{8, 2}};
   EXPECT_FLOAT_EQ(lm.azim_delta, Deg2Rad(360.0F / 8));
-  // TODO (chao): fix this!!!
-  EXPECT_EQ(lm.elevs[0].sin, std::sin(Deg2Rad(22.5)));
+
+  EXPECT_FLOAT_EQ(lm.azims.front().sin, std::sin(Deg2Rad(-22.5F)));
+  EXPECT_FLOAT_EQ(lm.azims.front().cos, std::cos(Deg2Rad(-22.5F)));
+  EXPECT_FLOAT_EQ(lm.azims.back().sin, std::sin(Deg2Rad(22.5F)));
+  EXPECT_FLOAT_EQ(lm.azims.back().cos, std::cos(Deg2Rad(22.5F)));
 
   EXPECT_EQ(lm.ToCol(1.0, 0.0), 8);
   EXPECT_EQ(lm.ToCol(1.0, 0.01), 7);

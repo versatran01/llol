@@ -49,8 +49,10 @@ SO3d IntegrateRot(const SO3d& rot,
                   const ImuData& imu1,
                   double dt) {
   const auto time_mid = time + dt / 2.0;
+  // Find interpolation factor
   const auto s =
       std::clamp((time_mid - imu0.time) / (imu1.time - imu0.time), 0.0, 1.0);
+  // Linearly interpolate between two gyro measurements
   const Vector3d omg = (1 - s) * imu0.gyr + s * imu1.gyr;
   return rot * SO3d::exp(omg * dt);
 }
@@ -95,9 +97,10 @@ void IntegrateState(const NavState& s0,
   const Vector3d omg = (1 - s) * imu0.gyr + s * imu1.gyr;
   s1.rot = s0.rot * SO3d::exp(omg * dt);
 
-  // acc
+  // Given the two rotations, rotate both acc measurements into world frame
   const Vector3d a0 = s0.rot * imu0.acc;
   const Vector3d a1 = s1.rot * imu1.acc;
+  // a is world frame acceleration without gravity
   const Vector3d a = (1 - s) * a0 + s * a1 - g;
   s1.vel = s0.vel + a * dt;
   s1.pos = s0.pos + s0.vel * dt + 0.5 * a * dt2;
@@ -141,7 +144,7 @@ std::string ImuNoise::Repr() const {
 }
 
 std::string ImuQueue::Repr() const {
-  return fmt::format("ImuQueue(size={}, capacity={}, bias={}, noise={}",
+  return fmt::format("ImuQueue(size={}/{}, bias={}, noise={}",
                      size(),
                      capacity(),
                      bias,
@@ -150,9 +153,13 @@ std::string ImuQueue::Repr() const {
 
 void sv::ImuQueue::Add(const ImuData& imu) {
   buf.push_back(imu);
-  // Also propagate covariance for bias model
-  bias.acc_var += noise.nbad();
-  bias.gyr_var += noise.nbwd();
+  if (!buf.empty()) {
+    const auto dt = imu.time - buf[size() - 2].time;
+    const auto dt2 = dt * dt;
+    // Also propagate covariance for bias model
+    bias.acc_var += noise.nbad() * dt2;
+    bias.gyr_var += noise.nbwd() * dt2;
+  }
 }
 
 ImuData ImuQueue::CalcMean() const {
@@ -171,7 +178,6 @@ ImuData ImuQueue::CalcMean() const {
 /// ImuPreintegration ==========================================================
 int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {
   CHECK_LT(t0, t1);
-
   const int ibuf0 = imuq.IndexAfter(t0);
   CHECK_LE(0, ibuf0);
 
@@ -260,46 +266,86 @@ void ImuPreintegration::Integrate(double dt,
   ++n;
 }
 
-// void ImuPreintegration::Integrate(double dt,
-//                                  const ImuData& imu0,
-//                                  const ImuData& imu1,
-//                                  const ImuNoise& noise) {
-//  CHECK_GT(dt, 0);
-//  const auto dt2 = Sq(dt);
+int ImuPreintegration2::Compute(const ImuQueue& imuq, double t0, double t1) {
+  CHECK_LT(t0, t1);
+  const int ibuf0 = imuq.IndexAfter(t0);
+  CHECK_GT(ibuf0, 0);
 
-//  const Vector3d w = (imu0.gyr + imu1.gyr) / 2.0;
-//  const auto dgamma = Sophus::SO3d::exp(w * dt);
-//  const auto gamma1 = gamma * dgamma;
+  // Keep integrate till we reach either the last imu or one right before t1
+  double t = t0;
+  int ibuf = ibuf0;
 
-//  const auto& a0 = imu0.acc;
-//  const Vector3d ga = (gamma * imu0.acc + gamma1 * imu1.acc) / 2.0;
+  while (true) {
+    // This imu must exist
+    const auto imu = imuq.DebiasedAt(ibuf);
+    Integrate(imu.time - t, imu, imuq.noise);
+    t = imu.time;
 
-//  const auto dbeta = ga * dt;
-//  const auto dalpha = beta * dt + ga * dt2 * 0.5;
+    // stop if we are at the last imu
+    if (ibuf + 1 == imuq.size()) break;
+    // or if next imu time is later than t1
+    if (imuq.RawAt(ibuf + 1).time >= t1) break;
+    // above ensures that ibuf should be valid
 
-//  // vins-mono eq 9
-//  // [0  I        0    0   0]
-//  // [0  0  -R*[a]x   -R   0]
-//  // [0  0    -[w]x    0  -I]
-//  // last two rows are all zeros
-//  const auto Rmat = gamma.matrix();
-//  F.block<3, 3>(Index::ALPHA, Index::BETA) = kIdent3;
-//  F.block<3, 3>(Index::BETA, Index::THETA) = -Rmat * Hat3(a0);
-//  F.block<3, 3>(Index::BETA, Index::BA) = -Rmat;
-//  F.block<3, 3>(Index::THETA, Index::THETA) = -Hat3(w);
-//  F.block<3, 3>(Index::THETA, Index::BW) = -kIdent3;
+    ++ibuf;
+  }
 
-//  // vins-mono eq 10
-//  // Update covariance
-//  P = F * P * F.transpose() * dt2;
-//  P.diagonal().tail<12>() += noise.sigma2;
+  // Use the imu at ibuf to finish integrating to t1
+  const auto imu = imuq.DebiasedAt(ibuf);
+  Integrate(t1 - imu.time, imu, imuq.noise);
 
-//  // Update measurement
-//  alpha += dalpha;
-//  beta += dbeta;
-//  gamma *= dgamma;
-//  duration += dt;
-//  ++n;
-//}
+  // Compute sqrt info
+  U = MatrixSqrtUtU(P.inverse().eval());
+
+  return n;
+}
+
+void ImuPreintegration2::Reset() {
+  duration = 0;
+  n = 0;
+  alpha.setZero();
+  beta.setZero();
+  gamma = SO3d{};
+  F.setIdentity();
+  P.setZero();
+  U.setZero();
+}
+
+void ImuPreintegration2::Integrate(double dt,
+                                   const ImuData& imu,
+                                   const ImuNoise& noise) {
+  // Assumes imu is already debiased
+  CHECK_GT(dt, 0);
+  const auto dt2 = dt * dt;
+
+  const auto& a = imu.acc;
+  const auto& w = imu.gyr;
+  const Vector3d ga = gamma * a;
+
+  // vins-mono eq 7
+  const auto dgamma = SO3d::exp(w * dt);
+  const Vector3d dbeta = ga * dt;
+  const Vector3d dalpha = beta * dt + 0.5 * ga * dt2;
+
+  const auto Rmat = gamma.matrix();
+  F.block<3, 3>(Index::kAlpha, Index::kBeta) = kMatEye3d * dt;
+  F.block<3, 3>(Index::kAlpha, Index::kTheta) = -0.5 * Rmat * Hat3(a) * dt2;
+  F.block<3, 3>(Index::kBeta, Index::kTheta) = -Rmat * Hat3(a) * dt;
+  F.block<3, 3>(Index::kTheta, Index::kTheta) = SO3d::exp(-w * dt).matrix();
+
+  P = F * P * F.transpose();
+  P.topLeftCorner<3, 3>().diagonal() += 0.25 * dt2 * noise.nad();
+  P.block<3, 3>(3, 3).diagonal() += noise.nad();
+  P.block<3, 3>(0, 3).diagonal() += noise.nad() * dt * 0.5;
+  P.block<3, 3>(3, 0).diagonal() += noise.nad() * dt * 0.5;
+  P.bottomRightCorner<3, 3>().diagonal() += noise.nwd();
+
+  // Update measurement
+  alpha += dalpha;
+  beta += dbeta;
+  gamma *= dgamma;
+  duration += dt;
+  ++n;
+}
 
 }  // namespace sv

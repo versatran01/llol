@@ -159,4 +159,27 @@ struct ImuPreintegration {
   Matrix15d U{Matrix15d::Zero()};      // Square root information matrix
 };
 
+struct ImuPreintegration2 {
+  static constexpr int kDim = 9;
+  using Matrix9d = Eigen::Matrix<double, kDim, kDim>;
+  enum Index { kAlpha = 0, kBeta = 3, kTheta = 6 };
+
+  /// @brief Compute measurement for imu trajectory
+  int Compute(const ImuQueue& imuq, double t0, double t1);
+  void Reset();
+  void Integrate(double dt, const ImuData& imu, const ImuNoise& noise);
+
+  /// Data
+  int n{0};           // number of times integrated
+  double duration{};  // duration of integration
+
+  Eigen::Vector3d alpha{kVecZero3d};
+  Eigen::Vector3d beta{kVecZero3d};
+  Sophus::SO3d gamma{};
+
+  Matrix9d F{Matrix9d::Identity()};  // State transition matrix discrete time
+  Matrix9d P{Matrix9d::Zero()};      // Covariance matrix
+  Matrix9d U{Matrix9d::Zero()};      // Square root information matrix
+};
+
 }  // namespace sv

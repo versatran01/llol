@@ -2,18 +2,18 @@ imuq:
   buffer_size: 20
   imu_rate: 100.0
   acc_noise: 0.005
-  acc_bias_noise: 0.001
-  acc_bias_std: 0.05
+  acc_bias_noise: 0.0005
+  acc_bias_std: 0.005
   gyr_noise: 0.0005
-  gyr_bias_noise: 0.0001
-  gyr_bias_std: 0.005
+  gyr_bias_noise: 0.00005
+  gyr_bias_std: 0.0005
 traj:
   use_acc: true
 grid:
   cell_rows: 2
   cell_cols: 8
-  max_curve: 0.1
-  max_var: 0.1
+  max_curve: 0.01
+  max_var: 0.01
   nms: true
 gicp:
   outer: 2
@@ -23,8 +23,8 @@ gicp:
   min_eigval: 0.0
   imu_weight: 1.0
 pano:
-  rows: 256
-  cols: 1024
+  rows: 384
+  cols: 1536
   vfov: 0.0
   max_cnt: 20
   min_range: 0.5

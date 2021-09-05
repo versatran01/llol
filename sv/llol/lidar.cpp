@@ -24,7 +24,7 @@ LidarModel::LidarModel(const cv::Size& size_in, float vfov) : size{size_in} {
 
   elevs.resize(size.height);
   for (int i = 0; i < size.height; ++i) {
-    elevs[i] = SinCosF{elev_max - i  * elev_delta};
+    elevs[i] = SinCosF{elev_max - i * elev_delta};
   }
 
   azims.resize(size.width);
