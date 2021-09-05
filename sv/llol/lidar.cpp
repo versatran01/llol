@@ -24,12 +24,12 @@ LidarModel::LidarModel(const cv::Size& size_in, float vfov) : size{size_in} {
 
   elevs.resize(size.height);
   for (int i = 0; i < size.height; ++i) {
-    elevs[i] = SinCosF{elev_max - i * elev_delta};
+    elevs[i] = SinCosF{elev_max - i  * elev_delta};
   }
 
   azims.resize(size.width);
   for (int i = 0; i < size.width; ++i) {
-    azims[i] = SinCosF{kTauF - i * azim_delta};
+    azims[i] = SinCosF{kTauF - (i + 0.5F) * azim_delta};
   }
 }
 
@@ -61,7 +61,7 @@ int LidarModel::ToRow(float z, float r) const {
 
 int LidarModel::ToCol(float x, float y) const {
   const float azim = std::atan2(y, -x) + kPiF;
-  return static_cast<int>(azim / azim_delta + 0.5F);
+  return static_cast<int>(azim / azim_delta);
 }
 
 std::string LidarModel::Repr() const {

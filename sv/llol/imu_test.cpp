@@ -56,7 +56,7 @@ TEST(ImuTest, TestImuPreintegration) {
 
 TEST(ImuTest, TestImuPreintegration2) {
   ImuQueue imuq;
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < 10; ++i) {
     ImuData imu;
     imu.acc = Eigen::Vector3d::Random() * 0.1;
     imu.gyr = Eigen::Vector3d::Random() * 0.02;
@@ -64,15 +64,16 @@ TEST(ImuTest, TestImuPreintegration2) {
     imuq.Add(imu);
   }
 
-  imuq.noise = ImuNoise(0.01, 1e-3, 1e-4, 1e-4, 1e-5);
+  imuq.noise = ImuNoise(100.0, 1e-3, 1e-4, 1e-4, 1e-5);
+  LOG(INFO) << imuq.noise;
 
   ImuPreintegration preint;
-  preint.Compute(imuq, 0, 0.05);
-  EXPECT_EQ(preint.n, 5);
-  EXPECT_EQ(preint.duration, 0.05);
-  LOG(INFO) << "\n" << preint.F;
-  LOG(INFO) << "\n" << preint.P;
-  LOG(INFO) << "\n" << preint.U;
+  preint.Compute(imuq, 0, 0.1);
+  EXPECT_EQ(preint.n, 10);
+  EXPECT_EQ(preint.duration, 0.1);
+  LOG(INFO) << "F\n" << preint.F;
+  LOG(INFO) << "P\n" << preint.P;
+  LOG(INFO) << "U\n" << preint.U;
 }
 
 void BM_InterpRot(benchmark::State& state) {

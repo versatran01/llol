@@ -29,7 +29,7 @@ TEST(LidarTest, TestInside) {
   EXPECT_EQ(lm.ColInside(1024), false);
 }
 
-TEST(LidarTest, TestToRowToCol) {
+TEST(LidarTest, TestToRow) {
   const LidarModel lm{{32, 8}, Deg2Rad(70.0F)};
   EXPECT_EQ(lm.elev_max, Deg2Rad(35.0F));
   EXPECT_EQ(lm.elev_delta, Deg2Rad(10.0F));
@@ -66,6 +66,26 @@ TEST(LidarTest, TestToRowToCol) {
 
   EXPECT_EQ(lm.ToRow(std::sin(Deg2Rad(-40.01F)), 1), 8);
   EXPECT_EQ(lm.ToRow(std::sin(Deg2Rad(-45.0F)), 1), 8);
+}
+
+TEST(LidarTest, TestToCol) {
+  const LidarModel lm{{8, 2}};
+  EXPECT_FLOAT_EQ(lm.azim_delta, Deg2Rad(360.0F / 8));
+  // TODO (chao): fix this!!!
+  EXPECT_EQ(lm.elevs[0].sin, std::sin(Deg2Rad(22.5)));
+
+  EXPECT_EQ(lm.ToCol(1.0, 0.0), 8);
+  EXPECT_EQ(lm.ToCol(1.0, 0.01), 7);
+  EXPECT_EQ(lm.ToCol(1.0, -0.01), 0);
+  EXPECT_EQ(lm.ToCol(1.0, -0.99), 0);
+  EXPECT_EQ(lm.ToCol(1.0, -1.0), 1);
+  EXPECT_EQ(lm.ToCol(0.01, -1.0), 1);
+  EXPECT_EQ(lm.ToCol(0.0, -1.0), 2);
+  EXPECT_EQ(lm.ToCol(-1.0, -1.0), 3);
+  EXPECT_EQ(lm.ToCol(-1.0, 0.0), 4);
+  EXPECT_EQ(lm.ToCol(-1.0, 1.0), 5);
+  EXPECT_EQ(lm.ToCol(0.0, 1.0), 6);
+  EXPECT_EQ(lm.ToCol(1.0, 1.0), 7);
 }
 
 }  // namespace
