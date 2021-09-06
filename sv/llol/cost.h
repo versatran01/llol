@@ -46,7 +46,6 @@ struct GicpCost {
 struct GicpRigidCost final : public GicpCost {
   using GicpCost::GicpCost;
   bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
-
   void UpdateTraj(Trajectory& traj, const double* x_ptr) const override;
 };
 

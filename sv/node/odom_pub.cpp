@@ -23,7 +23,6 @@ using visualization_msgs::MarkerArray;
 
 void OdomNode::Publish(const std_msgs::Header& header) {
   static auto pub_path = pnh_.advertise<Path>("path", 1);
-  static auto pub_odom = pnh_.advertise<Odometry>("odom", 1);
   static auto pub_traj = pnh_.advertise<PoseArray>("traj", 1);
   static auto pub_pose = pnh_.advertise<PoseStamped>("pose", 1);
   static auto pub_bias = pnh_.advertise<sensor_msgs::Imu>("imu_bias", 1);
@@ -45,66 +44,74 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   tf_broadcaster.sendTransform(tf_o_p);
 
   static MarkerArray grid_marray;
-  std_msgs::Header grid_header;
-  grid_header.frame_id = pano_frame_;
-  grid_header.stamp = header.stamp;
-  Grid2Markers(grid_, grid_header, grid_marray.markers);
-  pub_grid.publish(grid_marray);
+  if (pub_grid.getNumSubscribers() > 0) {
+    std_msgs::Header grid_header;
+    grid_header.frame_id = pano_frame_;
+    grid_header.stamp = header.stamp;
+    Grid2Markers(grid_, grid_header, grid_marray.markers);
+    pub_grid.publish(grid_marray);
+  }
 
   // Publish as pose array
   static PoseArray traj_parray;
-  traj_parray.header.frame_id = pano_frame_;
-  traj_parray.header.stamp = header.stamp;
-  Traj2PoseArray(traj_, traj_parray);
-  pub_traj.publish(traj_parray);
+  if (pub_traj.getNumSubscribers() > 0) {
+    traj_parray.header.frame_id = pano_frame_;
+    traj_parray.header.stamp = header.stamp;
+    Traj2PoseArray(traj_, traj_parray);
+    pub_traj.publish(traj_parray);
+  }
 
   // publish undistorted sweep
   static CloudXYZI sweep_cloud;
-  std_msgs::Header sweep_header;
-  sweep_header.frame_id = pano_frame_;
-  sweep_header.stamp = header.stamp;
-  Sweep2Cloud(sweep_, sweep_header, sweep_cloud);
-  pub_sweep.publish(sweep_cloud);
+  if (pub_sweep.getNumSubscribers() > 0) {
+    std_msgs::Header sweep_header;
+    sweep_header.frame_id = pano_frame_;
+    sweep_header.stamp = header.stamp;
+    Sweep2Cloud(sweep_, sweep_header, sweep_cloud);
+    pub_sweep.publish(sweep_cloud);
+  }
 
   // Publish pano
   static CloudXYZ pano_cloud;
-  std_msgs::Header pano_header;
-  pano_header.frame_id = pano_frame_;
-  pano_header.stamp = header.stamp;
-  Pano2Cloud(pano_, pano_header, pano_cloud);
-  pub_pano.publish(pano_cloud);
+  if (pub_pano.getNumSubscribers() > 0) {
+    std_msgs::Header pano_header;
+    pano_header.frame_id = pano_frame_;
+    pano_header.stamp = header.stamp;
+    Pano2Cloud(pano_, pano_header, pano_cloud);
+    pub_pano.publish(pano_cloud);
+  }
 
   // publish imu bias
-  sensor_msgs::Imu imu_bias;
-  imu_bias.header.stamp = header.stamp;
-  imu_bias.header.frame_id = imu_frame_;
-  tf2::toMsg(imuq_.bias.acc, imu_bias.linear_acceleration);
-  tf2::toMsg(imuq_.bias.gyr, imu_bias.angular_velocity);
-  pub_bias.publish(imu_bias);
+  static sensor_msgs::Imu imu_bias;
+  if (pub_bias.getNumSubscribers() > 0) {
+    imu_bias.header.stamp = header.stamp;
+    imu_bias.header.frame_id = imu_frame_;
+    tf2::toMsg(imuq_.bias.acc, imu_bias.linear_acceleration);
+    tf2::toMsg(imuq_.bias.gyr, imu_bias.angular_velocity);
+    pub_bias.publish(imu_bias);
+  }
 
-  sensor_msgs::Imu imu_bias_std;
-  imu_bias_std.header = imu_bias.header;
-  tf2::toMsg(imuq_.bias.acc_var.cwiseSqrt(), imu_bias_std.linear_acceleration);
-  tf2::toMsg(imuq_.bias.gyr_var.cwiseSqrt(), imu_bias_std.angular_velocity);
-  pub_bias_std.publish(imu_bias_std);
+  static sensor_msgs::Imu imu_bias_std;
+  if (pub_bias_std.getNumSubscribers() > 0) {
+    imu_bias_std.header = imu_bias.header;
+    tf2::toMsg(imuq_.bias.acc_var.cwiseSqrt(),
+               imu_bias_std.linear_acceleration);
+    tf2::toMsg(imuq_.bias.gyr_var.cwiseSqrt(), imu_bias_std.angular_velocity);
+    pub_bias_std.publish(imu_bias_std);
+  }
 
   // publish latest traj as path
   static Path path;
-  path.header.stamp = header.stamp;
-  path.header.frame_id = odom_frame_;
-  PoseStamped pose;
-  pose.header.stamp = path.header.stamp;
-  pose.header.frame_id = path.header.frame_id;
-  SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
-  path.poses.push_back(pose);
-  pub_path.publish(path);
-
-  // publish odom
-  Odometry odom;
-  odom.header = path.header;
-  odom.pose.pose = pose.pose;
-  pub_odom.publish(odom);
-  pub_pose.publish(pose);
+  if (pub_path.getNumSubscribers() > 0) {
+    path.header.stamp = header.stamp;
+    path.header.frame_id = odom_frame_;
+    PoseStamped pose;
+    pose.header.stamp = path.header.stamp;
+    pose.header.frame_id = path.header.frame_id;
+    SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
+    path.poses.push_back(pose);
+    pub_path.publish(path);
+  }
 }
 
 }  // namespace sv

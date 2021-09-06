@@ -8,11 +8,11 @@ namespace sv {
 
 std::string StatsManager::ReportStats(const std::string& name,
                                       const StatsT& stats) const {
-  std::string str = fmt::format(fmt::fg(fmt::color::orange), "[{:<16}]", name);
+  std::string str = fmt::format(fmt::fg(fmt::color::cyan), "[{:<16}]", name);
 
   str += fmt::format(
-      " n: {:<8} | sum: {:<12f} | min: {:<12e} | max: {:<12e} | "
-      "mean: {:<12} | last: {:<12f} |",
+      " n: {:<16} | sum: {:<14.4e} | min: {:<14.4f} | max: {:<14.4f} | "
+      "mean: {:<14.4f} | last: {:<14.4f} |",
       stats.count(),
       stats.sum(),
       stats.min(),
@@ -61,7 +61,7 @@ std::string TimerManager::ReportStats(const std::string& name,
   std::string str =
       fmt::format(fmt::fg(fmt::color::light_sky_blue), "[{:<16}]", name);
   str += fmt::format(
-      " n: {:<8} | sum: {:<14} | min: {:<14} | max: {:<14} | mean: {:<14} | "
+      " n: {:<16} | sum: {:<14} | min: {:<14} | max: {:<14} | mean: {:<14} | "
       "last: {:<14} |",
       stats.count(),
       stats.sum(),

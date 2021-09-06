@@ -12,12 +12,11 @@ void OdomNode::Register() {
     IcpLinear();
   }
 
-  ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
-                               << ", norm: " << traj_.back().vel.norm());
-
+  //  ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
+  //                               << ", norm: " << traj_.back().vel.norm());
   traj_.UpdateBias(imuq_);
-  ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-  ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+  //  ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
+  //  ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
 
   if (vis_) {
     // display good match
@@ -42,6 +41,9 @@ void OdomNode::IcpRigid() {
   opts.max_num_iterations = gicp_.iters.second;
   opts.gradient_tolerance = 1e-8;
 
+  int n_matches = 0;
+  int n_iters = 0;
+
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
@@ -49,13 +51,8 @@ void OdomNode::IcpRigid() {
     t_match.Resume();
     // Need to update cell tfs before match
     grid_.Interp(traj_);
-    const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
+    n_matches = gicp_.Match(grid_, pano_, tbb_);
     t_match.Stop(false);
-
-    ROS_INFO_STREAM(fmt::format("Num matches: {} / {} / {:02.2f}% ",
-                                n_matches,
-                                grid_.total(),
-                                100.0 * n_matches / grid_.total()));
 
     if (n_matches < 10) {
       ROS_WARN_STREAM("Not enough matches: " << n_matches);
@@ -72,10 +69,14 @@ void OdomNode::IcpRigid() {
     solver.Solve(cost, &err);
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
+    n_iters += solver.summary.iterations;
 
     // Update state
     cost.UpdateTraj(traj_, err.data());
   }
+
+  sm_.Get("grid.matches").Add(n_matches);
+  sm_.Get("sovler.iters").Add(n_iters);
 
   t_match.Commit();
   t_solve.Commit();

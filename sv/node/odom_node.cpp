@@ -92,6 +92,7 @@ void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
   traj_ = InitTraj({pnh_, "traj"}, grid_.cols());
   // TODO (chao): some hack so that I don't have to modify config
   if (rigid_) {
+    ROS_WARN_STREAM("Using rigid version, set acc related params to false");
     traj_.integrate_acc = false;
     traj_.update_acc_bias = false;
   }
@@ -133,8 +134,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 
   // We can always process incoming scan no matter what
   const auto scan = MakeScan(*image_msg, *cinfo_msg);
-  ROS_WARN_STREAM(
-      fmt::format("Processing scan: [{},{})", scan.curr.start, scan.curr.end));
+  ROS_WARN("Processing scan: [%d,%d)", scan.curr.start, scan.curr.end);
   // Add scan to sweep, compute score and filter
   Preprocess(scan);
 
@@ -145,6 +145,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   Publish(cinfo_msg->header);
 
   ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
+  ROS_DEBUG_STREAM_THROTTLE(0.5, sm_.ReportAll(true));
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {
@@ -154,17 +155,8 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     n_cells = grid_.Add(scan, tbb_);
   }
 
-  const int grid_total = grid_.total();
-
-  ROS_INFO_STREAM(
-      fmt::format("[Grid.Add]: valid cells: {} / {} / {:02.2f}%, "
-                  "filtered cells: {} / {} / {:02.2f}%",
-                  n_cells[0],
-                  grid_total,
-                  100.0 * n_cells[0] / grid_total,
-                  n_cells[1],
-                  grid_total,
-                  100.0 * n_cells[1] / grid_total));
+  sm_.Get("grid.valid_cells").Add(n_cells[0]);
+  sm_.Get("grid.good_cells").Add(n_cells[1]);
 
   int n_imus{};
   {  // Integarte imu to fill nominal traj
@@ -175,7 +167,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     // Predict the segment of traj corresponding to current grid
     n_imus = traj_.Predict(imuq_, t0, dt, grid_.curr.size());
   }
-  ROS_INFO_STREAM("[Imu.Predict] using imus: " << n_imus);
+  sm_.Get("traj.pred_imus").Add(n_imus);
 
   if (vis_) {
     const auto& disps = grid_.DrawCurveVar();
@@ -194,27 +186,33 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Pano.Add");
     n_added = pano_.Add(sweep_, scan.curr, tbb_);
   }
-  ROS_INFO_STREAM(
-      fmt::format("[Pano.Add] Num added: {} / {} / {:02.2f}%, pano: {}",
-                  n_added,
-                  sweep_.total(),
-                  100.0 * n_added / sweep_.total(),
-                  pano_.num_added));
+  sm_.Get("pano.add").Add(n_added);
+
+  const double match_ratio =
+      sm_.Get("grid.matches").last() / sm_.Get("grid.good_cells").last();
+  sm_.Get("grid.match_ratio").Add(match_ratio);
 
   auto T_p1_p2 = traj_.TfPanoLidar();
+  // Algin gravity means we will just set rotation to identity
   if (pano_.align_gravity) T_p1_p2.so3() = Sophus::SO3d{};
+
+  // We use the inverse from now on
   const auto T_p2_p1 = T_p1_p2.inverse();
-  if (pano_.ShouldRender(T_p2_p1)) {
-    ROS_ERROR_STREAM("Render pano at new location n: "
-                     << pano_.num_added << ", max: " << pano_.max_cnt);
+
+  int n_render = 0;
+  if (pano_.ShouldRender(T_p2_p1, match_ratio)) {
+    ROS_WARN_STREAM("Render pano at new location");
 
     // TODO (chao): need to think about how to run this in background without
     // interfering with odom
     auto _ = tm_.Scoped("Pano.Render");
     // Render pano at the latest lidar pose wrt pano (T_p1_p2 = T_p1_lidar)
-    pano_.Render(T_p2_p1.cast<float>(), tbb_);
+    n_render = pano_.Render(T_p2_p1.cast<float>(), tbb_);
     // Once rendering is done we need to update traj accordingly
     traj_.MoveFrame(T_p2_p1);
+  }
+  if (n_render > 0) {
+    sm_.Get("pano.render").Add(n_render);
   }
 
   int n_points = 0;
@@ -222,10 +220,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Sweep.Add");
     n_points = sweep_.Add(scan);
   }
-  ROS_INFO_STREAM(fmt::format("[Sweep.Add] Num added: {} / {} / {:02.2f}%",
-                              n_points,
-                              sweep_.total(),
-                              100.0 * n_points / sweep_.total()));
+  sm_.Get("sweep.add").Add(n_points);
 
   {  // Update sweep tfs for undistortion
     auto _ = tm_.Scoped("Sweep.Interp");

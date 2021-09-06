@@ -16,6 +16,8 @@ DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
       min_range{params.min_range},
       range_ratio{params.range_ratio},
       align_gravity{params.align_gravity},
+      min_match_ratio{params.min_match_ratio},
+      max_translation{params.max_translation},
       model{size, params.vfov},
       dbuf{size, CV_16UC2},
       dbuf2{size, CV_16UC2} {}
@@ -23,11 +25,14 @@ DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
 std::string DepthPano::Repr() const {
   return fmt::format(
       "DepthPano(max_cnt={}, min_range={}, range_ratio={}, align_gravity={}, "
-      "model={}, dbuf={}, pixel=(scale={}, max_range={})",
+      "min_match_ratio={}, max_translation={}, model={}, dbuf={}, "
+      "pixel=(scale={}, max_range={})",
       max_cnt,
       min_range,
       range_ratio,
       align_gravity,
+      min_match_ratio,
+      max_translation,
       model.Repr(),
       sv::Repr(dbuf),
       DepthPixel::kScale,
@@ -120,23 +125,26 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   }
 }
 
-bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1) {
-  // TODO (chao): change 5 to something sensible
-  if (num_added <= max_cnt + 5) return false;
+bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1,
+                             double match_ratio) const {
+  if (num_added <= max_cnt + 2) return false;
 
-  // TODO (chao): compare to average scene depth?
-  const bool trans_too_big = tf_p2_p1.translation().squaredNorm() > 1.5;
-  if (trans_too_big) return true;
+  // match ratio is the most important criteria
+  if (match_ratio < 0.9) return true;
 
-  // Do not check rotation if pano is gravity aligned
+  // Otherwise we have enough match, then we check translation
+  if (max_translation > 0) {
+    const auto trans_sq = tf_p2_p1.translation().squaredNorm();
+    if (trans_sq > max_translation * max_translation) return true;
+  }
+
+  // No need to check rotation if pano is gravity aligned
   if (align_gravity) return false;
 
   // cos_rp is just col z of rotation dot with e_z, which is just R22
   const auto R22 = tf_p2_p1.rotationMatrix()(2, 2);
   const auto cos_max_rp = std::cos(model.elev_max * 2.0 / 3.0);
-  const bool rot_too_big = R22 < cos_max_rp;
-
-  return rot_too_big;
+  return R22 < cos_max_rp;
 }
 
 int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {

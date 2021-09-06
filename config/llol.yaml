@@ -31,5 +31,7 @@ pano:
   max_cnt: 20
   min_range: 0.5
   range_ratio: 0.1
-  align_gravity: true
+  align_gravity: true # rerender pano in gravity aligned frame
+  min_match_ratio: 0.9
+  max_translation: 2.0
 rigid: true
