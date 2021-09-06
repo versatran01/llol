@@ -159,7 +159,8 @@ int Trajectory::UpdateBias(ImuQueue& imuq) {
     // Get an imu and try to find its left and right state
     const auto& imu = imuq.RawAt(ibuf);
     const int ist = (imu.time - t0) / dt_state;
-    if (ist + 1 >= states.size()) break;
+    // +2 to ignore last state
+    if (ist + 2 >= states.size()) break;
 
     const auto& st0 = states.at(ist);
     const auto& st1 = states.at(ist + 1);

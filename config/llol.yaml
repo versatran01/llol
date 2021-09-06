@@ -8,8 +8,8 @@ imuq:
   gyr_bias_noise: 0.00005
   gyr_bias_std: 0.0005
 traj:
-  integrate_acc: false
-  update_acc_bias: false
+  integrate_acc: true
+  update_acc_bias: true
 grid:
   cell_rows: 2
   cell_cols: 8
@@ -18,18 +18,18 @@ grid:
   nms: true
 gicp:
   outer: 2
-  inner: 3
-  half_rows: 2
-  half_cols: 6
+  inner: 4
+  half_rows: 1
+  half_cols: 7
   cov_lambda: 0.0
   min_eigval: 0.0
   imu_weight: 1.0
 pano:
-  rows: 256
+  rows: 384
   cols: 1024
   vfov: 90.0
   max_cnt: 20
   min_range: 0.5
   range_ratio: 0.1
   align_gravity: true
-rigid: true
+rigid: false

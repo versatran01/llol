@@ -107,22 +107,4 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   return 1;
 }
 
-void GicpSolver::Optimize(Trajectory& traj,
-                          SweepGrid& grid,
-                          const DepthPano& pano,
-                          int gsize) {
-  using ErrorVec = Eigen::Matrix<double, GicpLinearCost::kNumParams, 1>;
-  ErrorVec err_sum;
-  err_sum.setZero();
-  ErrorVec err;
-
-  for (int i = 0; i < iters.first; ++i) {
-    err.setZero();
-
-    // Update grid tfs for matching
-    grid.Interp(traj);
-    const auto n_matches = Match(grid, pano);
-  }
-}
-
 }  // namespace sv

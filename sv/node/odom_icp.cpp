@@ -25,7 +25,6 @@ void OdomNode::IcpRigid() {
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
-    ROS_INFO_STREAM("Icp iteration: " << i);
 
     t_match.Resume();
     // Need to update cell tfs before match
@@ -58,7 +57,7 @@ void OdomNode::IcpRigid() {
     // accumulate e
     err_sum += err;
 
-    const Cost::State<double> es(err.data());
+    const Cost::State es(err.data());
     const auto eR = Sophus::SO3d::exp(es.r0());
     for (auto& st1 : traj_.states) {
       st1.rot = eR * st1.rot;
@@ -66,11 +65,6 @@ void OdomNode::IcpRigid() {
     }
   }
 
-  const Cost::State<double> ess(err_sum.data());
-  ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
-                              << ", norm: " << ess.r0().norm());
-  ROS_WARN_STREAM("err_pos: " << ess.p0().transpose()
-                              << ", norm: " << ess.p0().norm());
   ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
                                << ", norm: " << traj_.back().vel.norm());
 
@@ -113,7 +107,6 @@ void OdomNode::IcpLinear() {
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
-    ROS_INFO_STREAM("Icp iter: " << i);
 
     t_match.Resume();
     // Need to update cell tfs before match
@@ -146,26 +139,28 @@ void OdomNode::IcpLinear() {
     // accumulate e
     err_sum += err;
 
-    const Cost::State<double> es(err.data());
+    const Cost::State es(err.data());
     const auto eR = Sophus::SO3d::exp(es.r0());
 
+    MeanVar3d vel;
+
     for (int i = 0; i < traj_.size(); ++i) {
-      auto& st1 = traj_.At(i);
+      auto& st_i = traj_.At(i);
       const double s = i / (traj_.size() - 1.0);
-      st1.rot = eR * st1.rot;
-      st1.pos = eR * st1.pos + s * es.p0();
+      st_i.rot = eR * st_i.rot;
+      st_i.pos = eR * st_i.pos + s * es.p0();
+
       if (i > 1) {
-        const auto& st0 = traj_.At(i - 1);
-        st1.vel = (st1.pos - st0.pos) / (st1.time - st0.time);
+        auto& st_im1 = traj_.At(i - 1);
+        st_im1.vel = (st_i.pos - st_im1.pos) / (st_i.time - st_im1.time);
+        vel.Add(st_im1.vel);
       }
     }
+
+    // Last vel is the average vel
+    traj_.states.back().vel = vel.mean;
   }
 
-  const Cost::State<double> ess(err_sum.data());
-  ROS_WARN_STREAM("err_rot: " << ess.r0().transpose()
-                              << ", norm: " << ess.r0().norm());
-  ROS_WARN_STREAM("err_pos: " << ess.p0().transpose()
-                              << ", norm: " << ess.p0().norm());
   ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
                                << ", norm: " << traj_.back().vel.norm());
 
