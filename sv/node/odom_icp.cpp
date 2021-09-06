@@ -5,6 +5,29 @@
 
 namespace sv {
 
+void OdomNode::Register() {
+  if (rigid_) {
+    IcpRigid();
+  } else {
+    IcpLinear();
+  }
+
+  ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
+                               << ", norm: " << traj_.back().vel.norm());
+
+  traj_.UpdateBias(imuq_);
+  ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
+  ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+
+  if (vis_) {
+    // display good match
+    Imshow("match",
+           ApplyCmap(grid_.DrawMatch(),
+                     1.0 / gicp_.pano_win.area(),
+                     cv::COLORMAP_VIRIDIS));
+  }
+}
+
 // TODO (chao): refactor this, too much duplicate!!!
 void OdomNode::IcpRigid() {
   auto t_match = tm_.Manual("Grid.Match", false);
@@ -18,10 +41,7 @@ void OdomNode::IcpRigid() {
   auto& opts = solver.options;
   opts.max_num_iterations = gicp_.iters.second;
   opts.gradient_tolerance = 1e-8;
-  opts.min_eigenvalue = 0.01;
 
-  Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
-  err_sum.setZero();
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
@@ -54,30 +74,7 @@ void OdomNode::IcpRigid() {
     ROS_INFO_STREAM(solver.summary.Report());
 
     // Update state
-    // accumulate e
-    err_sum += err;
-
-    const Cost::State es(err.data());
-    const auto eR = Sophus::SO3d::exp(es.r0());
-    for (auto& st1 : traj_.states) {
-      st1.rot = eR * st1.rot;
-      st1.pos = eR * st1.pos + es.p0();
-    }
-  }
-
-  ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
-                               << ", norm: " << traj_.back().vel.norm());
-
-  traj_.UpdateBias(imuq_);
-  ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-  ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
-
-  if (vis_) {
-    // display good match
-    Imshow("match",
-           ApplyCmap(grid_.DrawMatch(),
-                     1.0 / gicp_.pano_win.area(),
-                     cv::COLORMAP_VIRIDIS));
+    cost.UpdateTraj(traj_, err.data());
   }
 
   t_match.Commit();
@@ -100,10 +97,7 @@ void OdomNode::IcpLinear() {
   auto& opts = solver.options;
   opts.max_num_iterations = gicp_.iters.second;
   opts.gradient_tolerance = 1e-8;
-  opts.min_eigenvalue = 0.01;
 
-  Eigen::Matrix<double, Cost::kNumParams, 1> err_sum;
-  err_sum.setZero();
   Eigen::Matrix<double, Cost::kNumParams, 1> err;
   for (int i = 0; i < gicp_.iters.first; ++i) {
     err.setZero();
@@ -136,44 +130,7 @@ void OdomNode::IcpLinear() {
     ROS_INFO_STREAM(solver.summary.Report());
 
     // Update state
-    // accumulate e
-    err_sum += err;
-
-    const Cost::State es(err.data());
-    const auto eR = Sophus::SO3d::exp(es.r0());
-
-    MeanVar3d vel;
-
-    for (int i = 0; i < traj_.size(); ++i) {
-      auto& st_i = traj_.At(i);
-      const double s = i / (traj_.size() - 1.0);
-      st_i.rot = eR * st_i.rot;
-      st_i.pos = eR * st_i.pos + s * es.p0();
-
-      if (i > 1) {
-        auto& st_im1 = traj_.At(i - 1);
-        st_im1.vel = (st_i.pos - st_im1.pos) / (st_i.time - st_im1.time);
-        vel.Add(st_im1.vel);
-      }
-    }
-
-    // Last vel is the average vel
-    traj_.states.back().vel = vel.mean;
-  }
-
-  ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
-                               << ", norm: " << traj_.back().vel.norm());
-
-  traj_.UpdateBias(imuq_);
-  ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-  ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
-
-  if (vis_) {
-    // display good match
-    Imshow("match",
-           ApplyCmap(grid_.DrawMatch(),
-                     1.0 / gicp_.pano_win.area(),
-                     cv::COLORMAP_VIRIDIS));
+    cost.UpdateTraj(traj_, err.data());
   }
 
   t_match.Commit();

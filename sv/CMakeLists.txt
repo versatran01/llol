@@ -151,7 +151,7 @@ cc_bench(
 cc_library(
   NAME llol_cost
   SRCS "llol/cost.cpp"
-  DEPS sv_llol_grid )
+  DEPS sv_llol_grid)
 cc_test(
   NAME llol_cost_test
   SRCS "llol/cost_test.cpp"
@@ -224,7 +224,4 @@ endif()
 # Ceres::ceres) cc_bench( NAME ceres_bench SRCS "temp/ceres_bench.cpp" DEPS
 # Ceres::ceres sv_tbb)
 
-cc_binary(
-  NAME inverse
-  SRCS "temp/inverse.cpp"
-  DEPS sv_base Eigen3::Eigen)
+# cc_binary( NAME inverse SRCS "temp/inverse.cpp" DEPS sv_base Eigen3::Eigen)

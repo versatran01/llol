@@ -125,7 +125,7 @@ bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1) {
   if (num_added <= max_cnt + 5) return false;
 
   // TODO (chao): compare to average scene depth?
-  const bool trans_too_big = tf_p2_p1.translation().squaredNorm() > 2;
+  const bool trans_too_big = tf_p2_p1.translation().squaredNorm() > 1.5;
   if (trans_too_big) return true;
 
   // Do not check rotation if pano is gravity aligned

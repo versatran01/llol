@@ -81,7 +81,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   }
 }
 
-void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
+void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
   ROS_INFO_STREAM("+++ Initializing");
   sweep_ = MakeSweep(cinfo_msg);
   ROS_INFO_STREAM(sweep_);
@@ -90,6 +90,11 @@ void OdomNode::Init(const sensor_msgs::CameraInfo& cinfo_msg) {
   ROS_INFO_STREAM(grid_);
 
   traj_ = InitTraj({pnh_, "traj"}, grid_.cols());
+  // TODO (chao): some hack so that I don't have to modify config
+  if (rigid_) {
+    traj_.integrate_acc = false;
+    traj_.update_acc_bias = false;
+  }
   ROS_INFO_STREAM(traj_);
 
   gicp_ = InitGicp({pnh_, "gicp"});
@@ -101,7 +106,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   if (lidar_frame_.empty()) {
     lidar_frame_ = image_msg->header.frame_id;
     // Allocate storage for sweep, grid and matcher
-    Init(*cinfo_msg);
+    Initialize(*cinfo_msg);
     ROS_INFO_STREAM("Lidar frame: " << lidar_frame_);
     ROS_INFO_STREAM("Lidar initialized!");
   }
@@ -133,11 +138,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   // Add scan to sweep, compute score and filter
   Preprocess(scan);
 
-  if (rigid_) {
-    IcpRigid();
-  } else {
-    IcpLinear();
-  }
+  Register();
 
   PostProcess(scan);
 

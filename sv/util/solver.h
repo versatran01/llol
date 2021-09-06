@@ -247,7 +247,6 @@ class TinySolver2 {
       // Compute eigen values and eigen vectors of jtj
       eigen_solver_.compute(jtj_);
       const auto& eigvals = eigen_solver_.eigenvalues();
-      LOG(INFO) << "Eigenvalue of JtJ: " << eigvals.transpose();
 
       // Determine a number m of eigvals smaller than a threshold
       const int n = dx_.rows();

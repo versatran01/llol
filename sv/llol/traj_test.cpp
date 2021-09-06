@@ -17,8 +17,8 @@ TEST(TrajTest, TestPredict) {
 
   const int n = traj.Predict(imuq, 0.5, 1, traj.size() - 1);
   EXPECT_EQ(n, 4);
-  EXPECT_EQ(traj.states.front().time, 0.5);
-  EXPECT_EQ(traj.states.back().time, 3.5);
+  EXPECT_EQ(traj.front().time, 0.5);
+  EXPECT_EQ(traj.back().time, 3.5);
 }
 
 }  // namespace

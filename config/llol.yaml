@@ -12,9 +12,9 @@ traj:
   update_acc_bias: true
 grid:
   cell_rows: 2
-  cell_cols: 8
-  max_curve: 0.01
-  max_var: 0.01
+  cell_cols: 16
+  max_curve: 0.02
+  max_var: 0.02
   nms: true
 gicp:
   outer: 2
@@ -23,13 +23,13 @@ gicp:
   half_cols: 7
   cov_lambda: 0.0
   min_eigval: 0.0
-  imu_weight: 1.0
+  imu_weight: 1.5
 pano:
-  rows: 384
+  rows: 256
   cols: 1024
   vfov: 90.0
   max_cnt: 20
   min_range: 0.5
   range_ratio: 0.1
   align_gravity: true
-rigid: false
+rigid: true

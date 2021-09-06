@@ -111,8 +111,10 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
     } else {
       curr.time = prev.time + dt;
       // Assume pos and vel stay the same as the starting point
-      curr.pos = st0.pos;
-      curr.vel = st0.vel;
+      // curr.pos = st0.pos;
+      // curr.vel = st0.vel;
+      curr.vel = prev.vel;
+      curr.pos = prev.pos + prev.vel * dt;
       curr.rot = IntegrateRot(prev.rot, prev.time, imu0, imu1, dt);
     }
   }

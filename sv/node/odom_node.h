@@ -53,8 +53,9 @@ struct OdomNode {
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
   void Publish(const std_msgs::Header& header);
 
-  void Init(const sensor_msgs::CameraInfo& cinfo_msg);
+  void Initialize(const sensor_msgs::CameraInfo& cinfo_msg);
   void Preprocess(const LidarScan& scan);
+  void Register();
   void IcpRigid();
   void IcpLinear();
   void PostProcess(const LidarScan& scan);

@@ -33,12 +33,15 @@ void GicpCost::UpdateMatches(const SweepGrid& grid) {
 void GicpCost::UpdatePreint(const Trajectory& traj, const ImuQueue& imuq) {
   ptraj = &traj;
   preint.Reset();
-  preint.Compute(imuq, traj.states.front().time, traj.states.back().time);
+  preint.Compute(imuq, traj.front().time, traj.back().time);
 }
 
 bool GicpRigidCost::operator()(const double* x_ptr,
                                double* r_ptr,
                                double* J_ptr) const {
+  CHECK_EQ(imu_weight, 0);
+  CHECK(ptraj == nullptr);
+
   const State es(x_ptr);
   const Sophus::SE3d eT{Sophus::SO3d::exp(es.r0()), es.p0()};
 
@@ -66,6 +69,21 @@ bool GicpRigidCost::operator()(const double* x_ptr,
       });
 
   return true;
+}
+
+void GicpRigidCost::UpdateTraj(Trajectory& traj, const double* x_ptr) const {
+  const auto st0 = traj.front();  // get a copy of the initial state
+
+  const State es(x_ptr);
+  const auto eR = Sophus::SO3d::exp(es.r0());
+  for (auto& st : traj.states) {
+    st.rot = eR * st.rot;
+    st.pos = eR * st.pos + es.p0();
+  }
+
+  // only update last velocity but in the new frame
+  auto& st1 = traj.states.back();
+  st1.vel = (st1.pos - eR * st0.pos) / (st1.time - st0.time);
 }
 
 bool GicpLinearCost::operator()(const double* x_ptr,
@@ -110,8 +128,8 @@ bool GicpLinearCost::operator()(const double* x_ptr,
   const auto dt = preint.duration;
   const auto dt2 = dt * dt;
   const auto& g = ptraj->g_pano;
-  const auto& st0 = ptraj->states.front();
-  const auto& st1 = ptraj->states.back();
+  const auto& st0 = ptraj->front();
+  const auto& st1 = ptraj->back();
 
   const Vector3d p0 = eR * st0.pos;
   const Vector3d p1 = eR * st1.pos + ep;
@@ -136,6 +154,29 @@ bool GicpLinearCost::operator()(const double* x_ptr,
   }
 
   return true;
+}
+
+void GicpLinearCost::UpdateTraj(Trajectory& traj, const double* x_ptr) const {
+  const State es(x_ptr);
+  const auto eR = Sophus::SO3d::exp(es.r0());
+
+  MeanVar3d vel{};
+
+  for (int i = 0; i < traj.size(); ++i) {
+    auto& st_i = traj.At(i);
+    const double s = i / (traj.size() - 1.0);
+    st_i.rot = eR * st_i.rot;
+    st_i.pos = eR * st_i.pos + s * es.p0();
+
+    if (i > 1) {
+      auto& st_im1 = traj.At(i - 1);
+      st_im1.vel = (st_i.pos - st_im1.pos) / (st_i.time - st_im1.time);
+      vel.Add(st_im1.vel);
+    }
+  }
+
+  // Last vel is the average vel
+  traj.states.back().vel = vel.mean;
 }
 
 }  // namespace sv

@@ -80,9 +80,9 @@ int GicpSolver::MatchCell(SweepGrid& grid,
     return 0;
   }
 
-  // Check distance between new pix and old pix
+  // Check distance between new pix and old pix (allow 1 pix in azim direction)
+  //  if (px_p == match.px_p && match.PanoOk()) {
   if (px_p == match.px_p && match.PanoOk()) {
-    //  if (px_p == match.px_p && match.PanoOk()) {
     // If new and old are the same and pano match is ok
     // we reuse this match and there is no need to recompute
     return 1;
@@ -91,8 +91,6 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   // Compute mean covar around pano point
   match.px_p = px_p;
   const auto weight = pano.MeanCovarAt(px_p, pano_win, rg_p, match.mc_p);
-  //  LOG(INFO) << fmt::format(
-  //      "n: {}, weight: {}", match.mc_p.n, weight / pano_min_pts);
 
   // if we don't have enough points also reset and return 0
   if (match.mc_p.n < pano_min_pts) {
@@ -100,8 +98,7 @@ int GicpSolver::MatchCell(SweepGrid& grid,
     return 0;
   }
   // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
-  //  match.CalcSqrtInfo(cov_lambda);
-  match.CalcSqrtInfo(T_p_g.rotationMatrix(), cov_lambda);
+  match.CalcSqrtInfo(T_p_g.rotationMatrix());
   match.scale = weight / pano_win.area();  // we kept this for visualizaiton
   match.U *= std::sqrt(match.scale);
   return 1;
