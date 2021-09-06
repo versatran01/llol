@@ -18,7 +18,7 @@ struct LidarModel {
   }
 
   /// @brief xyzr to pixel, bad result is {-1, -1}
-  cv::Point2i Forward(float x, float y, float z, float r) const;
+  cv::Point Forward(float x, float y, float z, float r) const;
   /// @brief pixel to xyz
   cv::Point3f Backward(int r, int c, float rg = 1.0) const;
 

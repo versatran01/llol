@@ -4,6 +4,7 @@
 
     <arg name="tbb" default="0"/>
     <arg name="vis" default="true"/>
+    <arg name="rigid" default="true"/>
 
     <node pkg="llol" type="sv_node_odom" name="llol_odom" output="screen" ns="os_node">
         <remap from="~imu" to="imu"/>
@@ -13,5 +14,6 @@
         <rosparam command="load" file="$(find llol)/config/llol.yaml" />
         <param name="tbb" type="int" value="$(arg tbb)"/>
         <param name="vis" type="bool" value="$(arg vis)"/>
+        <param name="rigid" type="bool" value="$(arg rigid)"/>
     </node>
 </launch>

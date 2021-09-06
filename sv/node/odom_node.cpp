@@ -201,7 +201,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
   int n_render = 0;
   if (pano_.ShouldRender(T_p2_p1, match_ratio)) {
-    ROS_WARN_STREAM("Render pano at new location");
+    ROS_ERROR_STREAM("Render pano at new location");
 
     // TODO (chao): need to think about how to run this in background without
     // interfering with odom

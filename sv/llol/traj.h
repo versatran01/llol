@@ -54,7 +54,7 @@ struct Trajectory {
   bool update_acc_bias{};
 
   /// Data
-  Eigen::Vector3d g_pano;        // gravity vector in pano frame
+  Eigen::Vector3d g_pano{};      // gravity vector in pano frame
   Sophus::SE3d T_odom_pano{};    // tf from pano to odom frame
   Sophus::SE3d T_imu_lidar{};    // extrinsics lidar to imu
   std::vector<NavState> states;  // imu state wrt current pano

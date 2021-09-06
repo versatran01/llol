@@ -127,24 +127,43 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
 
 bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1,
                              double match_ratio) const {
-  if (num_added <= max_cnt + 2) return false;
+  if (num_added <= max_cnt) {
+    // Pano not old enough
+    VLOG(1) << "Not enough added: " << num_added;
+
+    return false;
+  }
 
   // match ratio is the most important criteria
-  if (match_ratio < 0.9) return true;
+  if (match_ratio < min_match_ratio) {
+    VLOG(1) << "Match ratio too low: " << match_ratio;
+    return true;
+  }
 
   // Otherwise we have enough match, then we check translation
   if (max_translation > 0) {
-    const auto trans_sq = tf_p2_p1.translation().squaredNorm();
-    if (trans_sq > max_translation * max_translation) return true;
+    const auto trans = tf_p2_p1.translation().norm();
+    if (trans > max_translation) {
+      VLOG(1) << "Translation too big: " << trans;
+      return true;
+    }
   }
 
   // No need to check rotation if pano is gravity aligned
-  if (align_gravity) return false;
+  if (align_gravity) {
+    return false;
+  }
 
   // cos_rp is just col z of rotation dot with e_z, which is just R22
   const auto R22 = tf_p2_p1.rotationMatrix()(2, 2);
   const auto cos_max_rp = std::cos(model.elev_max * 2.0 / 3.0);
-  return R22 < cos_max_rp;
+
+  if (R22 < cos_max_rp) {
+    VLOG(1) << "Rotation too big: " << R22;
+    return true;
+  }
+
+  return false;
 }
 
 int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
@@ -167,7 +186,8 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
       std::plus<>{});
 
   cv::swap(dbuf, dbuf2);
-  num_added = 1;
+  // Half num_added, consistent with Render where cnt are halved as well
+  num_added = max_cnt / 4;
 
   return n;
 }
@@ -204,7 +224,7 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
 
   auto& p = dbuf2.at<DepthPixel>(px);
   if (p.raw == 0) {
-    p.SetRangeCount(rg, cnt / 2 + 2);
+    p.SetRangeCount(rg, cnt / 2 + 1);
     return true;
   }
 
@@ -243,7 +263,7 @@ float DepthPano::MeanCovarAt(const cv::Point& px,
       const cv::Point px_w{wc + win.x, wr + win.y};
       const auto& dp = PixelAt(px_w);
       const auto rg_w = dp.GetRange();
-      // TODO (chao): check if cnt is old enough
+
       if (rg_w == 0 || (std::abs(rg_w - rg) / rg) > range_ratio) {
         continue;
       }

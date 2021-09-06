@@ -16,7 +16,7 @@ LidarModel::LidarModel(const cv::Size& size_in, float vfov) : size{size_in} {
 
   CHECK_GT(size.width, 0);
   CHECK_GT(size.height, 0);
-  CHECK_LE(vfov, Deg2Rad(120.0));
+  CHECK_LE(vfov, Deg2Rad(120.0)) << "vertial fov too big";
 
   elev_max = vfov / 2.0F;
   elev_delta = vfov / (size.height - 1);
@@ -33,8 +33,8 @@ LidarModel::LidarModel(const cv::Size& size_in, float vfov) : size{size_in} {
   }
 }
 
-cv::Point2i LidarModel::Forward(float x, float y, float z, float r) const {
-  cv::Point2i px{-1, -1};
+cv::Point LidarModel::Forward(float x, float y, float z, float r) const {
+  cv::Point px{-1, -1};
 
   const int row = ToRow(z, r);
   if (!RowInside(row)) return px;
@@ -49,12 +49,14 @@ cv::Point2i LidarModel::Forward(float x, float y, float z, float r) const {
 }
 
 cv::Point3f LidarModel::Backward(int r, int c, float rg) const {
+  CHECK_GT(rg, 0);
   const auto& elev = elevs.at(r);
   const auto& azim = azims.at(c);
   return {elev.cos * azim.cos * rg, elev.cos * azim.sin * rg, elev.sin * rg};
 }
 
 int LidarModel::ToRow(float z, float r) const {
+  CHECK_GT(r, 0);
   const float elev = std::asin(z / r);
   return std::round((elev_max - elev) / elev_delta);
 }

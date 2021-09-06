@@ -84,7 +84,7 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   //  if (px_p == match.px_p && match.PanoOk()) {
   if (px_p == match.px_p && match.PanoOk()) {
     // If new and old are the same and pano match is ok
-    // we reuse this match and there is no need to recompute
+    // we reuse this match and there is nothing to recompute
     return 1;
   }
 

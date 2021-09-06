@@ -20,18 +20,17 @@ gicp:
   outer: 2
   inner: 4
   half_rows: 1
-  half_cols: 7
+  half_cols: 8
   cov_lambda: 0.0
   min_eigval: 0.0
-  imu_weight: 1.5
+  imu_weight: 1.0
 pano:
   rows: 256
   cols: 1024
   vfov: 90.0
   max_cnt: 20
-  min_range: 0.5
+  min_range: 1.0
   range_ratio: 0.1
-  align_gravity: true # rerender pano in gravity aligned frame
+  align_gravity: true
   min_match_ratio: 0.9
-  max_translation: 2.0
-rigid: true
+  max_translation: 4.0

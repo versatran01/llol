@@ -85,7 +85,7 @@ cc_test(
 cc_library(
   NAME llol_imu
   SRCS "llol/imu.cpp"
-  DEPS sv_base sv_log sv_util_math Sophus::Sophus Boost::boost)
+  DEPS sv_util_math Sophus::Sophus Boost::boost)
 cc_test(
   NAME llol_imu_test
   SRCS "llol/imu_test.cpp"
@@ -120,7 +120,7 @@ cc_bench(
 cc_library(
   NAME llol_match
   SRCS "llol/match.cpp"
-  DEPS sv_base sv_util_math opencv_core)
+  DEPS sv_util_math opencv_core)
 
 cc_library(
   NAME llol_pano
@@ -183,6 +183,16 @@ if(catkin_FOUND AND BUILD_NODE)
     INTERFACE)
 
   cc_library(
+    NAME node_viz
+    SRCS "node/viz.cpp"
+    DEPS sv_llol_grid sv_llol_pano sv_ros1 opencv_highgui opencv_imgproc)
+
+  cc_library(
+    NAME node_pcl
+    SRCS "node/pcl.cpp"
+    DEPS sv_llol_sweep sv_llol_pano sv_ros1)
+
+  cc_library(
     NAME node_conv
     SRCS "node/conv.cpp"
     DEPS sv_ros1
@@ -192,16 +202,6 @@ if(catkin_FOUND AND BUILD_NODE)
          sv_llol_imu
          sv_llol_gicp
          sv_llol_cost)
-
-  cc_library(
-    NAME node_viz
-    SRCS "node/viz.cpp"
-    DEPS sv_llol_grid sv_llol_pano sv_ros1 opencv_highgui opencv_imgproc)
-
-  cc_library(
-    NAME node_pcl
-    SRCS "node/pcl.cpp"
-    DEPS sv_llol_sweep sv_llol_pano sv_ros1)
 
   cc_binary(
     NAME node_odom
@@ -218,10 +218,3 @@ endif()
 
 # cc_binary( NAME sim_test SRCS "sim/tuple_test.cpp" "sim/transform_test.cpp"
 # "sim/ray_test.cpp" DEPS sv_sim_rt sv_doctest_main)
-
-# temp =========================================================================
-# cc_binary( NAME curve_fitting SRCS "temp/curve_fitting.cpp" DEPS sv_util_timer
-# Ceres::ceres) cc_bench( NAME ceres_bench SRCS "temp/ceres_bench.cpp" DEPS
-# Ceres::ceres sv_tbb)
-
-# cc_binary( NAME inverse SRCS "temp/inverse.cpp" DEPS sv_base Eigen3::Eigen)

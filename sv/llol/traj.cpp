@@ -30,6 +30,7 @@ void KalmanUpdate(Vector3d& x,
 Trajectory::Trajectory(int size, const TrajectoryParams& params)
     : integrate_acc{params.integrate_acc},
       update_acc_bias{params.update_acc_bias} {
+  CHECK_GT(size, 0);
   states.resize(size);
 }
 
