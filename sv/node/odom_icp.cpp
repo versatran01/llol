@@ -63,11 +63,6 @@ void OdomNode::IcpRigid() {
     for (auto& st1 : traj_.states) {
       st1.rot = eR * st1.rot;
       st1.pos = eR * st1.pos + es.p0();
-
-      if (i > 1) {
-        const auto& st0 = traj_.At(i - 1);
-        st1.vel = (st1.pos - st0.pos) / (st1.time - st0.time);
-      }
     }
   }
 
@@ -76,8 +71,8 @@ void OdomNode::IcpRigid() {
                               << ", norm: " << ess.r0().norm());
   ROS_WARN_STREAM("err_pos: " << ess.p0().transpose()
                               << ", norm: " << ess.p0().norm());
-  ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()
-                               << ", norm: " << traj_.states.back().vel.norm());
+  ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
+                               << ", norm: " << traj_.back().vel.norm());
 
   traj_.UpdateBias(imuq_);
   ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
@@ -171,8 +166,8 @@ void OdomNode::IcpLinear() {
                               << ", norm: " << ess.r0().norm());
   ROS_WARN_STREAM("err_pos: " << ess.p0().transpose()
                               << ", norm: " << ess.p0().norm());
-  ROS_WARN_STREAM("velocity: " << traj_.states.back().vel.transpose()
-                               << ", norm: " << traj_.states.back().vel.norm());
+  ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
+                               << ", norm: " << traj_.back().vel.norm());
 
   traj_.UpdateBias(imuq_);
   ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());

@@ -27,16 +27,20 @@ void KalmanUpdate(Vector3d& x,
   P -= K.cwiseProduct(P);
 }
 
-Trajectory::Trajectory(int size, bool use_acc) : use_acc_{use_acc} {
+Trajectory::Trajectory(int size, const TrajectoryParams& params)
+    : integrate_acc{params.integrate_acc},
+      update_acc_bias{params.update_acc_bias} {
   states.resize(size);
 }
 
 std::string Trajectory::Repr() const {
   return fmt::format(
-      "Trajectory(size={}, use_acc={}, g_pano=[{}], \nT_imu_lidar=\n{}\n, "
+      "Trajectory(size={}, integrate_acc={}, update_acc_bias={}, g_pano=[{}], "
+      "\nT_imu_lidar=\n{}\n, "
       "T_odom_pano=\n{}\n)",
       size(),
-      use_acc_,
+      integrate_acc,
+      update_acc_bias,
       g_pano.transpose(),
       T_imu_lidar.matrix3x4(),
       T_odom_pano.matrix3x4());
@@ -102,7 +106,7 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
     const auto& prev = At(i - 1);
     auto& curr = At(i);
 
-    if (use_acc_) {
+    if (integrate_acc) {
       IntegrateState(prev, imu0, imu1, g_pano, dt, curr);
     } else {
       curr.time = prev.time + dt;
@@ -179,7 +183,7 @@ int Trajectory::UpdateBias(ImuQueue& imuq) {
 
   auto& bias = imuq.bias;
   KalmanUpdate(bias.gyr, bias.gyr_var, bw.mean, bw.Var());
-  if (use_acc_) {
+  if (update_acc_bias) {
     KalmanUpdate(bias.acc, bias.acc_var, ba.mean, ba.Var());
   }
   return bw.n;

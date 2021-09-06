@@ -14,8 +14,8 @@ TEST(GicpTest, TestCtor) {
   EXPECT_EQ(gicp.iters.second, 2);
   EXPECT_EQ(gicp.cov_lambda, 1e-6F);
   EXPECT_EQ(gicp.pano_win.height, 5);
-  EXPECT_EQ(gicp.pano_win.width, 9);
-  EXPECT_EQ(gicp.pano_min_pts, 27);
+  EXPECT_EQ(gicp.pano_win.width, 13);
+  EXPECT_EQ(gicp.pano_min_pts, 39);
 }
 
 TEST(GicpTest, TestMatch) {

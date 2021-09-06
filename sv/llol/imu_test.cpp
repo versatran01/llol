@@ -76,28 +76,6 @@ TEST(ImuTest, TestImuPreintegrationPrint) {
   LOG(INFO) << "U\n" << preint.U;
 }
 
-TEST(ImuTest, TestImuPreintegrationPrint2) {
-  ImuQueue imuq;
-  for (int i = 0; i < 10; ++i) {
-    ImuData imu;
-    imu.acc = Eigen::Vector3d::Ones() * 0.1;
-    imu.gyr = Eigen::Vector3d::Ones() * 0.02;
-    imu.time = i * 0.01;
-    imuq.Add(imu);
-  }
-
-  imuq.noise = ImuNoise(100.0, 1e-3, 1e-4, 1e-4, 1e-5);
-  LOG(INFO) << imuq.noise;
-
-  ImuPreintegration2 preint;
-  preint.Compute(imuq, 0, 0.1);
-  EXPECT_EQ(preint.n, 10);
-  EXPECT_EQ(preint.duration, 0.1);
-  LOG(INFO) << "F\n" << preint.F;
-  LOG(INFO) << "P\n" << preint.P;
-  LOG(INFO) << "U\n" << preint.U;
-}
-
 void BM_InterpRot(benchmark::State& state) {
   const auto size = state.range(0);
   std::vector<Sophus::SO3d> Rs(size + 1);

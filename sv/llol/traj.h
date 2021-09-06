@@ -4,11 +4,16 @@
 
 namespace sv {
 
+struct TrajectoryParams {
+  bool integrate_acc{false};
+  bool update_acc_bias{false};
+};
+
 /// @brief Accumulates imu data and integrate
 /// @todo for now only integrate gyro for rotation
 struct Trajectory {
   Trajectory() = default;
-  explicit Trajectory(int size, bool use_acc = false);
+  explicit Trajectory(int size, const TrajectoryParams& params = {});
 
   std::string Repr() const;
   friend std::ostream& operator<<(std::ostream& os, const Trajectory& rhs) {
@@ -41,8 +46,12 @@ struct Trajectory {
   Sophus::SE3d TfOdomLidar() const;
   Sophus::SE3d TfPanoLidar() const;
 
+  const NavState& front() const { return states.front(); }
+  const NavState& back() const { return states.back(); }
+
   /// Params
-  bool use_acc_{};
+  bool integrate_acc{};
+  bool update_acc_bias{};
 
   /// Data
   Eigen::Vector3d g_pano;        // gravity vector in pano frame

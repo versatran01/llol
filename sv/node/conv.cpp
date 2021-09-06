@@ -77,6 +77,7 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
   gp.outer = pnh.param<int>("outer", gp.outer);
   gp.inner = pnh.param<int>("inner", gp.inner);
   gp.half_rows = pnh.param<int>("half_rows", gp.half_rows);
+  gp.half_cols = pnh.param<int>("half_cols", gp.half_cols);
   gp.cov_lambda = pnh.param<double>("cov_lambda", gp.cov_lambda);
   gp.min_eigval = pnh.param<double>("min_eigval", gp.min_eigval);
   gp.imu_weight = pnh.param<double>("imu_weight", gp.imu_weight);
@@ -84,8 +85,10 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
 }
 
 Trajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
-  const auto use_acc = pnh.param<bool>("use_acc", false);
-  return Trajectory{grid_cols + 1, use_acc};
+  TrajectoryParams tp;
+  tp.integrate_acc = pnh.param<bool>("integrate_acc", tp.integrate_acc);
+  tp.update_acc_bias = pnh.param<bool>("update_acc_bias", tp.update_acc_bias);
+  return Trajectory{grid_cols + 1, tp};
 }
 
 ImuQueue InitImuq(const ros::NodeHandle& pnh) {
