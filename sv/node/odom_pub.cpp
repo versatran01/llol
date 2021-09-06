@@ -109,7 +109,19 @@ void OdomNode::Publish(const std_msgs::Header& header) {
     pose.header.stamp = path.header.stamp;
     pose.header.frame_id = path.header.frame_id;
     SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
-    path.poses.push_back(pose);
+    // TODO (chao): only add to path if it is sufficiently far away like 0.1m
+
+    if (path.poses.empty()) {
+      path.poses.push_back(pose);
+    } else {
+      Eigen::Map<const Eigen::Vector3d> prev_p(
+          &path.poses.back().pose.position.x);
+      Eigen::Map<const Eigen::Vector3d> curr_p(&pose.pose.position.x);
+      if ((prev_p - curr_p).norm() > 0.1) {
+        path.poses.push_back(pose);
+      }
+    }
+
     pub_path.publish(path);
   }
 }

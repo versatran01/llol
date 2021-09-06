@@ -76,19 +76,21 @@ void Grid2Markers(const SweepGrid& grid,
 
       if (match.Ok()) {
         pano_mk.action = Marker::ADD;
-        pano_mk.color.a = match.scale * .75;  // use scale for alpha
+        pano_mk.color.a = match.scale * .9;  // use scale for alpha
         const auto pt_p = match.mc_p.mean.cast<double>().eval();
         auto pano_cov = match.mc_p.Covar().cast<double>().eval();
-        pano_cov.diagonal().array() += eps;
+        // pano_cov.diagonal().array() += eps;
         es.compute(pano_cov);
         MeanCovar2Marker(pt_p, es.eigenvalues(), es.eigenvectors(), pano_mk);
 
         grid_mk.action = Marker::ADD;
-        const auto pt_g =
-            (grid.TfAt(c) * match.mc_g.mean).cast<double>().eval();
-        auto grid_cov = match.mc_g.Covar().cast<double>().eval();
+        const auto& tf = grid.TfAt(c);
+        const auto pt_g = (tf * match.mc_g.mean).cast<double>().eval();
+        auto grid_cov = match.mc_g.Covar();
+        const auto R = tf.rotationMatrix();
+        grid_cov = R * grid_cov * R.transpose();
         grid_cov.diagonal().array() += eps;
-        es.compute(grid_cov);
+        es.compute(grid_cov.cast<double>());
         MeanCovar2Marker(pt_g, es.eigenvalues(), es.eigenvectors(), grid_mk);
 
         // Line
