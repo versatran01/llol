@@ -103,27 +103,25 @@ void OdomNode::Publish(const std_msgs::Header& header) {
 
   // publish latest traj as path
   static Path path;
-  if (pub_path.getNumSubscribers() > 0) {
-    path.header.stamp = header.stamp;
-    path.header.frame_id = odom_frame_;
-    PoseStamped pose;
-    pose.header.stamp = path.header.stamp;
-    pose.header.frame_id = path.header.frame_id;
-    SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
+  path.header.stamp = header.stamp;
+  path.header.frame_id = odom_frame_;
+  PoseStamped pose;
+  pose.header = path.header;
+  SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
 
-    if (path.poses.empty()) {
+  if (path.poses.empty()) {
+    path.poses.push_back(pose);
+  } else {
+    Eigen::Map<const Eigen::Vector3d> prev_p(
+        &path.poses.back().pose.position.x);
+    Eigen::Map<const Eigen::Vector3d> curr_p(&pose.pose.position.x);
+    if ((prev_p - curr_p).norm() > 0.1) {
       path.poses.push_back(pose);
-    } else {
-      Eigen::Map<const Eigen::Vector3d> prev_p(
-          &path.poses.back().pose.position.x);
-      Eigen::Map<const Eigen::Vector3d> curr_p(&pose.pose.position.x);
-      if ((prev_p - curr_p).norm() > 0.1) {
-        path.poses.push_back(pose);
-      }
     }
-
-    pub_path.publish(path);
   }
+
+  pub_pose.publish(pose);
+  pub_path.publish(path);
 }
 
 }  // namespace sv
