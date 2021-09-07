@@ -67,7 +67,8 @@ DepthPano InitPano(const ros::NodeHandle& pnh) {
   pp.vfov = Deg2Rad(pnh.param<double>("vfov", pp.vfov));
   pp.max_cnt = pnh.param<int>("max_cnt", pp.max_cnt);
   pp.min_range = pnh.param<double>("min_range", pp.min_range);
-  pp.range_ratio = pnh.param<double>("range_ratio", pp.range_ratio);
+  pp.win_ratio = pnh.param<double>("win_ratio", pp.win_ratio);
+  pp.fuse_ratio = pnh.param<double>("fuse_ratio", pp.fuse_ratio);
   pp.align_gravity = pnh.param<bool>("align_gravity", pp.align_gravity);
   pp.min_match_ratio = pnh.param<double>("min_match_ratio", pp.min_match_ratio);
   pp.max_translation = pnh.param<double>("max_translation", pp.max_translation);

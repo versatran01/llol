@@ -58,6 +58,9 @@ struct LidarScan : public ScanBase {
 
   void MeanCovarAt(const cv::Point& px, int width, MeanCovar3f& mc) const;
   cv::Vec2f ScoreAt(const cv::Point& px, int width) const;
+
+  /// @brief Draw
+  cv::Mat DrawRange() const;
 };
 
 cv::Mat MakeTestXyzr(const cv::Size& size);

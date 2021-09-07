@@ -29,6 +29,8 @@ struct GicpCost {
   virtual ~GicpCost() noexcept = default;
 
   int NumResiduals() const;
+  int NumParameters() const { return kNumParams; }
+
   void UpdateMatches(const SweepGrid& grid);
   void UpdatePreint(const Trajectory& traj, const ImuQueue& imuq);
   virtual void UpdateTraj(Trajectory& traj, const double* x_ptr) const = 0;

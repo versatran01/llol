@@ -25,6 +25,8 @@ SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
       cell_size{params.cell_cols, params.cell_rows} {
   CHECK_EQ(cell_size.width * cols(), sweep_size.width);
   CHECK_EQ(cell_size.height * rows(), sweep_size.height);
+  CHECK_GE(cell_size.height, 1);
+  CHECK_GE(cell_size.width, 8);
 
   mat.setTo(kNaNF);
   matches.resize(total());
@@ -113,14 +115,15 @@ int SweepGrid::FilterRow(const LidarScan& scan, int r) {
     const cv::Point px_g{c + curr.start, r};
     auto& match = MatchAt(px_g);
 
+    // Reset it no matter what, to prevent accidently using old matches
+    match.Reset();
+
     // Handle pad for nms
     if (pad <= c && c < curr.size() - pad && IsCellGood(px_g)) {
       // No need to offset for px scan
       scan.MeanCovarAt(Grid2Sweep({c, r}), cell_size.width, match.mc_g);
       match.px_g = px_g;
       ++n;
-    } else {
-      match.Reset();
     }
   }
   return n;

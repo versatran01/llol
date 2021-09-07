@@ -22,7 +22,6 @@ int LidarSweep::Add(const LidarScan& scan) {
 
   // copy to storage
   scan.mat.copyTo(mat.colRange(curr));  // x,y,w,h
-  // TODO (chao): return number of valid points?
   return cv::countNonZero(range == range);
 }
 
@@ -57,12 +56,6 @@ void LidarSweep::Interp(const Trajectory& traj, int gsize) {
           }
         }
       });
-}
-
-cv::Mat LidarSweep::DrawRange() const {
-  static cv::Mat disp;
-  cv::extractChannel(mat, disp, 3);
-  return disp;
 }
 
 std::string LidarSweep::Repr() const {

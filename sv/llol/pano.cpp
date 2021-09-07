@@ -14,7 +14,8 @@ namespace sv {
 DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
     : max_cnt{params.max_cnt},
       min_range{params.min_range},
-      range_ratio{params.range_ratio},
+      win_ratio{params.win_ratio},
+      fuse_ratio{params.fuse_ratio},
       align_gravity{params.align_gravity},
       min_match_ratio{params.min_match_ratio},
       max_translation{params.max_translation},
@@ -24,12 +25,13 @@ DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
 
 std::string DepthPano::Repr() const {
   return fmt::format(
-      "DepthPano(max_cnt={}, min_range={}, range_ratio={}, align_gravity={}, "
-      "min_match_ratio={}, max_translation={}, model={}, dbuf={}, "
-      "pixel=(scale={}, max_range={})",
+      "DepthPano(max_cnt={}, min_range={}, win_ratio={}, fuse_ratio={}, "
+      "align_gravity={}, min_match_ratio={}, max_translation={}, model={}, "
+      "dbuf={}, pixel=(scale={}, max_range={})",
       max_cnt,
       min_range,
-      range_ratio,
+      win_ratio,
+      fuse_ratio,
       align_gravity,
       min_match_ratio,
       max_translation,
@@ -49,13 +51,13 @@ int DepthPano::Add(const LidarSweep& sweep, const cv::Range& curr, int gsize) {
   gsize = gsize <= 0 ? sweep.rows() : gsize;
 
   // increment added sweep
-  num_added += static_cast<float>(curr.size()) / sweep.cols();
+  num_sweeps += static_cast<float>(curr.size()) / sweep.cols();
 
   return tbb::parallel_reduce(
       tbb::blocked_range<int>(0, sweep.rows(), gsize),
       0,
-      [&](const auto& block, int n) {
-        for (int sr = block.begin(); sr < block.end(); ++sr) {
+      [&](const auto& blk, int n) {
+        for (int sr = blk.begin(); sr < blk.end(); ++sr) {
           n += AddRow(sweep, curr, sr);
         }
         return n;
@@ -71,6 +73,7 @@ int DepthPano::AddRow(const LidarSweep& sweep, const cv::Range& curr, int sr) {
     const float rg_s = xyzr[3];  // precomputed range
     if (!(rg_s > 0)) continue;   // filter out nan
 
+    // Transform into pano frame
     Eigen::Map<const Vector3f> pt_s(&xyzr[0]);
     const auto pt_p = sweep.TfAt(sc) * pt_s;
     const auto rg_p = pt_p.norm();
@@ -86,7 +89,8 @@ int DepthPano::AddRow(const LidarSweep& sweep, const cv::Range& curr, int sr) {
 }
 
 bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
-  // TODO (chao): when adding consider distance, weigh far points less
+  // TODO (chao): should we increment count based on the distance?
+
   // Ignore too far and too close stuff
   if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
 
@@ -97,25 +101,25 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
     return true;
   }
 
-  // If cnt is 0, this means there exists enough evidence that differ from
-  // previous measurement, for example some new object just entered and stayed
-  // long enough. In this case, we use the new range, but only increment count
-  // by 1
+  // If cnt is 0 while range is not, this means there exists enough evidence
+  // that differ from previous measurement, for example some new object just
+  // entered and stayed long enough. In this case, we use the new range, but
+  // only increment count by 1
   if (p.cnt == 0) {
     p.SetRange(rg);
     ++p.cnt;
     return true;
   }
 
-  // Otherwise we have a valid depth with cnt
+  // Otherwise we have a valid depth with some evidence (cnt > 0)
   const auto rg0 = p.GetRange();
 
   // Check if new and old are close enough
-  if ((std::abs(rg - rg0) / rg0) < range_ratio) {
-    // close, do a weighted update
+  if ((std::abs(rg - rg0) / rg0) < fuse_ratio) {
+    // close enough, do a weighted update
     const auto rg1 = (rg0 * p.cnt + rg) / (p.cnt + 1);
     p.SetRange(rg1);
-    // And increment cnt
+    // And increment cnt but do not exceed max
     if (p.cnt < max_cnt) ++p.cnt;
     return true;
   } else {
@@ -127,52 +131,30 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
 
 bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1,
                              double match_ratio) const {
-  if (num_added <= max_cnt) {
-    // Pano not old enough
-    VLOG(1) << "Not enough added: " << num_added;
-
-    return false;
-  }
+  if (num_sweeps <= max_cnt) return false;
 
   // match ratio is the most important criteria
-  if (match_ratio < min_match_ratio) {
-    VLOG(1) << "Match ratio too low: " << match_ratio;
-    return true;
-  }
+  if (match_ratio < min_match_ratio) return true;
 
   // Otherwise we have enough match, then we check translation
   if (max_translation > 0) {
     const auto trans = tf_p2_p1.translation().norm();
-    if (trans > max_translation) {
-      VLOG(1) << "Translation too big: " << trans;
-      return true;
-    }
+    if (trans > max_translation) return true;
   }
 
-  // No need to check rotation if pano is gravity aligned
-  if (align_gravity) {
-    return false;
-  }
+  // Note that it is highly unlikely that we will reach here because match ratio
+  // would already decide to re-render
 
   // cos_rp is just col z of rotation dot with e_z, which is just R22
   const auto R22 = tf_p2_p1.rotationMatrix()(2, 2);
   const auto cos_max_rp = std::cos(model.elev_max * 2.0 / 3.0);
-
-  if (R22 < cos_max_rp) {
-    VLOG(1) << "Rotation too big: " << R22;
-    return true;
-  }
-
-  return false;
+  return R22 < cos_max_rp;
 }
 
 int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
   // clear pano2
   dbuf2.setTo(0);
   gsize = gsize <= 0 ? rows() : gsize;
-
-  // Do not change rotation if pano is gravity aligned
-  if (align_gravity) tf_p2_p1.so3() = Sophus::SO3f{};
 
   const int n = tbb::parallel_reduce(
       tbb::blocked_range<int>(0, rows(), gsize),
@@ -186,8 +168,9 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
       std::plus<>{});
 
   cv::swap(dbuf, dbuf2);
-  // Half num_added, consistent with Render where cnt are halved as well
-  num_added = max_cnt / 4;
+
+  // TODO (chao): should we set it to 1 or divide by 4?
+  num_sweeps = max_cnt / 4;
 
   return n;
 }
@@ -202,14 +185,14 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_p2_p1, int r1) {
 
     // px1 -> xyz1
     const auto pt1 = model.Backward(r1, c1, rg1);
-    Eigen::Map<const Vector3f> xyz1(&pt1.x);
+    Eigen::Map<const Vector3f> pt1_map(&pt1.x);
 
     // xyz1 -> xyz2
-    const auto xyz2 = tf_p2_p1 * xyz1;
-    const auto rg2 = xyz2.norm();
+    const auto pt2 = tf_p2_p1 * pt1_map;
+    const auto rg2 = pt2.norm();
 
     // xyz2 -> px2
-    const auto px2 = model.Forward(xyz2.x(), xyz2.y(), xyz2.z(), rg2);
+    const auto px2 = model.Forward(pt2.x(), pt2.y(), pt2.z(), rg2);
     if (px2.x < 0) continue;
 
     // Check for occlusion
@@ -222,32 +205,21 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_p2_p1, int r1) {
 bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
   if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
 
-  auto& p = dbuf2.at<DepthPixel>(px);
-  if (p.raw == 0) {
-    p.SetRangeCount(rg, cnt / 2 + 1);
+  auto& dp2 = dbuf2.at<DepthPixel>(px);
+  // if the destination pixel is empty, then just set it to range and half cnt
+  if (dp2.raw == 0) {
+    dp2.SetRangeCount(rg, cnt / 2);
     return true;
   }
 
-  // Depth buffer update, handles occlusion
-  const auto rg0 = p.GetRange();
-  if (rg < rg0) {
-    p.SetRange(rg);
+  // Depth buffer update, handles occlusion by taking the closer one
+  const auto rg2 = dp2.GetRange();
+  if (rg < rg2) {
+    dp2.SetRange(rg);
     return true;
   }
 
   return false;
-}
-
-const std::vector<cv::Mat>& DepthPano::DrawRangeCount() const {
-  static std::vector<cv::Mat> disp;
-  cv::split(dbuf, disp);
-  return disp;
-}
-
-const std::vector<cv::Mat>& DepthPano::DrawRangeCount2() const {
-  static std::vector<cv::Mat> disp;
-  cv::split(dbuf2, disp);
-  return disp;
 }
 
 float DepthPano::MeanCovarAt(const cv::Point& px,
@@ -264,9 +236,10 @@ float DepthPano::MeanCovarAt(const cv::Point& px,
       const auto& dp = PixelAt(px_w);
       const auto rg_w = dp.GetRange();
 
-      if (rg_w == 0 || (std::abs(rg_w - rg) / rg) > range_ratio) {
-        continue;
-      }
+      // Check for validity and range similarity
+      if (rg_w == 0 || (std::abs(rg_w - rg) / rg) > win_ratio) continue;
+
+      // Add 3d point
       const auto pt = model.Backward(px_w.y, px_w.x, rg_w);
       mc.Add({pt.x, pt.y, pt.z});
       weight += dp.cnt;
@@ -276,6 +249,31 @@ float DepthPano::MeanCovarAt(const cv::Point& px,
   weight /= max_cnt;
 
   return weight;
+}
+
+void DepthPano::UpdateMean(const cv::Point& px,
+                           float rg,
+                           Eigen::Vector3f& mean) const {
+  const auto& dp = PixelAt(px);
+  const auto rg_w = dp.GetRange();
+
+  if (rg_w == 0 || (std::abs(rg_w - rg) / rg) > win_ratio) return;
+  const auto pt = model.Backward(px.y, px.x, rg_w);
+  mean.x() = pt.x;
+  mean.y() = pt.y;
+  mean.z() = pt.z;
+}
+
+const std::vector<cv::Mat>& DepthPano::DrawRangeCount() const {
+  static std::vector<cv::Mat> disp;
+  cv::split(dbuf, disp);
+  return disp;
+}
+
+const std::vector<cv::Mat>& DepthPano::DrawRangeCount2() const {
+  static std::vector<cv::Mat> disp;
+  cv::split(dbuf2, disp);
+  return disp;
 }
 
 }  // namespace sv

@@ -21,9 +21,6 @@ struct LidarSweep final : public LidarScan {
 
   /// @brief Interpolate pose of each column
   void Interp(const Trajectory& traj, int gsize = 0);
-
-  /// @brief Draw
-  cv::Mat DrawRange() const;
 };
 
 LidarSweep MakeTestSweep(const cv::Size& size);

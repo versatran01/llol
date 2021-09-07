@@ -15,7 +15,7 @@ struct PointMatch {
   cv::Point px_p{kBadPx, kBadPx};  // 8 pano pixel coord
   MeanCovar3f mc_p{};              // 52 pano mean covar
   Matrix3f U{};                    // 36 sqrt of info
-  float scale{1.0};                // 4 scale of this match
+  float scale{0.0};                // 4 scale of this match
 
   /// @brief Whether this match is good
   bool Ok() const noexcept { return GridOk() && PanoOk(); }

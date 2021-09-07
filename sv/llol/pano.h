@@ -31,7 +31,8 @@ struct PanoParams {
   float vfov{0.0F};
   int max_cnt{10};
   float min_range{0.5F};
-  float range_ratio{0.1F};
+  float win_ratio{0.1F};
+  float fuse_ratio{0.05F};
   bool align_gravity{false};
   double min_match_ratio{0.9};
   double max_translation{1.5};
@@ -42,11 +43,12 @@ struct DepthPano {
   /// Params
   int max_cnt{};
   float min_range{};
-  float range_ratio{};
+  float win_ratio{};
+  float fuse_ratio{};
   bool align_gravity{};
   double min_match_ratio{};
   double max_translation{};
-  float num_added{};  // number of pano added, float since we could add partial
+  float num_sweeps{};  // number of pano added, float since we could add partial
 
   /// Data
   LidarModel model;
@@ -71,7 +73,7 @@ struct DepthPano {
   /// @brief Get a bounded window centered at pt with given size
   cv::Rect BoundWinCenterAt(const cv::Point& pt, const cv::Size& size) const;
 
-  /// @brief Add a sweep to the pano
+  /// @brief Add a partial sweep to the pano
   int Add(const LidarSweep& sweep, const cv::Range& curr, int gsize = 0);
   int AddRow(const LidarSweep& sweep, const cv::Range& curr, int row);
   bool FuseDepth(const cv::Point& px, float rg);
@@ -96,6 +98,7 @@ struct DepthPano {
                     const cv::Size& size,
                     float rg,
                     MeanCovar3f& mc) const;
+  void UpdateMean(const cv::Point& px, float rg, Eigen::Vector3f& mean) const;
 
   /// @brief Viz
   const std::vector<cv::Mat>& DrawRangeCount() const;

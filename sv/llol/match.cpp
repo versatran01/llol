@@ -18,6 +18,7 @@ void PointMatch::Reset() {
   ResetGrid();
   ResetPano();
   U.setZero();
+  scale = 0.0;
 }
 
 void PointMatch::CalcSqrtInfo(float lambda) {

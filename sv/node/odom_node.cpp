@@ -4,6 +4,8 @@
 
 namespace sv {
 
+static constexpr double kMaxRange = 32.0;
+
 OdomNode::OdomNode(const ros::NodeHandle& pnh)
     : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
   sub_camera_ = it_.subscribeCamera("image", 20, &OdomNode::CameraCb, this);
@@ -90,6 +92,7 @@ void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
   ROS_INFO_STREAM(grid_);
 
   traj_ = InitTraj({pnh_, "traj"}, grid_.cols());
+
   // TODO (chao): some hack so that I don't have to modify config
   if (rigid_) {
     ROS_WARN_STREAM("Using rigid version, set acc related params to false");
@@ -171,6 +174,9 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 
   if (vis_) {
     const auto& disps = grid_.DrawCurveVar();
+
+    Imshow("scan",
+           ApplyCmap(scan.DrawRange(), 1 / kMaxRange, cv::COLORMAP_PINK, 0));
     Imshow("curve", ApplyCmap(disps[0], 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("var", ApplyCmap(disps[1], 1 / 0.2, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
@@ -228,14 +234,13 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   }
 
   if (vis_) {
-    const double max_range = 32.0;
     Imshow("sweep",
-           ApplyCmap(sweep_.DrawRange(), 1 / max_range, cv::COLORMAP_PINK, 0));
+           ApplyCmap(sweep_.DrawRange(), 1 / kMaxRange, cv::COLORMAP_PINK, 0));
     const auto& disps = pano_.DrawRangeCount();
     Imshow(
         "pano",
         ApplyCmap(
-            disps[0], 1.0 / DepthPixel::kScale / max_range, cv::COLORMAP_PINK));
+            disps[0], 1.0 / DepthPixel::kScale / kMaxRange, cv::COLORMAP_PINK));
     Imshow("count",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
   }

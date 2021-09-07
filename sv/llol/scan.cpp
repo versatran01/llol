@@ -3,6 +3,8 @@
 #include <fmt/core.h>
 #include <glog/logging.h>
 
+#include <opencv2/core.hpp>
+
 namespace sv {
 
 /// ScanBase ===================================================================
@@ -65,7 +67,6 @@ void LidarScan::MeanCovarAt(const cv::Point& px,
 }
 
 cv::Vec2f LidarScan::ScoreAt(const cv::Point& px, int width) const {
-  static constexpr float kValidCellRatio = 0.8;
   cv::Vec2f score(kNaNF, kNaNF);
 
   // compute sum of range in cell
@@ -87,14 +88,20 @@ cv::Vec2f LidarScan::ScoreAt(const cv::Point& px, int width) const {
     ++n;
   }
 
-  // Discard if there are too many nans in this cell
-  if (n < kValidCellRatio * width) return score;
+  // Discard if there are fewer than 8 points
+  if (n < 8) return score;
 
   // Check variance
   // https://www.johndcook.com/blog/standard_deviation/
   score[0] = std::abs(sum / mid / n - 1.0F);
   score[1] = 1.0 / (n * (n - 1)) * (n * sq_sum - sum * sum) / mid;
   return score;
+}
+
+cv::Mat LidarScan::DrawRange() const {
+  static cv::Mat disp;
+  cv::extractChannel(mat, disp, 3);
+  return disp;
 }
 
 /// Test Related ===============================================================

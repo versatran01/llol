@@ -109,7 +109,6 @@ void OdomNode::Publish(const std_msgs::Header& header) {
     pose.header.stamp = path.header.stamp;
     pose.header.frame_id = path.header.frame_id;
     SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
-    // TODO (chao): only add to path if it is sufficiently far away like 0.1m
 
     if (path.poses.empty()) {
       path.poses.push_back(pose);
