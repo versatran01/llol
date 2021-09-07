@@ -4,6 +4,7 @@
 #include <pcl/point_types.h>
 #include <std_msgs/Header.h>
 
+#include "sv/llol/grid.h"
 #include "sv/llol/pano.h"
 #include "sv/llol/sweep.h"
 
@@ -20,4 +21,7 @@ void Sweep2Cloud(const LidarSweep& sweep,
                  const std_msgs::Header header,
                  CloudXYZI& cloud);
 
+void Grid2Cloud(const SweepGrid& grid,
+                const std_msgs::Header& header,
+                CloudXYZ& cloud);
 }  // namespace sv

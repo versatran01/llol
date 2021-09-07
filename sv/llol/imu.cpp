@@ -48,12 +48,13 @@ SO3d IntegrateRot(const SO3d& rot,
                   const ImuData& imu0,
                   const ImuData& imu1,
                   double dt) {
+  CHECK_GT(dt, 0);
   const auto time_mid = time + dt / 2.0;
   // Find interpolation factor
   const auto s =
       std::clamp((time_mid - imu0.time) / (imu1.time - imu0.time), 0.0, 1.0);
   // Linearly interpolate between two gyro measurements
-  const Vector3d omg = (1 - s) * imu0.gyr + s * imu1.gyr;
+  const Vector3d omg = (1.0 - s) * imu0.gyr + s * imu1.gyr;
   return rot * SO3d::exp(omg * dt);
 }
 
@@ -107,6 +108,7 @@ void IntegrateState(const NavState& s0,
 }
 
 int GetImuIndexAfterTime(const ImuBuffer& buf, double t) {
+  // TODO (chao): do a reverse search instead
   int ibuf = -1;
   for (int i = 0; i < buf.size(); ++i) {
     if (buf.at(i).time > t) {
@@ -151,15 +153,28 @@ std::string ImuQueue::Repr() const {
                      noise);
 }
 
-void sv::ImuQueue::Add(const ImuData& imu) {
-  buf.push_back(imu);
+void sv::ImuQueue::Add(const ImuData& imu_in) {
+  ImuData imu = imu_in;
+  if (imu.IsAccBad()) {
+    LOG(WARNING) << "acc data is not valid: " << imu.acc.transpose();
+    imu.acc = kVecZero3d;
+  }
+
+  if (imu.IsGyrBad()) {
+    LOG(WARNING) << "gyr data is not valid: " << imu.gyr.transpose();
+    imu.gyr = kVecZero3d;
+  }
+
   if (!buf.empty()) {
-    const auto dt = imu.time - buf[size() - 2].time;
+    const auto dt = imu.time - buf.back().time;
+    CHECK_GT(dt, 0);
     const auto dt2 = dt * dt;
     // Also propagate covariance for bias model
     bias.acc_var += noise.nbad() * dt2;
     bias.gyr_var += noise.nbwd() * dt2;
   }
+
+  buf.push_back(imu);
 }
 
 ImuData ImuQueue::CalcMean() const {

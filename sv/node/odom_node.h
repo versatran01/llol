@@ -52,12 +52,13 @@ struct OdomNode {
   void CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                 const sensor_msgs::CameraInfoConstPtr& cinfo_msg);
   void Publish(const std_msgs::Header& header);
+  void Logging();
 
   void Initialize(const sensor_msgs::CameraInfo& cinfo_msg);
   void Preprocess(const LidarScan& scan);
   void Register();
-  void IcpRigid();
-  void IcpLinear();
+  bool IcpRigid();
+  bool IcpLinear();
   void PostProcess(const LidarScan& scan);
 };
 

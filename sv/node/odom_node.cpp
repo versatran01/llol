@@ -1,5 +1,7 @@
 #include "sv/node/odom_node.h"
 
+#include <absl/strings/match.h>
+
 #include "sv/node/viz.h"
 
 namespace sv {
@@ -147,8 +149,23 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 
   Publish(cinfo_msg->header);
 
-  ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
+  Logging();
+}
+
+void OdomNode::Logging() {
+  // Record total time
+  TimerManager::StatsT stats;
+  absl::Duration time;
+  for (const auto& kv : tm_.dict()) {
+    if (absl::StartsWith(kv.first, "Total")) continue;
+    if (absl::StartsWith(kv.first, "Pano.Render")) continue;
+    time += kv.second.last();
+  }
+  stats.Add(time);
+  tm_.Update("Total", stats);
+
   ROS_DEBUG_STREAM_THROTTLE(0.5, sm_.ReportAll(true));
+  ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {
@@ -192,7 +209,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Pano.Add");
     n_added = pano_.Add(sweep_, scan.curr, tbb_);
   }
-  sm_.Get("pano.add").Add(n_added);
+  sm_.Get("pano.add_points").Add(n_added);
 
   const double match_ratio =
       sm_.Get("grid.matches").last() / sm_.Get("grid.good_cells").last();
@@ -218,12 +235,12 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     traj_.MoveFrame(T_p2_p1);
   }
   if (n_render > 0) {
-    sm_.Get("pano.render").Add(n_render);
+    sm_.Get("pano.render_points").Add(n_render);
   }
 
   int n_points = 0;
   {  // Add scan to sweep
-    auto _ = tm_.Scoped("Sweep.Add");
+    auto _ = tm_.Scoped("sweep.add");
     n_points = sweep_.Add(scan);
   }
   sm_.Get("sweep.add").Add(n_points);

@@ -6,17 +6,22 @@
 namespace sv {
 
 void OdomNode::Register() {
+  bool icp_ok = false;
   if (rigid_) {
-    IcpRigid();
+    icp_ok = IcpRigid();
   } else {
-    IcpLinear();
+    icp_ok = IcpLinear();
   }
 
   ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
                                << ", norm: " << traj_.back().vel.norm());
-  traj_.UpdateBias(imuq_);
-  ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-  ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+
+  // Do not update bias if icp was not running
+  if (icp_ok) {
+    traj_.UpdateBias(imuq_);
+    ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
+    ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+  }
 
   if (vis_) {
     // display good match
@@ -27,7 +32,7 @@ void OdomNode::Register() {
   }
 }
 
-void OdomNode::IcpRigid() {
+bool OdomNode::IcpRigid() {
   auto t_match = tm_.Manual("Grid.Match", false);
   auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
@@ -40,10 +45,10 @@ void OdomNode::IcpRigid() {
   opts.max_num_iterations = gicp_.iters.second;
   opts.gradient_tolerance = 1e-8;
 
-  Cost::ErrorVector err;
+  bool icp_ok = false;
 
   for (int i = 0; i < gicp_.iters.first; ++i) {
-    err.setZero();
+    cost.ResetError();
 
     t_match.Resume();
     // Need to update cell tfs before match
@@ -63,12 +68,13 @@ void OdomNode::IcpRigid() {
 
     // Solve
     t_solve.Resume();
-    solver.Solve(cost, &err);
+    solver.Solve(cost, &cost.error);
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 
     // Update state
-    cost.UpdateTraj(traj_, err.data());
+    cost.UpdateTraj(traj_);
+    icp_ok = true;
   }
 
   sm_.Get("grid.matches").Add(cost.matches.size());
@@ -76,9 +82,10 @@ void OdomNode::IcpRigid() {
   t_match.Commit();
   t_solve.Commit();
   t_build.Commit();
+  return icp_ok;
 }
 
-void OdomNode::IcpLinear() {
+bool OdomNode::IcpLinear() {
   // Outer icp iters
   auto t_match = tm_.Manual("Grid.Match", false);
   auto t_build = tm_.Manual("Icp.Build", false);
@@ -94,9 +101,10 @@ void OdomNode::IcpLinear() {
   opts.max_num_iterations = gicp_.iters.second;
   opts.gradient_tolerance = 1e-8;
 
-  Cost::ErrorVector err;
+  bool icp_ok = false;
+
   for (int i = 0; i < gicp_.iters.first; ++i) {
-    err.setZero();
+    cost.ResetError();
 
     t_match.Resume();
     // Need to update cell tfs before match
@@ -116,18 +124,20 @@ void OdomNode::IcpLinear() {
 
     // Solve
     t_solve.Resume();
-    solver.Solve(cost, &err);
+    solver.Solve(cost, &cost.error);
     t_solve.Stop(false);
     ROS_INFO_STREAM(solver.summary.Report());
 
     // Update state
-    cost.UpdateTraj(traj_, err.data());
+    cost.UpdateTraj(traj_);
+    icp_ok = true;
   }
 
   sm_.Get("grid.matches").Add(cost.matches.size());
   t_match.Commit();
   t_solve.Commit();
   t_build.Commit();
+  return icp_ok;
 }
 
 }  // namespace sv

@@ -8,6 +8,8 @@ namespace sv {
 template <typename T>
 class Stats {
  public:
+  using value_type = T;
+
   void Add(const T& value) noexcept {
     ++count_;
     sum_ += value;

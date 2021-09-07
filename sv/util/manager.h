@@ -37,6 +37,7 @@ class StatsManagerBase {
   const std::string& name() const noexcept { return name_; }
   auto size() const noexcept { return stats_dict_.size(); }
   bool empty() const noexcept { return size() == 0; }
+  const auto& dict() const { return stats_dict_; }
 
   /// @brief Thread-safe update, aggregate stats
   void Update(std::string_view name, const StatsT& stats) {

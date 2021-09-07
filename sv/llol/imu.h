@@ -44,7 +44,14 @@ struct ImuData {
 
   void Debias(const ImuBias& bias);
   ImuData DeBiased(const ImuBias& bias) const;
+
+  static bool DataHasNan(const Eigen::Vector3d& v) {
+    return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z());
+  }
+  bool IsAccBad() const { return DataHasNan(acc); }
+  bool IsGyrBad() const { return DataHasNan(gyr); }
 };
+
 using ImuBuffer = boost::circular_buffer<ImuData>;
 
 Sophus::SO3d IntegrateRot(const Sophus::SO3d& rot,

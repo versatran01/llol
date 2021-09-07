@@ -69,4 +69,31 @@ void Sweep2Cloud(const LidarSweep& sweep,
                     });
 }
 
+void Grid2Cloud(const SweepGrid& grid,
+                const std_msgs::Header& header,
+                CloudXYZ& cloud) {
+  const auto size = grid.size();
+  if (cloud.empty()) {
+    cloud.resize(grid.total());
+    cloud.width = size.width;
+    cloud.height = size.height;
+  }
+
+  pcl_conversions::toPCL(header, cloud.header);
+  tbb::parallel_for(tbb::blocked_range<int>(0, size.height),
+                    [&](const auto& blk) {
+                      for (int r = blk.begin(); r < blk.end(); ++r) {
+                        for (int c = 0; c < size.width; ++c) {
+                          const auto& match = grid.MatchAt({c, r});
+                          auto& pc = cloud.at(c, r);
+                          if (match.Ok()) {
+                            pc.getArray3fMap() = match.mc_p.mean;
+                          } else {
+                            pc.x = pc.y = pc.z = kNaNF;
+                          }
+                        }
+                      }
+                    });
+}
+
 }  // namespace sv

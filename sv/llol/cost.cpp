@@ -16,6 +16,11 @@ int GicpCost::NumResiduals() const {
   return matches.size() * kResidualDim + (ptraj ? 3 : 0);
 }
 
+void GicpCost::ResetError() {
+  error.resize(NumParameters());
+  error.setZero();
+}
+
 void GicpCost::UpdateMatches(const SweepGrid& grid) {
   // Collect all good matches
   pgrid = &grid;
@@ -71,10 +76,10 @@ bool GicpRigidCost::operator()(const double* x_ptr,
   return true;
 }
 
-void GicpRigidCost::UpdateTraj(Trajectory& traj, const double* x_ptr) const {
+void GicpRigidCost::UpdateTraj(Trajectory& traj) const {
   const auto st0 = traj.front();  // get a copy of the initial state
 
-  const State es(x_ptr);
+  const State es(error.data());
   const auto eR = Sophus::SO3d::exp(es.r0());
   for (auto& st : traj.states) {
     st.rot = eR * st.rot;
@@ -156,8 +161,8 @@ bool GicpLinearCost::operator()(const double* x_ptr,
   return true;
 }
 
-void GicpLinearCost::UpdateTraj(Trajectory& traj, const double* x_ptr) const {
-  const State es(x_ptr);
+void GicpLinearCost::UpdateTraj(Trajectory& traj) const {
+  const State es(error.data());
   const auto eR = Sophus::SO3d::exp(es.r0());
 
   MeanVar3d vel{};

@@ -13,6 +13,7 @@ struct GicpCost {
   enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
   using ErrorVector = Eigen::Matrix<Scalar, kNumParams, 1>;
 
+  /// @brief Error state
   enum Block { kR0, kP0 };
   struct State {
     static constexpr int kBlockSize = 3;
@@ -31,9 +32,10 @@ struct GicpCost {
   int NumResiduals() const;
   int NumParameters() const { return kNumParams; }
 
+  void ResetError();
   void UpdateMatches(const SweepGrid& grid);
   void UpdatePreint(const Trajectory& traj, const ImuQueue& imuq);
-  virtual void UpdateTraj(Trajectory& traj, const double* x_ptr) const = 0;
+  virtual void UpdateTraj(Trajectory& traj) const = 0;
 
   int gsize_{};
   double imu_weight{0.0};
@@ -43,20 +45,22 @@ struct GicpCost {
 
   const Trajectory* ptraj{nullptr};
   ImuPreintegration preint;
+
+  ErrorVector error{};
 };
 
 /// @brief Gicp with rigid transformation
 struct GicpRigidCost final : public GicpCost {
   using GicpCost::GicpCost;
   bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
-  void UpdateTraj(Trajectory& traj, const double* x_ptr) const override;
+  void UpdateTraj(Trajectory& traj) const override;
 };
 
 /// @brief Linear interpolation in translation error state
 struct GicpLinearCost final : public GicpCost {
   using GicpCost::GicpCost;
   bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
-  void UpdateTraj(Trajectory& traj, const double* x_ptr) const override;
+  void UpdateTraj(Trajectory& traj) const override;
 };
 
 }  // namespace sv

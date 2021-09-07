@@ -29,6 +29,7 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   static auto pub_bias_std =
       pnh_.advertise<sensor_msgs::Imu>("imu_bias_std", 1);
 
+  static auto pub_feat = pnh_.advertise<CloudXYZ>("feat", 1);
   static auto pub_pano = pnh_.advertise<CloudXYZ>("pano", 1);
   static auto pub_sweep = pnh_.advertise<CloudXYZ>("sweep", 1);
   static auto pub_grid = pnh_.advertise<MarkerArray>("grid", 1);
@@ -43,20 +44,20 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   SE3dToMsg(traj_.T_odom_pano, tf_o_p.transform);
   tf_broadcaster.sendTransform(tf_o_p);
 
+  std_msgs::Header pano_header;
+  pano_header.frame_id = pano_frame_;
+  pano_header.stamp = header.stamp;
+
   static MarkerArray grid_marray;
   if (pub_grid.getNumSubscribers() > 0) {
-    std_msgs::Header grid_header;
-    grid_header.frame_id = pano_frame_;
-    grid_header.stamp = header.stamp;
-    Grid2Markers(grid_, grid_header, grid_marray.markers);
+    Grid2Markers(grid_, pano_header, grid_marray.markers);
     pub_grid.publish(grid_marray);
   }
 
   // Publish as pose array
   static PoseArray traj_parray;
   if (pub_traj.getNumSubscribers() > 0) {
-    traj_parray.header.frame_id = pano_frame_;
-    traj_parray.header.stamp = header.stamp;
+    traj_parray.header = pano_header;
     Traj2PoseArray(traj_, traj_parray);
     pub_traj.publish(traj_parray);
   }
@@ -64,28 +65,28 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   // publish undistorted sweep
   static CloudXYZI sweep_cloud;
   if (pub_sweep.getNumSubscribers() > 0) {
-    std_msgs::Header sweep_header;
-    sweep_header.frame_id = pano_frame_;
-    sweep_header.stamp = header.stamp;
-    Sweep2Cloud(sweep_, sweep_header, sweep_cloud);
+    Sweep2Cloud(sweep_, pano_header, sweep_cloud);
     pub_sweep.publish(sweep_cloud);
   }
 
   // Publish pano
   static CloudXYZ pano_cloud;
   if (pub_pano.getNumSubscribers() > 0) {
-    std_msgs::Header pano_header;
-    pano_header.frame_id = pano_frame_;
-    pano_header.stamp = header.stamp;
     Pano2Cloud(pano_, pano_header, pano_cloud);
     pub_pano.publish(pano_cloud);
+  }
+
+  // Publish match
+  static CloudXYZ feat_cloud;
+  if (pub_feat.getNumSubscribers() > 0) {
+    Grid2Cloud(grid_, pano_header, feat_cloud);
+    pub_feat.publish(feat_cloud);
   }
 
   // publish imu bias
   static sensor_msgs::Imu imu_bias;
   if (pub_bias.getNumSubscribers() > 0) {
     imu_bias.header.stamp = header.stamp;
-    imu_bias.header.frame_id = imu_frame_;
     tf2::toMsg(imuq_.bias.acc, imu_bias.linear_acceleration);
     tf2::toMsg(imuq_.bias.gyr, imu_bias.angular_velocity);
     pub_bias.publish(imu_bias);

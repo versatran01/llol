@@ -67,6 +67,8 @@ void Trajectory::Init(const SE3d& tf_i_l, const Vector3d& acc, double g_norm) {
 }
 
 int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
+  CHECK_GT(dt, 0);
+
   // At the beginning of predict, the starting state of the trajectory is the
   // starting col of the previous grid. Since we add a new scan to the grid, the
   // starting point is shifted by n. We need to adjust the states such that the
