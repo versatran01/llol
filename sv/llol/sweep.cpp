@@ -28,7 +28,7 @@ int LidarSweep::Add(const LidarScan& scan) {
 void LidarSweep::Interp(const Trajectory& traj, int gsize) {
   const int num_cells = traj.size() - 1;
   const int cell_width = cols() / num_cells;
-  const auto curr_g = curr / cell_width;
+  const auto grid_end = curr.end / cell_width;
   gsize = gsize <= 0 ? num_cells : gsize;
 
   tbb::parallel_for(
@@ -38,12 +38,12 @@ void LidarSweep::Interp(const Trajectory& traj, int gsize) {
           // ends, so we need to offset by curr.end to find the
           // corresponding traj segment
 
-          const int tc = WrapCols(gc - curr_g.end, num_cells);
+          const int tc = WrapCols(gc - grid_end, num_cells);
           const auto& st0 = traj.At(tc);
           const auto& st1 = traj.At(tc + 1);
 
           const auto dr = (st0.rot.inverse() * st1.rot).log();
-          const auto dp = (st0.pos - st1.pos).eval();
+          const auto dp = (-st0.pos + st1.pos).eval();
 
           for (int j = 0; j < cell_width; ++j) {
             // which column

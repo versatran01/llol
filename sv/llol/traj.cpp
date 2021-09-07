@@ -91,7 +91,7 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
 
   // Find the state to start prediction
   const int ist0 = size() - n - 1;
-  CHECK_GE(ist0, 0);
+  LOG(INFO) << "starting state: " << ist0;
   states.at(ist0).time = t0;  // update its time
   const auto& st0 = At(ist0);
 

@@ -1,5 +1,5 @@
 imuq:
-  buffer_size: 20
+  buffer_size: 25
   imu_rate: 100.0
   acc_noise: 0.005
   acc_bias_noise: 0.0005
@@ -12,20 +12,20 @@ traj:
   update_acc_bias: true
 grid:
   cell_rows: 2
-  cell_cols: 8
+  cell_cols: 16
   max_curve: 0.04
   max_var: 0.04
   nms: true
 gicp:
-  outer: 2
-  inner: 4
+  outer: 3
+  inner: 3
   half_rows: 2
   half_cols: 6
   cov_lambda: 0.0
   min_eigval: 0.0
   imu_weight: 1.0
 pano:
-  rows: 512 # rows of pano (256)
+  rows: 256 # rows of pano (256)
   cols: 1024 # cols of pano (1024)
   vfov: 90.0 # vertical fov (90.0) [degree]
   max_cnt: 20 # maximum count of pixel (20)

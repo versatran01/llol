@@ -75,6 +75,9 @@ bool OdomNode::IcpRigid() {
     // Update state
     cost.UpdateTraj(traj_);
     icp_ok = true;
+
+    // early exit
+    if (i >= 1 && solver.summary.IsConverged()) break;
   }
 
   sm_.Get("grid.matches").Add(cost.matches.size());
@@ -131,6 +134,9 @@ bool OdomNode::IcpLinear() {
     // Update state
     cost.UpdateTraj(traj_);
     icp_ok = true;
+
+    // early exit
+    if (i >= 1 && solver.summary.IsConverged()) break;
   }
 
   sm_.Get("grid.matches").Add(cost.matches.size());

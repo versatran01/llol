@@ -30,4 +30,10 @@ std::string SolverSummary::Report() const {
       Repr(status));
 }
 
+bool SolverSummary::IsConverged() const {
+  return status == SolverStatus::GRADIENT_TOO_SMALL ||
+         status == SolverStatus::RELATIVE_STEP_SIZE_TOO_SMALL ||
+         status == SolverStatus::COST_TOO_SMALL;
+}
+
 }  // namespace sv

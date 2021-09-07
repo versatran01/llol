@@ -159,6 +159,7 @@ struct SolverSummary {
   SolverStatus status = SolverStatus::HIT_MAX_ITERATIONS;
 
   std::string Report() const;
+  bool IsConverged() const;
 };
 
 /// @brief This version allocates once and use Eigen::Map

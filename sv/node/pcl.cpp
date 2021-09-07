@@ -50,19 +50,16 @@ void Sweep2Cloud(const LidarSweep& sweep,
                     [&](const auto& blk) {
                       for (int r = blk.begin(); r < blk.end(); ++r) {
                         for (int c = 0; c < size.width; ++c) {
-                          const bool col_in_curr =
-                              (sweep.curr.start <= c && c < sweep.curr.end);
-                          float intensity = col_in_curr ? 1.0 : 0.5;
-
-                          const auto& tf = sweep.TfAt(c);
                           const auto& xyzr = sweep.XyzrAt({c, r});
                           auto& pc = cloud.at(c, r);
                           if (std::isnan(xyzr[0])) {
                             pc.x = pc.y = pc.z = pc.intensity = kNaNF;
                           } else {
                             Eigen::Map<const Vector3f> xyz(&xyzr[0]);
-                            pc.getArray3fMap() = tf * xyz;
-                            pc.intensity = intensity;
+                            pc.getArray3fMap() = sweep.TfAt(c) * xyz;
+                            const bool col_in_curr =
+                                (sweep.curr.start <= c && c < sweep.curr.end);
+                            pc.intensity = col_in_curr ? 1.0 : 0.5;
                           }
                         }
                       }
