@@ -74,7 +74,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     ROS_INFO_STREAM("acc_mean: " << imu_mean.acc.transpose()
                                  << ", norm: " << imu_mean.acc.norm());
 
-    traj_.Init({q_i_l, t_i_l}, imu_mean.acc, 9.80184);
+    traj_.Init({q_i_l, t_i_l}, imu_mean.acc, 0.0);
     //    imuq_.bias.gyr = imu_mean.gyr;
     //    imuq_.bias.gyr_var = imu_mean.gyr.array().square();
     ROS_INFO_STREAM(traj_);

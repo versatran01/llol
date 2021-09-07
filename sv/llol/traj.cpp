@@ -53,14 +53,15 @@ void Trajectory::Init(const SE3d& tf_i_l, const Vector3d& acc, double g_norm) {
   T_imu_lidar = tf_i_l;
   // set all states to T_l_i since we want first sweep frame to align with pano
   const auto tf_l_i = tf_i_l.inverse();
-  for (auto& s : states) {
-    s.rot = tf_l_i.so3();
-    s.pos = tf_l_i.translation();
+  for (auto& st : states) {
+    st.rot = tf_l_i.so3();
+    st.pos = tf_l_i.translation();
   }
 
   // We want to initialized gravity vector with first imu measurement but it
   // should be in pano frame
-  const Vector3d g_i = acc.normalized() * g_norm;
+  Vector3d g_i = acc;
+  if (g_norm > 0) g_i = g_i.normalized() * g_norm;
   g_pano = T_imu_lidar.so3().inverse() * g_i;
   T_odom_pano.so3().setQuaternion(
       Quaterniond::FromTwoVectors(Vector3d::UnitZ(), g_i));
