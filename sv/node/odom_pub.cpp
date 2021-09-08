@@ -23,6 +23,7 @@ using visualization_msgs::MarkerArray;
 
 void OdomNode::Publish(const std_msgs::Header& header) {
   static auto pub_path = pnh_.advertise<Path>("path", 1);
+  //  static auto pub_odom = pnh_.advertise<Odometry>("odom", 1);
   static auto pub_traj = pnh_.advertise<PoseArray>("traj", 1);
   static auto pub_pose = pnh_.advertise<PoseStamped>("pose", 1);
   static auto pub_bias = pnh_.advertise<sensor_msgs::Imu>("imu_bias", 1);
@@ -102,12 +103,14 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   }
 
   // publish latest traj as path
-  static Path path;
-  path.header.stamp = header.stamp;
-  path.header.frame_id = odom_frame_;
   PoseStamped pose;
-  pose.header = path.header;
+  pose.header.stamp = header.stamp;
+  pose.header.frame_id = odom_frame_;
   SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
+  pub_pose.publish(pose);
+
+  static Path path;
+  path.header = pose.header;
 
   if (path.poses.empty()) {
     path.poses.push_back(pose);
@@ -119,7 +122,6 @@ void OdomNode::Publish(const std_msgs::Header& header) {
     }
   }
 
-  pub_pose.publish(pose);
   pub_path.publish(path);
 }
 
