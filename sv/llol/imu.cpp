@@ -7,6 +7,17 @@
 
 namespace sv {
 
+namespace {
+
+double InterpImuTime(double time, const ImuData& imu0, const ImuData& imu1) {
+  const auto dt = imu1.time - imu0.time;
+  const auto s = dt == 0 ? 0.0 : std::clamp((time - imu0.time) / dt, 0.0, 1.0);
+  CHECK(!std::isnan(s));
+  return s;
+}
+
+}  // namespace
+
 using SO3d = Sophus::SO3d;
 using SE3d = Sophus::SE3d;
 using Quaterniond = Eigen::Quaterniond;
@@ -51,8 +62,8 @@ SO3d IntegrateRot(const SO3d& rot,
   CHECK_GT(dt, 0);
   const auto time_mid = time + dt / 2.0;
   // Find interpolation factor
-  const auto s =
-      std::clamp((time_mid - imu0.time) / (imu1.time - imu0.time), 0.0, 1.0);
+  const auto dt_imu = imu1.time - imu0.time;
+  const auto s = InterpImuTime(time_mid, imu0, imu1);
   // Linearly interpolate between two gyro measurements
   const Vector3d omg = (1.0 - s) * imu0.gyr + s * imu1.gyr;
   return rot * SO3d::exp(omg * dt);
@@ -92,8 +103,7 @@ void IntegrateState(const NavState& s0,
   s1.time = s0.time + dt;
 
   const auto time_mid = s0.time + dt / 2.0;
-  const auto s =
-      std::clamp((time_mid - imu0.time) / (imu1.time - imu0.time), 0.0, 1.0);
+  const auto s = InterpImuTime(time_mid, imu0, imu1);
   // Integrate rotation first
   const Vector3d omg = (1 - s) * imu0.gyr + s * imu1.gyr;
   s1.rot = s0.rot * SO3d::exp(omg * dt);
