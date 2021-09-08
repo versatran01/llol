@@ -208,12 +208,17 @@ ImuData ImuQueue::CalcMean() const {
 /// ImuPreintegration ==========================================================
 int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {
   CHECK_LT(t0, t1);
-  const int ibuf0 = imuq.IndexAfter(t0);
-  CHECK_GE(ibuf0, 0);
+  int ibuf = imuq.IndexAfter(t0);
+  // If we could not find an imu that is after the current time, just set weight
+  // to 0.
+  if (ibuf == imuq.size()) {
+    LOG(WARNING) << "Could not find imu right after time: " << t0;
+    U.setZero();
+    return 0;
+  }
 
   // Keep integrate till we reach either the last imu or one right before t1
   double t = t0;
-  int ibuf = ibuf0;
 
   while (true) {
     // This imu must exist
@@ -222,7 +227,7 @@ int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {
     t = imu.time;
 
     // stop if we are at the last imu
-    if (ibuf + 1 == imuq.size()) break;
+    if (ibuf + 1 >= imuq.size()) break;
     // or if next imu time is later than t1
     if (imuq.RawAt(ibuf + 1).time >= t1) break;
     // above ensures that ibuf should be valid

@@ -10,8 +10,8 @@ static constexpr double kMaxRange = 32.0;
 
 OdomNode::OdomNode(const ros::NodeHandle& pnh)
     : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
-  sub_camera_ = it_.subscribeCamera("image", 50, &OdomNode::CameraCb, this);
-  sub_imu_ = pnh_.subscribe("imu", 500, &OdomNode::ImuCb, this);
+  sub_camera_ = it_.subscribeCamera("image", 20, &OdomNode::CameraCb, this);
+  sub_imu_ = pnh_.subscribe("imu", 200, &OdomNode::ImuCb, this);
 
   vis_ = pnh_.param<bool>("vis", true);
   ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));

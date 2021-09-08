@@ -81,23 +81,25 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
   if (ibuf == imuq.size()) {
+    ibuf = imuq.size() - 1;
     LOG(WARNING) << fmt::format(
         "All imus are before time {}. Imu buffer size is {}, and the last imu "
-        "in buffer has time {}, t0 - imu1.time = {}",
+        "in buffer has time {}, t0 - imu1.time = {}, set ibuf to {}",
         t0,
         imuq.size(),
         imuq.buf.back().time,
-        t0 - imuq.buf.back().time);
-    ibuf = imuq.size() - 1;
+        t0 - imuq.buf.back().time,
+        ibuf);
   } else if (ibuf == 0) {
+    ibuf = 1;
     LOG(WARNING) << fmt::format(
         "All imus are after time {}. Imu buffer size is {}, and the first imu "
-        "in buffer has time {}, imu0.time - t0 = {}",
+        "in buffer has time {}, imu0.time - t0 = {}, set ibuf to {}",
         t0,
         imuq.size(),
         imuq.buf.front().time,
-        imuq.buf.front().time - t0);
-    ibuf = 1;
+        imuq.buf.front().time - t0,
+        ibuf);
   }
 
   const int ibuf0 = ibuf;
@@ -105,7 +107,6 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
   // Find the state to start prediction
   const int ist0 = size() - n - 1;
   // update the time of the state where we will start the prediction
-  //  LOG(INFO) << "time diff: " << (t0 - states.at(ist0).time) * 1e6;
   states.at(ist0).time = t0;
   const auto& st0 = At(ist0);
 

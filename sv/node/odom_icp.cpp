@@ -26,9 +26,9 @@ void OdomNode::Register() {
   // Do not update bias if icp was not running
   if (icp_ok) {
     grid_.Interp(traj_);
-    //    traj_.UpdateBias(imuq_);
-    //    ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-    //    ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+    traj_.UpdateBias(imuq_);
+    ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
+    ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
   }
 
   if (vis_) {
@@ -55,6 +55,7 @@ bool OdomNode::IcpRigid() {
 
   bool icp_ok = false;
 
+  auto t_icp = tm_.Manual("Icp.Solve");
   for (int i = 0; i < gicp_.iters.first; ++i) {
     cost.ResetError();
 
@@ -97,11 +98,6 @@ bool OdomNode::IcpRigid() {
 }
 
 bool OdomNode::IcpLinear() {
-  // Outer icp iters
-  auto t_match = tm_.Manual("Grid.Match", false);
-  auto t_build = tm_.Manual("Icp.Build", false);
-  auto t_solve = tm_.Manual("Icp.Solve", false);
-
   using Cost = GicpLinearCost;
   static Cost cost(tbb_);
   cost.imu_weight = gicp_.imu_weight;
@@ -114,14 +110,13 @@ bool OdomNode::IcpLinear() {
 
   bool icp_ok = false;
 
+  auto t_icp = tm_.Manual("Icp.Solve");
   for (int i = 0; i < gicp_.iters.first; ++i) {
     cost.ResetError();
 
-    t_match.Resume();
     // Need to update cell tfs before match
     grid_.Interp(traj_);
     const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
-    t_match.Stop(false);
 
     if (n_matches < 10) {
       ROS_WARN_STREAM("Not enough matches: " << n_matches);
@@ -129,14 +124,10 @@ bool OdomNode::IcpLinear() {
     }
 
     // Build
-    t_build.Resume();
     cost.UpdateMatches(grid_);
-    t_build.Stop(false);
 
     // Solve
-    t_solve.Resume();
     solver.Solve(cost, &cost.error);
-    t_solve.Stop(false);
 
     // Update state
     cost.UpdateTraj(traj_);
@@ -146,11 +137,10 @@ bool OdomNode::IcpLinear() {
     if (i >= 1 && solver.summary.IsConverged()) break;
   }
 
+  t_icp.Commit();
+
   ROS_INFO_STREAM(solver.summary.Report());
   sm_.Get("grid.matches").Add(cost.matches.size());
-  t_match.Commit();
-  t_solve.Commit();
-  t_build.Commit();
   return icp_ok;
 }
 

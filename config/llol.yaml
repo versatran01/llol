@@ -1,5 +1,5 @@
 imuq:
-  buffer_size: 30
+  buffer_size: 32
   imu_rate: 100.0
   acc_noise: 0.005
   acc_bias_noise: 0.0005
