@@ -172,7 +172,7 @@ int Trajectory::UpdateBias(ImuQueue& imuq) {
 
   // Find next imu
   int ibuf = imuq.IndexAfter(t0);
-  CHECK_LE(0, ibuf);
+  if (ibuf == imuq.size()) return 0;
 
   MeanVar3d bw{};
   MeanVar3d ba{};
