@@ -44,9 +44,6 @@ void GicpCost::UpdatePreint(const Trajectory& traj, const ImuQueue& imuq) {
 bool GicpRigidCost::operator()(const double* x_ptr,
                                double* r_ptr,
                                double* J_ptr) const {
-  CHECK_EQ(imu_weight, 0);
-  CHECK(ptraj == nullptr);
-
   const State es(x_ptr);
   const Sophus::SE3d eT{Sophus::SO3d::exp(es.r0()), es.p0()};
 

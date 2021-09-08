@@ -10,8 +10,8 @@ static constexpr double kMaxRange = 32.0;
 
 OdomNode::OdomNode(const ros::NodeHandle& pnh)
     : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
-  sub_camera_ = it_.subscribeCamera("image", 20, &OdomNode::CameraCb, this);
-  sub_imu_ = pnh_.subscribe("imu", 200, &OdomNode::ImuCb, this);
+  sub_camera_ = it_.subscribeCamera("image", 50, &OdomNode::CameraCb, this);
+  sub_imu_ = pnh_.subscribe("imu", 500, &OdomNode::ImuCb, this);
 
   vis_ = pnh_.param<bool>("vis", true);
   ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -170,11 +170,12 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   int n_imus{};
   {  // Integarte imu to fill nominal traj
     auto _ = tm_.Scoped("Imu.Integrate");
-    const auto t0 = grid_.time_begin();
+    const int pred_cols = grid_.curr.size();
+    const auto t0 = grid_.TimeAt(grid_.cols() - pred_cols);
     const auto dt = grid_.dt;
 
     // Predict the segment of traj corresponding to current grid
-    n_imus = traj_.Predict(imuq_, t0, dt, grid_.curr.size());
+    n_imus = traj_.Predict(imuq_, t0, dt, pred_cols);
   }
   sm_.Get("traj.pred_imus").Add(n_imus);
 

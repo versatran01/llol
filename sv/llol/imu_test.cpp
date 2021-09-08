@@ -20,17 +20,30 @@ TEST(ImuTest, TestImuNoise) {
 }
 
 TEST(ImuTest, TestFindNextImu) {
-  ImuBuffer buffer(10);
+  ImuBuffer buffer(5);
   for (int i = 0; i < 5; ++i) {
     ImuData d;
-    d.time = i;
+    d.time = i + 1;
     buffer.push_back(d);
   }
 
-  EXPECT_EQ(GetImuIndexAfterTime(buffer, 0), 1);
-  EXPECT_EQ(GetImuIndexAfterTime(buffer, 0.5), 1);
-  EXPECT_EQ(GetImuIndexAfterTime(buffer, 1.5), 2);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 0), 0);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 0.5), 0);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 1), 1);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 1.5), 1);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 2), 2);
   EXPECT_EQ(GetImuIndexAfterTime(buffer, 15), -1);
+}
+
+TEST(ImuTest, TestFindImu) {
+  boost::circular_buffer<double> buf(5);
+  for (int i = 0; i < 5; ++i) {
+    buf.push_back(i);
+  }
+  auto it_lb = std::lower_bound(buf.rbegin(), buf.rend(), 3.5);
+  LOG(INFO) << "lb: " << *it_lb;
+  auto it_ub = std::lower_bound(buf.rbegin(), buf.rend(), 3.5);
+  LOG(INFO) << "ub: " << *it_ub;
 }
 
 TEST(ImuTest, TestImuPreintegration) {
@@ -71,9 +84,9 @@ TEST(ImuTest, TestImuPreintegrationPrint) {
   preint.Compute(imuq, 0, 0.1);
   EXPECT_EQ(preint.n, 10);
   EXPECT_EQ(preint.duration, 0.1);
-  LOG(INFO) << "F\n" << preint.F;
-  LOG(INFO) << "P\n" << preint.P;
-  LOG(INFO) << "U\n" << preint.U;
+  //  LOG(INFO) << "F\n" << preint.F;
+  //  LOG(INFO) << "P\n" << preint.P;
+  //  LOG(INFO) << "U\n" << preint.U;
 }
 
 void BM_InterpRot(benchmark::State& state) {

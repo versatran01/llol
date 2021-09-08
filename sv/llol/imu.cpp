@@ -108,7 +108,6 @@ void IntegrateState(const NavState& s0,
 }
 
 int GetImuIndexAfterTime(const ImuBuffer& buf, double t) {
-  // TODO (chao): do a reverse search instead
   int ibuf = -1;
   for (int i = 0; i < buf.size(); ++i) {
     if (buf.at(i).time > t) {

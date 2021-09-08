@@ -93,23 +93,26 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
   // Find the state to start prediction
   const int ist0 = size() - n - 1;
   // update the time of the state where we will start the prediction
+  //  LOG(INFO) << "time diff: " << (t0 - states.at(ist0).time) * 1e6;
   states.at(ist0).time = t0;
   const auto& st0 = At(ist0);
 
   auto imu0 = imuq.DebiasedAt(ibuf - 1);
   auto imu1 = imuq.DebiasedAt(ibuf);
 
-  for (int i = ist0 + 1; i < size(); ++i) {
-    const auto ti = t0 + dt * i;
+  for (int ist = ist0 + 1; ist < size(); ++ist) {
+    // time of the ith state
+    const auto ti = t0 + dt * (ist - ist0);
+
     // increment ibuf if it is ealier than current cell end time
-    if (imuq.RawAt(ibuf).time < ti && ibuf < imuq.size() - 1) {
+    if (imu1.time < ti && ibuf < imuq.size() - 1) {
       ++ibuf;
       imu0 = imu1;
       imu1 = imuq.DebiasedAt(ibuf);
     }
 
-    const auto& prev = At(i - 1);
-    auto& curr = At(i);
+    const auto& prev = At(ist - 1);
+    auto& curr = At(ist);
 
     if (integrate_acc) {
       IntegrateState(prev, imu0, imu1, g_pano, dt, curr);

@@ -31,8 +31,7 @@ struct ScanBase {
   int channels() const { return mat.channels(); }
   cv::Size size() const { return {mat.cols, mat.rows}; }
 
-  double time_begin() const { return time - dt * cols(); }
-  double time_end() const { return time; }
+  double TimeAt(int col) const { return time - dt * (cols() - col); }
   const Sophus::SE3f& TfAt(int c) const { return tfs.at(c); }
 
   /// @brief Update view (curr and span) given new curr
