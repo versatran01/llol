@@ -25,7 +25,7 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   rigid_ = pnh_.param<bool>("rigid", true);
   ROS_WARN_STREAM("GICP: " << (rigid_ ? "Rigid" : "Linear"));
 
-  path_dist_ = pnh_.param<double>("path_dist", 0.0);
+  path_dist_ = pnh_.param<double>("path_dist", 0.01);
 
   imuq_ = InitImuq({pnh_, "imuq"});
   ROS_INFO_STREAM(imuq_);

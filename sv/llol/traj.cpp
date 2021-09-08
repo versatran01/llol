@@ -80,13 +80,25 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
 
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
-  CHECK_GE(ibuf, 0) << fmt::format(
-      "No imu found right after {}. Imu buffer size is {}, and the last imu "
-      "in buffer has time {}, t0 - imu1.time={}",
-      t0,
-      imuq.size(),
-      imuq.buf.back().time,
-      t0 - imuq.buf.back().time);
+  if (ibuf == imuq.size()) {
+    LOG(WARNING) << fmt::format(
+        "All imus are before time {}. Imu buffer size is {}, and the last imu "
+        "in buffer has time {}, t0 - imu1.time = {}",
+        t0,
+        imuq.size(),
+        imuq.buf.back().time,
+        t0 - imuq.buf.back().time);
+    ibuf = imuq.size() - 1;
+  } else if (ibuf == 0) {
+    LOG(WARNING) << fmt::format(
+        "All imus are after time {}. Imu buffer size is {}, and the first imu "
+        "in buffer has time {}, imu0.time - t0 = {}",
+        t0,
+        imuq.size(),
+        imuq.buf.front().time,
+        imuq.buf.front().time - t0);
+    ibuf = 1;
+  }
 
   const int ibuf0 = ibuf;
 

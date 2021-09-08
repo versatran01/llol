@@ -32,18 +32,28 @@ TEST(ImuTest, TestFindNextImu) {
   EXPECT_EQ(GetImuIndexAfterTime(buffer, 1), 1);
   EXPECT_EQ(GetImuIndexAfterTime(buffer, 1.5), 1);
   EXPECT_EQ(GetImuIndexAfterTime(buffer, 2), 2);
-  EXPECT_EQ(GetImuIndexAfterTime(buffer, 15), -1);
+  EXPECT_EQ(GetImuIndexAfterTime(buffer, 15), 5);
 }
 
-TEST(ImuTest, TestFindImu) {
-  boost::circular_buffer<double> buf(5);
+int UpperBound(const ImuBuffer& buf, double t) {
+  const auto it = std::upper_bound(
+      buf.cbegin(), buf.cend(), t, [](const auto& time, const auto& imu) {
+        return time < imu.time;
+      });
+  return std::distance(buf.cbegin(), it);
+}
+
+TEST(ImuTest, TestFindNextImuLowerBound) {
+  ImuBuffer buffer(5);
   for (int i = 0; i < 5; ++i) {
-    buf.push_back(i);
+    ImuData d;
+    d.time = i;
+    buffer.push_back(d);
   }
-  auto it_lb = std::lower_bound(buf.rbegin(), buf.rend(), 3.5);
-  LOG(INFO) << "lb: " << *it_lb;
-  auto it_ub = std::lower_bound(buf.rbegin(), buf.rend(), 3.5);
-  LOG(INFO) << "ub: " << *it_ub;
+
+  EXPECT_EQ(UpperBound(buffer, 0), 1);
+  EXPECT_EQ(UpperBound(buffer, 0.5), 1);
+  EXPECT_EQ(UpperBound(buffer, 5.5), 5);
 }
 
 TEST(ImuTest, TestImuPreintegration) {
