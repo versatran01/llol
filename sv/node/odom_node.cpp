@@ -11,7 +11,7 @@ static constexpr double kMaxRange = 32.0;
 OdomNode::OdomNode(const ros::NodeHandle& pnh)
     : pnh_{pnh}, it_{pnh}, tf_listener_{tf_buffer_} {
   sub_camera_ = it_.subscribeCamera("image", 20, &OdomNode::CameraCb, this);
-  sub_imu_ = pnh_.subscribe("imu", 200, &OdomNode::ImuCb, this);
+  sub_imu_ = pnh_.subscribe("imu", 100, &OdomNode::ImuCb, this);
 
   vis_ = pnh_.param<bool>("vis", true);
   ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
@@ -41,6 +41,13 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
   }
 
   // Add imu data to buffer
+  static std_msgs::Header prev_header;
+  if (prev_header.seq > 0 && prev_header.seq + 1 != imu_msg.header.seq) {
+    ROS_ERROR_STREAM("Missing imu data, prev: " << prev_header.seq << ", curr: "
+                                                << imu_msg.header.seq);
+  }
+  prev_header = imu_msg.header;
+
   const auto imu = MakeImu(imu_msg);
   imuq_.Add(imu);
 
@@ -79,7 +86,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     ROS_INFO_STREAM("acc_mean: " << imu_mean.acc.transpose()
                                  << ", norm: " << imu_mean.acc.norm());
 
-    traj_.Init({q_i_l, t_i_l}, imu_mean.acc, 0.0);
+    traj_.Init({q_i_l, t_i_l}, imu_mean.acc, 9.80184);
     //    imuq_.bias.gyr = imu_mean.gyr;
     //    imuq_.bias.gyr_var = imu_mean.gyr.array().square();
     ROS_INFO_STREAM(traj_);
@@ -114,6 +121,13 @@ void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
 
 void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                         const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
+  static std_msgs::Header prev_header;
+  if (prev_header.seq > 0 && prev_header.seq + 1 != cinfo_msg->header.seq) {
+    ROS_ERROR_STREAM("Missing camera data, prev: "
+                     << prev_header.seq << ", curr: " << cinfo_msg->header.seq);
+  }
+  prev_header = cinfo_msg->header;
+
   if (lidar_frame_.empty()) {
     lidar_frame_ = image_msg->header.frame_id;
     // Allocate storage for sweep, grid and matcher
@@ -214,7 +228,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
   int n_render = 0;
   if (pano_.ShouldRender(T_p2_p1, match_ratio)) {
-    ROS_ERROR_STREAM("Render pano at new location");
+    ROS_WARN_STREAM("Render pano at new location");
 
     // TODO (chao): need to think about how to run this in background without
     // interfering with odom

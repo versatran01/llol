@@ -11,8 +11,8 @@ struct GicpParams {
   int half_rows{2};
   int half_cols{6};
   float cov_lambda{1e-6F};
-  double min_eigval{0.0};
   double imu_weight{0.0};
+  double min_eigval{0.0};
 };
 
 struct GicpSolver {
@@ -25,6 +25,7 @@ struct GicpSolver {
   cv::Size max_dist;          // max dist size to resue pano mc
   int pano_min_pts{};         // min pts in pano win for a valid match
   double imu_weight{};        // how much weight to put on imu cost
+  double min_eigval{};        // min eigenvalues for solution remapping
 
   /// @brief Repr / <<
   std::string Repr() const;

@@ -52,6 +52,7 @@ bool OdomNode::IcpRigid() {
   auto& opts = solver.options;
   opts.max_num_iterations = gicp_.iters.second;
   opts.gradient_tolerance = 1e-8;
+  opts.min_eigenvalue = gicp_.min_eigval;
 
   bool icp_ok = false;
 
@@ -98,6 +99,10 @@ bool OdomNode::IcpRigid() {
 }
 
 bool OdomNode::IcpLinear() {
+  auto t_match = tm_.Manual("Grid.Match", false);
+  auto t_build = tm_.Manual("Icp.Build", false);
+  auto t_solve = tm_.Manual("Icp.Solve", false);
+
   using Cost = GicpLinearCost;
   static Cost cost(tbb_);
   cost.imu_weight = gicp_.imu_weight;
@@ -107,16 +112,19 @@ bool OdomNode::IcpLinear() {
   auto& opts = solver.options;
   opts.max_num_iterations = gicp_.iters.second;
   opts.gradient_tolerance = 1e-8;
+  opts.min_eigenvalue = gicp_.min_eigval;
 
   bool icp_ok = false;
 
-  auto t_icp = tm_.Manual("Icp.Solve");
   for (int i = 0; i < gicp_.iters.first; ++i) {
     cost.ResetError();
 
+    t_match.Resume();
     // Need to update cell tfs before match
     grid_.Interp(traj_);
     const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
+    t_match.Stop(false);
+    ROS_INFO_STREAM("num matches: " << n_matches);
 
     if (n_matches < 10) {
       ROS_WARN_STREAM("Not enough matches: " << n_matches);
@@ -124,10 +132,14 @@ bool OdomNode::IcpLinear() {
     }
 
     // Build
+    t_build.Resume();
     cost.UpdateMatches(grid_);
+    t_build.Stop(false);
 
     // Solve
+    t_solve.Resume();
     solver.Solve(cost, &cost.error);
+    t_solve.Stop(false);
 
     // Update state
     cost.UpdateTraj(traj_);
@@ -137,7 +149,9 @@ bool OdomNode::IcpLinear() {
     if (i >= 1 && solver.summary.IsConverged()) break;
   }
 
-  t_icp.Commit();
+  t_match.Commit();
+  t_solve.Commit();
+  t_build.Commit();
 
   ROS_INFO_STREAM(solver.summary.Report());
   sm_.Get("grid.matches").Add(cost.matches.size());

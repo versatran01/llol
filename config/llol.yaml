@@ -1,12 +1,12 @@
 imuq:
-  buffer_size: 32
+  buffer_size: 20
   imu_rate: 100.0
   acc_noise: 0.005
   acc_bias_noise: 0.0005
-  acc_bias_std: 0.01
+  acc_bias_std: 0.001
   gyr_noise: 0.0005
   gyr_bias_noise: 0.00005
-  gyr_bias_std: 0.00001
+  gyr_bias_std: 0.0001
 traj:
   integrate_acc: true
   update_acc_bias: true

@@ -18,7 +18,8 @@ GicpSolver::GicpSolver(const GicpParams& params)
     : iters{params.outer, params.inner},
       cov_lambda{params.cov_lambda},
       max_dist{params.half_rows / 2, params.half_rows / 2},
-      imu_weight{params.imu_weight} {
+      imu_weight{params.imu_weight},
+      min_eigval{params.min_eigval} {
   pano_win.height = params.half_rows * 2 + 1;
   pano_win.width = params.half_cols * 2 + 1;
   pano_min_pts = (params.half_rows + 1) * pano_win.width;
@@ -102,8 +103,8 @@ int GicpSolver::MatchCell(SweepGrid& grid,
     return 0;
   }
   // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
-  match.CalcSqrtInfo();
-  //  match.CalcSqrtInfo(T_p_g.rotationMatrix());
+  //  match.CalcSqrtInfo(cov_lambda);
+  match.CalcSqrtInfo(T_p_g.rotationMatrix());
   // Although scale could be subsumed by U, we kept it for visualization
   match.scale = weight / pano_win.area();
   match.U *= std::sqrt(match.scale);

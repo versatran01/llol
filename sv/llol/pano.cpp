@@ -131,7 +131,7 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
 
 bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1,
                              double match_ratio) const {
-  if (num_sweeps <= max_cnt) return false;
+  if (num_sweeps < max_cnt) return false;
 
   // match ratio is the most important criteria
   if (match_ratio < min_match_ratio) return true;

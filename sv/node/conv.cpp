@@ -82,8 +82,8 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
   gp.half_rows = pnh.param<int>("half_rows", gp.half_rows);
   gp.half_cols = pnh.param<int>("half_cols", gp.half_cols);
   gp.cov_lambda = pnh.param<double>("cov_lambda", gp.cov_lambda);
-  gp.min_eigval = pnh.param<double>("min_eigval", gp.min_eigval);
   gp.imu_weight = pnh.param<double>("imu_weight", gp.imu_weight);
+  gp.min_eigval = pnh.param<double>("min_eigval", gp.min_eigval);
   return GicpSolver{gp};
 }
 
