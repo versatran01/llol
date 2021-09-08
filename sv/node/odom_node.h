@@ -20,13 +20,15 @@ struct OdomNode {
   tf2_ros::TransformListener tf_listener_;
 
   /// params
-  bool vis_{true};
   int tbb_{0};
+  bool vis_{true};
+  bool log_{false};
 
   bool rigid_{false};
   bool tf_init_{false};
   bool scan_init_{false};
   bool traj_updated_{false};
+  double path_dist_{0.0};
 
   /// frames
   std::string imu_frame_{};

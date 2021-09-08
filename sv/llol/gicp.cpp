@@ -81,12 +81,12 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   }
 
   // Check distance between new pix and old pix (allow 1 pix in azim direction)
-  //  if (std::abs(px_p.x - match.px_p.x) <= 1 && match.PanoOk()) {
-  if (px_p == match.px_p && match.PanoOk()) {
-    // If new and old are the same and pano match is ok
-    // we reuse this match but we set mean to the new match point if it is valid
-    // and assume the structure (covariance) stays the same
-    //    pano.UpdateMean(px_p, rg_p, match.mc_p.mean);
+  if (std::abs(px_p.x - match.px_p.x) <= 1 && match.PanoOk()) {
+    //  if (px_p == match.px_p && match.PanoOk()) {
+    // If new and old are the same and pano match is good we reuse this match
+    // but we set mean to the new match point if it is valid and assume the
+    // structure (covariance) stays the same
+    pano.UpdateMean(px_p, rg_p, match.mc_p.mean);
     return 1;
   }
 
@@ -101,7 +101,8 @@ int GicpSolver::MatchCell(SweepGrid& grid,
     return 0;
   }
   // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
-  match.CalcSqrtInfo(T_p_g.rotationMatrix());
+  match.CalcSqrtInfo();
+  //  match.CalcSqrtInfo(T_p_g.rotationMatrix());
   // Although scale could be subsumed by U, we kept it for visualization
   match.scale = weight / pano_win.area();
   match.U *= std::sqrt(match.scale);

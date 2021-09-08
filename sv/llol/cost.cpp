@@ -77,7 +77,7 @@ bool GicpRigidCost::operator()(const double* x_ptr,
 }
 
 void GicpRigidCost::UpdateTraj(Trajectory& traj) const {
-  const auto st0 = traj.front();  // get a copy of the initial state
+  const auto st1_old = traj.back();  // get a copy of the initial state
 
   const State es(error.data());
   const auto eR = Sophus::SO3d::exp(es.r0());
@@ -86,9 +86,9 @@ void GicpRigidCost::UpdateTraj(Trajectory& traj) const {
     st.pos = eR * st.pos + es.p0();
   }
 
-  // only update last velocity but in the new frame
+  // only update last velocity because we need it for next round of prediction
   auto& st1 = traj.states.back();
-  st1.vel = (st1.pos - eR * st0.pos) / (st1.time - st0.time);
+  st1.vel += (st1.pos - st1_old.pos) / traj.duration();
 }
 
 bool GicpLinearCost::operator()(const double* x_ptr,

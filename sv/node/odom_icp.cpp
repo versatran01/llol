@@ -7,10 +7,17 @@ namespace sv {
 
 void OdomNode::Register() {
   bool icp_ok = false;
-  if (rigid_) {
-    icp_ok = IcpRigid();
+
+  // 2 is because the first sweep added to pano is junk, so we need to wait for
+  // the second sweep to be added
+  if (pano_.num_sweeps >= 2) {
+    if (rigid_) {
+      icp_ok = IcpRigid();
+    } else {
+      icp_ok = IcpLinear();
+    }
   } else {
-    icp_ok = IcpLinear();
+    ROS_WARN_STREAM("Pano is not full: " << pano_.num_sweeps);
   }
 
   ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
@@ -18,6 +25,7 @@ void OdomNode::Register() {
 
   // Do not update bias if icp was not running
   if (icp_ok) {
+    grid_.Interp(traj_);
     traj_.UpdateBias(imuq_);
     ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
     ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
@@ -70,7 +78,6 @@ bool OdomNode::IcpRigid() {
     t_solve.Resume();
     solver.Solve(cost, &cost.error);
     t_solve.Stop(false);
-    ROS_INFO_STREAM(solver.summary.Report());
 
     // Update state
     cost.UpdateTraj(traj_);
@@ -80,6 +87,7 @@ bool OdomNode::IcpRigid() {
     if (i >= 1 && solver.summary.IsConverged()) break;
   }
 
+  ROS_INFO_STREAM(solver.summary.Report());
   sm_.Get("grid.matches").Add(cost.matches.size());
 
   t_match.Commit();
@@ -129,7 +137,6 @@ bool OdomNode::IcpLinear() {
     t_solve.Resume();
     solver.Solve(cost, &cost.error);
     t_solve.Stop(false);
-    ROS_INFO_STREAM(solver.summary.Report());
 
     // Update state
     cost.UpdateTraj(traj_);
@@ -139,6 +146,7 @@ bool OdomNode::IcpLinear() {
     if (i >= 1 && solver.summary.IsConverged()) break;
   }
 
+  ROS_INFO_STREAM(solver.summary.Report());
   sm_.Get("grid.matches").Add(cost.matches.size());
   t_match.Commit();
   t_solve.Commit();

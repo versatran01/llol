@@ -80,19 +80,20 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
 
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
-  CHECK_GT(ibuf, 0) << fmt::format(
-      "No imu found right before {}. Imu buffer size is {}, and the first imu "
-      "in buffer has time {}",
+  CHECK_GE(ibuf, 0) << fmt::format(
+      "No imu found right after {}. Imu buffer size is {}, and the last imu "
+      "in buffer has time {}, t0 - imu1.time={}",
       t0,
       imuq.size(),
-      imuq.RawAt(0).time);
+      imuq.buf.back().time,
+      t0 - imuq.buf.back().time);
 
   const int ibuf0 = ibuf;
 
   // Find the state to start prediction
   const int ist0 = size() - n - 1;
-  LOG(INFO) << "starting state: " << ist0;
-  states.at(ist0).time = t0;  // update its time
+  // update the time of the state where we will start the prediction
+  states.at(ist0).time = t0;
   const auto& st0 = At(ist0);
 
   auto imu0 = imuq.DebiasedAt(ibuf - 1);

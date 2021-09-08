@@ -23,6 +23,7 @@ struct Trajectory {
   int size() const { return states.size(); }
   NavState& At(int i) { return states.at(i); }
   const NavState& At(int i) const { return states.at(i); }
+  double duration() const { return back().time - front().time; }
 
   /// @return the acc vector used to initialize gravity
   void Init(const Sophus::SE3d& tf_i_l,

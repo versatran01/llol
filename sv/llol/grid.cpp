@@ -146,6 +146,22 @@ bool SweepGrid::IsCellGood(const cv::Point& px) const {
   return true;
 }
 
+void SweepGrid::Interp(const Trajectory& traj) {
+  CHECK_EQ(tfs.size() + 1, traj.size());
+
+  for (int gc = 0; gc < tfs.size(); ++gc) {
+    // Note that the starting point of traj is where curr ends, so we need to
+    // offset by curr.end to find the corresponding traj segment
+    const int tc = WrapCols(gc - curr.end, cols());
+    const auto& st0 = traj.At(tc);
+    const auto& st1 = traj.At(tc + 1);
+
+    Sophus::SE3d tf_p_i;
+    tf_p_i.so3() = Sophus::interpolate(st0.rot, st1.rot, 0.5);
+    tf_p_i.translation() = (st0.pos + st1.pos) / 2.0;
+    tfs.at(gc) = (tf_p_i * traj.T_imu_lidar).cast<float>();
+  }
+}
 cv::Mat SweepGrid::DrawFilter() const {
   static cv::Mat disp;
   if (disp.empty()) disp.create(size(), CV_32FC1);
@@ -178,23 +194,6 @@ const std::vector<cv::Mat>& SweepGrid::DrawCurveVar() const {
   static std::vector<cv::Mat> disp;
   cv::split(mat, disp);
   return disp;
-}
-
-void SweepGrid::Interp(const Trajectory& traj) {
-  CHECK_EQ(tfs.size() + 1, traj.size());
-
-  for (int gc = 0; gc < tfs.size(); ++gc) {
-    // Note that the starting point of traj is where curr ends, so we need to
-    // offset by curr.end to find the corresponding traj segment
-    const int tc = WrapCols(gc - curr.end, cols());
-    const auto& st0 = traj.At(tc);
-    const auto& st1 = traj.At(tc + 1);
-
-    Sophus::SE3d tf_p_i;
-    tf_p_i.so3() = Sophus::interpolate(st0.rot, st1.rot, 0.5);
-    tf_p_i.translation() = (st0.pos + st1.pos) / 2.0;
-    tfs.at(gc) = (tf_p_i * traj.T_imu_lidar).cast<float>();
-  }
 }
 
 }  // namespace sv

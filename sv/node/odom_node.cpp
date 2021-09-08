@@ -19,8 +19,13 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
+  log_ = pnh_.param<bool>("log", true);
+  ROS_INFO_STREAM("Log time: " << (log_ ? "True" : "False"));
+
   rigid_ = pnh_.param<bool>("rigid", true);
   ROS_WARN_STREAM("GICP: " << (rigid_ ? "Rigid" : "Linear"));
+
+  path_dist_ = pnh_.param<double>("path_dist", 0.0);
 
   imuq_ = InitImuq({pnh_, "imuq"});
   ROS_INFO_STREAM(imuq_);
@@ -152,22 +157,6 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
   Logging();
 }
 
-void OdomNode::Logging() {
-  // Record total time
-  TimerManager::StatsT stats;
-  absl::Duration time;
-  for (const auto& kv : tm_.dict()) {
-    if (absl::StartsWith(kv.first, "Total")) continue;
-    if (absl::StartsWith(kv.first, "Pano.Render")) continue;
-    time += kv.second.last();
-  }
-  stats.Add(time);
-  tm_.Update("Total", stats);
-
-  ROS_DEBUG_STREAM_THROTTLE(0.5, sm_.ReportAll(true));
-  ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
-}
-
 void OdomNode::Preprocess(const LidarScan& scan) {
   cv::Vec2i n_cells{};
   {  // Reduce scan to grid and Filter
@@ -260,6 +249,24 @@ void OdomNode::PostProcess(const LidarScan& scan) {
             disps[0], 1.0 / DepthPixel::kScale / kMaxRange, cv::COLORMAP_PINK));
     Imshow("count",
            ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
+  }
+}
+
+void OdomNode::Logging() {
+  // Record total time
+  TimerManager::StatsT stats;
+  absl::Duration time;
+  for (const auto& kv : tm_.dict()) {
+    if (absl::StartsWith(kv.first, "Total")) continue;
+    if (absl::StartsWith(kv.first, "Pano.Render")) continue;
+    time += kv.second.last();
+  }
+  stats.Add(time);
+  tm_.Update("Total", stats);
+
+  if (log_) {
+    //  ROS_DEBUG_STREAM_THROTTLE(0.5, sm_.ReportAll(true));
+    ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
   }
 }
 

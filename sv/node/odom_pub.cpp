@@ -112,10 +112,9 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   if (path.poses.empty()) {
     path.poses.push_back(pose);
   } else {
-    Eigen::Map<const Eigen::Vector3d> prev_p(
-        &path.poses.back().pose.position.x);
-    Eigen::Map<const Eigen::Vector3d> curr_p(&pose.pose.position.x);
-    if ((prev_p - curr_p).norm() > 0.01) {
+    Eigen::Map<const Vector3d> prev_p(&path.poses.back().pose.position.x);
+    Eigen::Map<const Vector3d> curr_p(&pose.pose.position.x);
+    if ((prev_p - curr_p).norm() > path_dist_) {
       path.poses.push_back(pose);
     }
   }
