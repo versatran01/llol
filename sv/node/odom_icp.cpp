@@ -47,6 +47,8 @@ bool OdomNode::IcpRigid() {
 
   using Cost = GicpRigidCost;
   static Cost cost(tbb_);
+  //  cost.imu_weight = gicp_.imu_weight;
+  //  cost.UpdatePreint(traj_, imuq_);
 
   static TinySolver2<Cost> solver;
   auto& opts = solver.options;
@@ -125,8 +127,8 @@ bool OdomNode::IcpLinear() {
     grid_.Interp(traj_);
     const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
     t_match.Stop(false);
-    ROS_INFO_STREAM("num matches: " << n_matches);
 
+    ROS_DEBUG_STREAM("[grid.Match] num matched: " << n_matches);
     if (n_matches < 10) {
       ROS_WARN_STREAM("Not enough matches: " << n_matches);
       break;
@@ -150,12 +152,12 @@ bool OdomNode::IcpLinear() {
     if (i >= 1 && solver.summary.IsConverged()) break;
   }
 
+  ROS_DEBUG_STREAM(solver.summary.Report());
+  sm_.Get("grid.matches").Add(cost.matches.size());
+
   t_match.Commit();
   t_solve.Commit();
   t_build.Commit();
-
-  ROS_INFO_STREAM(solver.summary.Report());
-  sm_.Get("grid.matches").Add(cost.matches.size());
   return icp_ok;
 }
 

@@ -48,7 +48,9 @@ bool GicpRigidCost::operator()(const double* x_ptr,
                                double* r_ptr,
                                double* J_ptr) const {
   const State es(x_ptr);
-  const SE3d eT{SO3d::exp(es.r0()), es.p0()};
+  const SO3d eR = SO3d::exp(es.r0());
+  const Vector3d ep = es.p0();
+  const SE3d eT{eR, ep};
 
   tbb::parallel_for(
       tbb::blocked_range<int>(0, matches.size(), gsize_), [&](const auto& blk) {

@@ -157,16 +157,18 @@ void Trajectory::MoveFrame(const Sophus::SE3d& tf_p2_p1) {
   // 1. Update all states into the new pano frame (identity)
   // T_p2_i = T_p2_p1 * T_p1_i
   //  = [R_21, p_21] * [R_1i, p_1i] = [R_21 * R_1i, R_21 * p_1i + p_21]
+  const auto& R_p2_p1 = tf_p2_p1.so3();
   for (auto& st : states) {
-    st.rot = tf_p2_p1.so3() * st.rot;
-    st.pos = tf_p2_p1.so3() * st.pos + tf_p2_p1.translation();
+    st.rot = R_p2_p1 * st.rot;
+    st.vel = R_p2_p1 * st.vel;  // ignores angular velocity
+    st.pos = R_p2_p1 * st.pos + tf_p2_p1.translation();
   }
   // 2. Update T_odom_pano
   // T_o_p2 = T_o_p1 * T_p1_p2
   T_odom_pano = T_odom_pano * tf_p2_p1.inverse();
   // 3. Update gravity in pano frame (rotation only)
   // g_p2 = R_p2_p1 * g_p1
-  g_pano = tf_p2_p1.so3() * g_pano;
+  g_pano = R_p2_p1 * g_pano;
 }
 
 int Trajectory::UpdateBias(ImuQueue& imuq) {
