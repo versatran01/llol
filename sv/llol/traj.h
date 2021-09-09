@@ -5,6 +5,7 @@
 namespace sv {
 
 struct TrajectoryParams {
+  double gravity_norm{0.0};
   bool integrate_acc{false};
   bool update_acc_bias{false};
 };
@@ -26,9 +27,7 @@ struct Trajectory {
   double duration() const { return back().time - front().time; }
 
   /// @return the acc vector used to initialize gravity
-  void Init(const Sophus::SE3d& tf_i_l,
-            const Eigen::Vector3d& acc,
-            double g_norm);
+  void Init(const Sophus::SE3d& tf_i_l, const Eigen::Vector3d& acc);
 
   /// @brief Given the first pose in poses, predict using imu
   /// @return Number of imus used
@@ -55,6 +54,7 @@ struct Trajectory {
   bool update_acc_bias{};
 
   /// Data
+  double gravity_norm{};
   Eigen::Vector3d g_pano{};      // gravity vector in pano frame
   Sophus::SE3d T_odom_pano{};    // tf from pano to odom frame
   Sophus::SE3d T_imu_lidar{};    // extrinsics lidar to imu

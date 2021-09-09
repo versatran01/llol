@@ -8,19 +8,20 @@ imuq:
   gyr_bias_noise: 0.00005
   gyr_bias_std: 0.0001
 traj:
+  gravity_norm: 9.8
   integrate_acc: true
   update_acc_bias: true
 grid:
   cell_rows: 2
   cell_cols: 16
-  max_curve: 0.04
-  max_var: 0.04
+  max_curve: 0.05
+  max_var: 0.05
   nms: true
 gicp:
   outer: 3
   inner: 3
-  half_rows: 1
-  half_cols: 6
+  half_rows: 2
+  half_cols: 5
   cov_lambda: 0.0
   min_eigval: 0.0
   imu_weight: 1.0
@@ -34,4 +35,4 @@ pano:
   fuse_ratio: 0.05 # range ratio when fusing range (0.05)
   align_gravity: true # render pano gravity algned (true)
   min_match_ratio: 0.9 # min match ratio to render (0.9)
-  max_translation: 4.0 # max translation to render (4.0) [meter]
+  max_translation: 4.0 # max translation to render (3.0) [meter]

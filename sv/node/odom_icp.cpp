@@ -20,15 +20,15 @@ void OdomNode::Register() {
     ROS_WARN_STREAM("Pano is not full: " << pano_.num_sweeps);
   }
 
-  ROS_WARN_STREAM("velocity: " << traj_.back().vel.transpose()
-                               << ", norm: " << traj_.back().vel.norm());
+  ROS_DEBUG_STREAM("velocity: " << traj_.back().vel.transpose()
+                                << ", norm: " << traj_.back().vel.norm());
 
   // Do not update bias if icp was not running
   if (icp_ok) {
-    grid_.Interp(traj_);
+    //    grid_.Interp(traj_);
     traj_.UpdateBias(imuq_);
-    ROS_WARN_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-    ROS_WARN_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+    ROS_DEBUG_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
+    ROS_DEBUG_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
   }
 
   if (vis_) {
@@ -66,6 +66,7 @@ bool OdomNode::IcpRigid() {
     const auto n_matches = gicp_.Match(grid_, pano_, tbb_);
     t_match.Stop(false);
 
+    ROS_DEBUG_STREAM("[grid.Match] num matched: " << n_matches);
     if (n_matches < 10) {
       ROS_WARN_STREAM("Not enough matches: " << n_matches);
       break;
@@ -89,7 +90,7 @@ bool OdomNode::IcpRigid() {
     if (i >= 1 && solver.summary.IsConverged()) break;
   }
 
-  ROS_INFO_STREAM(solver.summary.Report());
+  ROS_DEBUG_STREAM(solver.summary.Report());
   sm_.Get("grid.matches").Add(cost.matches.size());
 
   t_match.Commit();

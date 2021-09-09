@@ -5,6 +5,9 @@
 
 namespace sv {
 
+using SO3d = Sophus::SO3d;
+using SE3d = Sophus::SE3d;
+
 GicpCost::GicpCost(int gsize) {
   // we don't want to use grainsize of 1 or 2, because each residual is 3
   // doubles which is 3 * 8 = 24. However a cache line is typically 64 bytes so
@@ -45,7 +48,7 @@ bool GicpRigidCost::operator()(const double* x_ptr,
                                double* r_ptr,
                                double* J_ptr) const {
   const State es(x_ptr);
-  const Sophus::SE3d eT{Sophus::SO3d::exp(es.r0()), es.p0()};
+  const SE3d eT{SO3d::exp(es.r0()), es.p0()};
 
   tbb::parallel_for(
       tbb::blocked_range<int>(0, matches.size(), gsize_), [&](const auto& blk) {
@@ -74,25 +77,27 @@ bool GicpRigidCost::operator()(const double* x_ptr,
 }
 
 void GicpRigidCost::UpdateTraj(Trajectory& traj) const {
-  const auto st1_old = traj.back();  // get a copy of the initial state
+  //  const auto st1_old = traj.back();  // get a copy of the initial state
+  const auto dt = traj.duration();
 
   const State es(error.data());
-  const auto eR = Sophus::SO3d::exp(es.r0());
+  const auto eR = SO3d::exp(es.r0());
   for (auto& st : traj.states) {
     st.rot = eR * st.rot;
     st.pos = eR * st.pos + es.p0();
+    st.vel += es.p0() / dt;
   }
 
-  // only update last velocity because we need it for next round of prediction
-  auto& st1 = traj.states.back();
-  st1.vel += (st1.pos - st1_old.pos) / traj.duration();
+  //  // only update last velocity because we need it for next round of
+  //  prediction auto& st1 = traj.states.back(); st1.vel += (st1.pos -
+  //  st1_old.pos) / traj.duration();
 }
 
 bool GicpLinearCost::operator()(const double* x_ptr,
                                 double* r_ptr,
                                 double* J_ptr) const {
   const State es(x_ptr);
-  const auto eR = Sophus::SO3d::exp(es.r0());
+  const auto eR = SO3d::exp(es.r0());
   const Vector3d ep = es.p0();
 
   tbb::parallel_for(
@@ -160,7 +165,7 @@ bool GicpLinearCost::operator()(const double* x_ptr,
 
 void GicpLinearCost::UpdateTraj(Trajectory& traj) const {
   const State es(error.data());
-  const auto eR = Sophus::SO3d::exp(es.r0());
+  const auto eR = SO3d::exp(es.r0());
 
   MeanVar3d vel{};
 

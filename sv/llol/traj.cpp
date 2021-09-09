@@ -28,7 +28,8 @@ void KalmanUpdate(Vector3d& x,
 }
 
 Trajectory::Trajectory(int size, const TrajectoryParams& params)
-    : integrate_acc{params.integrate_acc},
+    : gravity_norm{params.gravity_norm},
+      integrate_acc{params.integrate_acc},
       update_acc_bias{params.update_acc_bias} {
   CHECK_GT(size, 0);
   states.resize(size);
@@ -37,17 +38,19 @@ Trajectory::Trajectory(int size, const TrajectoryParams& params)
 std::string Trajectory::Repr() const {
   return fmt::format(
       "Trajectory(size={}, integrate_acc={}, update_acc_bias={}, g_pano=[{}], "
+      "g_norm={:.4f}, "
       "\nT_imu_lidar=\n{}\n, "
       "T_odom_pano=\n{}\n)",
       size(),
       integrate_acc,
       update_acc_bias,
       g_pano.transpose(),
+      gravity_norm,
       T_imu_lidar.matrix3x4(),
       T_odom_pano.matrix3x4());
 }
 
-void Trajectory::Init(const SE3d& tf_i_l, const Vector3d& acc, double g_norm) {
+void Trajectory::Init(const SE3d& tf_i_l, const Vector3d& acc) {
   CHECK(!states.empty());
 
   T_imu_lidar = tf_i_l;
@@ -61,7 +64,11 @@ void Trajectory::Init(const SE3d& tf_i_l, const Vector3d& acc, double g_norm) {
   // We want to initialized gravity vector with first imu measurement but it
   // should be in pano frame
   Vector3d g_i = acc;
-  if (g_norm > 0) g_i = g_i.normalized() * g_norm;
+  if (gravity_norm > 0) {
+    g_i = g_i.normalized() * gravity_norm;
+  } else {
+    gravity_norm = g_i.norm();
+  }
   g_pano = T_imu_lidar.so3().inverse() * g_i;
   T_odom_pano.so3().setQuaternion(
       Quaterniond::FromTwoVectors(Vector3d::UnitZ(), g_i));
@@ -131,9 +138,6 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
       IntegrateState(prev, imu0, imu1, g_pano, dt, curr);
     } else {
       curr.time = prev.time + dt;
-      // Assume pos and vel stay the same as the starting point
-      // curr.pos = st0.pos;
-      // curr.vel = st0.vel;
       curr.vel = prev.vel;
       curr.pos = prev.pos + prev.vel * dt;
       curr.rot = IntegrateRot(prev.rot, prev.time, imu0, imu1, dt);
@@ -192,15 +196,13 @@ int Trajectory::UpdateBias(ImuQueue& imuq) {
     const auto R0_t = st0.rot.inverse();
     const Vector3d w_b = (R0_t * st1.rot).log() / dt_state;
     // w_t = w_m - b_w -> b_w = w_m - w_t
-    const Vector3d gyr_diff = imu.gyr - w_b;
-    bw.Add(gyr_diff);
+    bw.Add(imu.gyr - w_b);
 
     // Compute expected acc_w by finite difference
     const Vector3d a_w = (st1.vel - st0.vel) / dt_state;
     // Transform to expected body acc
     const Vector3d a_b = R0_t * (a_w + g_pano);
-    const Vector3d acc_diff = imu.acc - a_b;
-    ba.Add(acc_diff);
+    ba.Add(imu.acc - a_b);
 
     ++ibuf;
   }

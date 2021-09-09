@@ -22,7 +22,7 @@ GicpSolver::GicpSolver(const GicpParams& params)
       min_eigval{params.min_eigval} {
   pano_win.height = params.half_rows * 2 + 1;
   pano_win.width = params.half_cols * 2 + 1;
-  pano_min_pts = (params.half_rows + 1) * pano_win.width;
+  pano_min_pts = pano_win.area() / 2;
 }
 
 std::string GicpSolver::Repr() const {
@@ -82,13 +82,14 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   }
 
   // Check distance between new pix and old pix (allow 1 pix in azim direction)
-  if (std::abs(px_p.x - match.px_p.x) <= 1 && px_p.y == match.px_p.y &&
-      match.PanoOk()) {
-    //  if (px_p == match.px_p && match.PanoOk()) {
+  //  if (std::abs(px_p.x - match.px_p.x) <= 1 && px_p.y == match.px_p.y &&
+  //      match.PanoOk()) {
+  if (px_p == match.px_p && match.PanoOk()) {
     // If new and old are the same and pano match is good we reuse this match
+
     // but we set mean to the new match point if it is valid and assume the
     // structure (covariance) stays the same
-    pano.UpdateMean(px_p, rg_p, match.mc_p.mean);
+    // pano.UpdateMean(px_p, rg_p, match.mc_p.mean);
     return 1;
   }
 

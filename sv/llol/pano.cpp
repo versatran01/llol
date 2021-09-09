@@ -206,9 +206,10 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
   if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
 
   auto& dp2 = dbuf2.at<DepthPixel>(px);
-  // if the destination pixel is empty, then just set it to range and half cnt
+  // if the destination pixel is empty, then just set it to range
   if (dp2.raw == 0) {
-    dp2.SetRangeCount(rg, cnt / 2);
+    // We set cnt to a low value so that it can be cleared quickly (1 or 2)
+    dp2.SetRangeCount(rg, 1);
     return true;
   }
 

@@ -16,7 +16,7 @@ LidarModel::LidarModel(const cv::Size& size_in, float vfov) : size{size_in} {
 
   CHECK_GT(size.width, 0);
   CHECK_GT(size.height, 0);
-  CHECK_LE(vfov, Deg2Rad(120.0)) << "vertial fov too big";
+  CHECK_LE(Rad2Deg(vfov), 128.0) << "vertial fov too big";
 
   elev_max = vfov / 2.0F;
   elev_delta = vfov / (size.height - 1);

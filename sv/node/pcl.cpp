@@ -84,7 +84,7 @@ void Grid2Cloud(const SweepGrid& grid,
                           const auto& match = grid.MatchAt({c, r});
                           auto& pc = cloud.at(c, r);
                           if (match.Ok()) {
-                            pc.getArray3fMap() = match.mc_p.mean;
+                            pc.getArray3fMap() = grid.TfAt(c) * match.mc_g.mean;
                           } else {
                             pc.x = pc.y = pc.z = kNaNF;
                           }

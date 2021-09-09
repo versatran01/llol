@@ -89,6 +89,7 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
 
 Trajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
   TrajectoryParams tp;
+  tp.gravity_norm = pnh.param<double>("gravity_norm", tp.gravity_norm);
   tp.integrate_acc = pnh.param<bool>("integrate_acc", tp.integrate_acc);
   tp.update_acc_bias = pnh.param<bool>("update_acc_bias", tp.update_acc_bias);
   return Trajectory{grid_cols + 1, tp};

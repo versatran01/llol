@@ -19,9 +19,6 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
-  log_ = pnh_.param<bool>("log", true);
-  ROS_INFO_STREAM("Log time: " << (log_ ? "True" : "False"));
-
   rigid_ = pnh_.param<bool>("rigid", true);
   ROS_WARN_STREAM("GICP: " << (rigid_ ? "Rigid" : "Linear"));
 
@@ -86,7 +83,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     ROS_INFO_STREAM("acc_mean: " << imu_mean.acc.transpose()
                                  << ", norm: " << imu_mean.acc.norm());
 
-    traj_.Init({q_i_l, t_i_l}, imu_mean.acc, 9.80184);
+    traj_.Init({q_i_l, t_i_l}, imu_mean.acc);
     //    imuq_.bias.gyr = imu_mean.gyr;
     //    imuq_.bias.gyr_var = imu_mean.gyr.array().square();
     ROS_INFO_STREAM(traj_);
@@ -106,13 +103,6 @@ void OdomNode::Initialize(const sensor_msgs::CameraInfo& cinfo_msg) {
   ROS_INFO_STREAM(grid_);
 
   traj_ = InitTraj({pnh_, "traj"}, grid_.cols());
-
-  // TODO (chao): some hack so that I don't have to modify config
-  if (rigid_) {
-    ROS_WARN_STREAM("Using rigid version, set acc related params to false");
-    traj_.integrate_acc = false;
-    traj_.update_acc_bias = false;
-  }
   ROS_INFO_STREAM(traj_);
 
   gicp_ = InitGicp({pnh_, "gicp"});
@@ -123,7 +113,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
                         const sensor_msgs::CameraInfoConstPtr& cinfo_msg) {
   static std_msgs::Header prev_header;
   if (prev_header.seq > 0 && prev_header.seq + 1 != cinfo_msg->header.seq) {
-    ROS_ERROR_STREAM("Missing camera data, prev: "
+    ROS_ERROR_STREAM("Missing lidar data, prev: "
                      << prev_header.seq << ", curr: " << cinfo_msg->header.seq);
   }
   prev_header = cinfo_msg->header;
@@ -158,7 +148,10 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 
   // We can always process incoming scan no matter what
   const auto scan = MakeScan(*image_msg, *cinfo_msg);
-  ROS_WARN("Processing scan: [%d,%d)", scan.curr.start, scan.curr.end);
+  ROS_DEBUG("Processing scan %d: [%d,%d)",
+            static_cast<int>(cinfo_msg->header.seq),
+            scan.curr.start,
+            scan.curr.end);
   // Add scan to sweep, compute score and filter
   Preprocess(scan);
 
@@ -177,6 +170,8 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Grid.Add");
     n_cells = grid_.Add(scan, tbb_);
   }
+  ROS_DEBUG_STREAM("[grid.Add] Num valid cells: "
+                   << n_cells[0] << ", num good cells: " << n_cells[1]);
 
   sm_.Get("grid.valid_cells").Add(n_cells[0]);
   sm_.Get("grid.good_cells").Add(n_cells[1]);
@@ -192,14 +187,15 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     n_imus = traj_.Predict(imuq_, t0, dt, pred_cols);
   }
   sm_.Get("traj.pred_imus").Add(n_imus);
+  ROS_DEBUG_STREAM("[traj.Predict] num imus: " << n_imus);
 
   if (vis_) {
     const auto& disps = grid_.DrawCurveVar();
 
     Imshow("scan",
            ApplyCmap(scan.DrawRange(), 1 / kMaxRange, cv::COLORMAP_PINK, 0));
-    Imshow("curve", ApplyCmap(disps[0], 1 / 0.2, cv::COLORMAP_VIRIDIS));
-    Imshow("var", ApplyCmap(disps[1], 1 / 0.2, cv::COLORMAP_VIRIDIS));
+    Imshow("curve", ApplyCmap(disps[0], 1 / 0.25, cv::COLORMAP_VIRIDIS));
+    Imshow("var", ApplyCmap(disps[1], 1 / 0.25, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
            ApplyCmap(
                grid_.DrawFilter(), 1 / grid_.max_curve, cv::COLORMAP_VIRIDIS));
@@ -214,10 +210,12 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     n_added = pano_.Add(sweep_, scan.curr, tbb_);
   }
   sm_.Get("pano.add_points").Add(n_added);
+  ROS_DEBUG_STREAM("[pano.Add] num added: " << n_added);
 
   const double match_ratio =
       sm_.Get("grid.matches").last() / sm_.Get("grid.good_cells").last();
   sm_.Get("grid.match_ratio").Add(match_ratio);
+  ROS_DEBUG_STREAM("[pano.Render] match ratio: " << match_ratio);
 
   auto T_p1_p2 = traj_.TfPanoLidar();
   // Algin gravity means we will just set rotation to identity
@@ -228,7 +226,12 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
   int n_render = 0;
   if (pano_.ShouldRender(T_p2_p1, match_ratio)) {
-    ROS_WARN_STREAM("Render pano at new location");
+    ROS_WARN_STREAM(
+        "!!! Render pano at new location !!! " << fmt::format(
+            "sweeps: {:.3f}, translation: {:.3f}, match_ratio: {:.3f}",
+            pano_.num_sweeps,
+            T_p1_p2.translation().norm(),
+            match_ratio));
 
     // TODO (chao): need to think about how to run this in background without
     // interfering with odom
@@ -240,6 +243,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   }
   if (n_render > 0) {
     sm_.Get("pano.render_points").Add(n_render);
+    ROS_DEBUG_STREAM("[pano.Render] num render: " << n_render);
   }
 
   int n_points = 0;
@@ -248,10 +252,12 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     n_points = sweep_.Add(scan);
   }
   sm_.Get("sweep.add").Add(n_points);
+  ROS_DEBUG_STREAM("[sweep.Add] num added: " << n_points);
 
   {  // Update sweep tfs for undistortion
     auto _ = tm_.Scoped("Sweep.Interp");
     sweep_.Interp(traj_, tbb_);
+    grid_.Interp(traj_);
   }
 
   if (vis_) {
@@ -279,10 +285,8 @@ void OdomNode::Logging() {
   stats.Add(time);
   tm_.Update("Total", stats);
 
-  if (log_) {
-    //  ROS_DEBUG_STREAM_THROTTLE(0.5, sm_.ReportAll(true));
-    ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
-  }
+  //  ROS_DEBUG_STREAM_THROTTLE(0.5, sm_.ReportAll(true));
+  ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
 }
 
 }  // namespace sv

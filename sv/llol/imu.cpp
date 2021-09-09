@@ -106,6 +106,9 @@ void IntegrateState(const NavState& s0,
   const auto s = InterpImuTime(time_mid, imu0, imu1);
   // Integrate rotation first
   const Vector3d omg = (1 - s) * imu0.gyr + s * imu1.gyr;
+  if (std::isnan(omg.x()) || std::isnan(omg.y()) || std::isnan(omg.z())) {
+    LOG(INFO) << omg.transpose();
+  }
   s1.rot = s0.rot * SO3d::exp(omg * dt);
 
   // Given the two rotations, rotate both acc measurements into world frame
