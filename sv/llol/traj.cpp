@@ -18,7 +18,7 @@ void KalmanUpdate(Vector3d& x,
   // y = z - x^
   const Vector3d y = z - x;
   // S = P + R
-  const Vector3d S = P + R;
+  const Vector3d S = P + R + Vector3d::Constant(1e-8);
   // K = P * S^-1
   const Vector3d K = P.cwiseQuotient(S);
   // x = x + K * y
@@ -119,6 +119,8 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
 
   auto imu0 = imuq.DebiasedAt(ibuf - 1);
   auto imu1 = imuq.DebiasedAt(ibuf);
+  CHECK(!imu1.IsAccBad());
+  CHECK(!imu1.IsGyrBad());
 
   for (int ist = ist0 + 1; ist < size(); ++ist) {
     // time of the ith state
@@ -129,6 +131,8 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
       ++ibuf;
       imu0 = imu1;
       imu1 = imuq.DebiasedAt(ibuf);
+      CHECK(!imu1.IsAccBad());
+      CHECK(!imu1.IsGyrBad());
     }
 
     const auto& prev = At(ist - 1);
