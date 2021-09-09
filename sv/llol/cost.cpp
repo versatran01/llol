@@ -79,16 +79,23 @@ bool GicpRigidCost::operator()(const double* x_ptr,
 }
 
 void GicpRigidCost::UpdateTraj(Trajectory& traj) const {
-  //  const auto st1_old = traj.back();  // get a copy of the initial state
   const auto dt = traj.duration();
-
   const State es(error.data());
   const auto eR = SO3d::exp(es.r0());
-  for (auto& st : traj.states) {
-    st.rot = eR * st.rot;
-    st.pos = eR * st.pos + es.p0();
-    st.vel += es.p0() / dt;
-  }
+
+  // Only update first state, the rest will be done in repredict
+  auto& st = traj.states.front();
+  st.rot = eR * st.rot;
+  st.pos = eR * st.pos + es.p0();
+  st.vel += es.p0() / dt;
+
+  // Only update first
+
+  //  for (auto& st : traj.states) {
+  //    st.rot = eR * st.rot;
+  //    st.pos = eR * st.pos + es.p0();
+  //    st.vel += es.p0() / dt;
+  //  }
 
   //  // only update last velocity because we need it for next round of
   //  prediction auto& st1 = traj.states.back(); st1.vel += (st1.pos -

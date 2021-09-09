@@ -11,22 +11,6 @@ using SO3d = Sophus::SO3d;
 using SE3d = Sophus::SE3d;
 using Quaterniond = Eigen::Quaterniond;
 
-void KalmanUpdate(Vector3d& x,
-                  Vector3d& P,
-                  const Vector3d& z,
-                  const Vector3d& R) {
-  // y = z - x^
-  const Vector3d y = z - x;
-  // S = P + R
-  const Vector3d S = P + R + Vector3d::Constant(1e-8);
-  // K = P * S^-1
-  const Vector3d K = P.cwiseQuotient(S);
-  // x = x + K * y
-  x += K.cwiseProduct(y);
-  // P = P - K * P
-  P -= K.cwiseProduct(P);
-}
-
 Trajectory::Trajectory(int size, const TrajectoryParams& params)
     : gravity_norm{params.gravity_norm},
       integrate_acc{params.integrate_acc},
@@ -74,7 +58,7 @@ void Trajectory::Init(const SE3d& tf_i_l, const Vector3d& acc) {
       Quaterniond::FromTwoVectors(Vector3d::UnitZ(), g_i));
 }
 
-int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
+int Trajectory::PredictNew(const ImuQueue& imuq, double t0, double dt, int n) {
   CHECK_GT(dt, 0);
 
   // At the beginning of predict, the starting state of the trajectory is the
@@ -87,27 +71,6 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
 
   // Find the first imu from buffer that is right after t0
   int ibuf = imuq.IndexAfter(t0);
-  if (ibuf == imuq.size()) {
-    ibuf = imuq.size() - 1;
-    LOG(WARNING) << fmt::format(
-        "All imus are before time {}. Imu buffer size is {}, and the last imu "
-        "in buffer has time {}, t0 - imu1.time = {}, set ibuf to {}",
-        t0,
-        imuq.size(),
-        imuq.buf.back().time,
-        t0 - imuq.buf.back().time,
-        ibuf);
-  } else if (ibuf == 0) {
-    ibuf = 1;
-    LOG(WARNING) << fmt::format(
-        "All imus are after time {}. Imu buffer size is {}, and the first imu "
-        "in buffer has time {}, imu0.time - t0 = {}, set ibuf to {}",
-        t0,
-        imuq.size(),
-        imuq.buf.front().time,
-        imuq.buf.front().time - t0,
-        ibuf);
-  }
 
   const int ibuf0 = ibuf;
 
@@ -119,8 +82,6 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
 
   auto imu0 = imuq.DebiasedAt(ibuf - 1);
   auto imu1 = imuq.DebiasedAt(ibuf);
-  CHECK(!imu1.IsAccBad());
-  CHECK(!imu1.IsGyrBad());
 
   for (int ist = ist0 + 1; ist < size(); ++ist) {
     // time of the ith state
@@ -131,12 +92,43 @@ int Trajectory::Predict(const ImuQueue& imuq, double t0, double dt, int n) {
       ++ibuf;
       imu0 = imu1;
       imu1 = imuq.DebiasedAt(ibuf);
-      CHECK(!imu1.IsAccBad());
-      CHECK(!imu1.IsGyrBad());
     }
 
     const auto& prev = At(ist - 1);
     auto& curr = At(ist);
+
+    if (integrate_acc) {
+      IntegrateState(prev, imu0, imu1, g_pano, dt, curr);
+    } else {
+      curr.time = prev.time + dt;
+      curr.vel = prev.vel;
+      curr.pos = prev.pos + prev.vel * dt;
+      curr.rot = IntegrateRot(prev.rot, prev.time, imu0, imu1, dt);
+    }
+  }
+
+  return ibuf - ibuf0 + 1;
+}
+
+int Trajectory::PredictFull(const ImuQueue& imuq) {
+  int ibuf = imuq.IndexAfter(front().time);
+  const int ibuf0 = ibuf;
+
+  auto imu0 = imuq.DebiasedAt(ibuf - 1);
+  auto imu1 = imuq.DebiasedAt(ibuf);
+
+  for (int ist = 1; ist < size(); ++ist) {
+    const auto& prev = At(ist - 1);
+    auto& curr = At(ist);
+    const auto dt = curr.time - prev.time;
+
+    // time of the ith state
+    // increment ibuf if it is ealier than current cell end time
+    if (imu1.time < curr.time && ibuf < imuq.size() - 1) {
+      ++ibuf;
+      imu0 = imu1;
+      imu1 = imuq.DebiasedAt(ibuf);
+    }
 
     if (integrate_acc) {
       IntegrateState(prev, imu0, imu1, g_pano, dt, curr);
@@ -213,10 +205,9 @@ int Trajectory::UpdateBias(ImuQueue& imuq) {
     ++ibuf;
   }
 
-  auto& bias = imuq.bias;
-  KalmanUpdate(bias.gyr, bias.gyr_var, bw.mean, bw.Var());
+  imuq.bias.UpdateGyr(bw.mean, bw.Var());
   if (update_acc_bias) {
-    KalmanUpdate(bias.acc, bias.acc_var, ba.mean, ba.Var());
+    imuq.bias.UpdateAcc(ba.mean, ba.Var());
   }
   return bw.n;
 }

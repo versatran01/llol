@@ -10,12 +10,8 @@ void OdomNode::Register() {
 
   // 2 is because the first sweep added to pano is junk, so we need to wait for
   // the second sweep to be added
-  if (pano_.num_sweeps >= 2) {
-    if (rigid_) {
-      icp_ok = IcpRigid();
-    } else {
-      icp_ok = IcpLinear();
-    }
+  if (pano_.ready()) {
+    icp_ok = IcpRigid();
   } else {
     ROS_WARN_STREAM("Pano is not full: " << pano_.num_sweeps);
   }
@@ -42,13 +38,10 @@ void OdomNode::Register() {
 
 bool OdomNode::IcpRigid() {
   auto t_match = tm_.Manual("Grid.Match", false);
-  auto t_build = tm_.Manual("Icp.Build", false);
   auto t_solve = tm_.Manual("Icp.Solve", false);
 
   using Cost = GicpRigidCost;
   static Cost cost(tbb_);
-  //  cost.imu_weight = gicp_.imu_weight;
-  //  cost.UpdatePreint(traj_, imuq_);
 
   static TinySolver2<Cost> solver;
   auto& opts = solver.options;
@@ -58,7 +51,6 @@ bool OdomNode::IcpRigid() {
 
   bool icp_ok = false;
 
-  auto t_icp = tm_.Manual("Icp.Solve");
   for (int i = 0; i < gicp_.iters.first; ++i) {
     cost.ResetError();
 
@@ -75,29 +67,33 @@ bool OdomNode::IcpRigid() {
     }
 
     // Build
-    t_build.Resume();
-    cost.UpdateMatches(grid_);
-    t_build.Stop(false);
-
-    // Solve
     t_solve.Resume();
+    // Update matches in cost
+    cost.UpdateMatches(grid_);
+    // Solve
     solver.Solve(cost, &cost.error);
-    t_solve.Stop(false);
-
-    // Update state
+    // Update trajectory
     cost.UpdateTraj(traj_);
-    icp_ok = true;
+    // Repropagate full trajectory from the starting point
+    const int n_imus = traj_.PredictFull(imuq_);
+    t_solve.Stop(false);
+    ROS_DEBUG_STREAM("[Traj.PredictFull] using imus: " << n_imus);
 
     // early exit
-    if (i >= 1 && solver.summary.IsConverged()) break;
+    icp_ok = true;
+    if (i >= 1 && solver.summary.IsConverged()) {
+      ROS_DEBUG_STREAM("[Icp.Iter] Icp converged at iter: "
+                       << i << "/" << gicp_.iters.first);
+      break;
+    }
   }
+
+  t_match.Commit();
+  t_solve.Commit();
 
   ROS_DEBUG_STREAM(solver.summary.Report());
   sm_.Get("grid.matches").Add(cost.matches.size());
 
-  t_match.Commit();
-  t_solve.Commit();
-  t_build.Commit();
   return icp_ok;
 }
 

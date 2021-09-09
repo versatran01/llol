@@ -9,11 +9,31 @@ namespace sv {
 
 namespace {
 
+bool IsNan(const Eigen::Vector3d& v) {
+  return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z());
+}
+
 double InterpImuTime(double time, const ImuData& imu0, const ImuData& imu1) {
   const auto dt = imu1.time - imu0.time;
   const auto s = dt == 0 ? 0.0 : std::clamp((time - imu0.time) / dt, 0.0, 1.0);
   CHECK(!std::isnan(s));
   return s;
+}
+
+void KalmanUpdate(Vector3d& x,
+                  Vector3d& P,
+                  const Vector3d& z,
+                  const Vector3d& R) {
+  // y = z - x^
+  const Vector3d y = z - x;
+  // S = P + R
+  const Vector3d S = P + R + Vector3d::Constant(1e-8);
+  // K = P * S^-1
+  const Vector3d K = P.cwiseQuotient(S);
+  // x = x + K * y
+  x += K.cwiseProduct(y);
+  // P = P - K * P
+  P -= K.cwiseProduct(P);
 }
 
 }  // namespace
@@ -33,6 +53,16 @@ std::string ImuBias::Repr() const {
                      gyr.transpose(),
                      acc_var.transpose(),
                      gyr_var.transpose());
+}
+
+void ImuBias::UpdateAcc(const Eigen::Vector3d& z, const Eigen::Vector3d& R) {
+  KalmanUpdate(acc, acc_var, z, R);
+  CHECK(!IsNan(acc));
+}
+
+void ImuBias::UpdateGyr(const Eigen::Vector3d& z, const Eigen::Vector3d& R) {
+  KalmanUpdate(gyr, gyr_var, z, R);
+  CHECK(!IsNan(gyr));
 }
 
 std::string NavState::Repr() const {
@@ -170,12 +200,12 @@ std::string ImuQueue::Repr() const {
 
 void sv::ImuQueue::Add(const ImuData& imu_in) {
   ImuData imu = imu_in;
-  if (imu.IsAccBad()) {
+  if (IsNan(imu.acc)) {
     LOG(WARNING) << "acc data is not valid: " << imu.acc.transpose();
     imu.acc = kVecZero3d;
   }
 
-  if (imu.IsGyrBad()) {
+  if (IsNan(imu.gyr)) {
     LOG(WARNING) << "gyr data is not valid: " << imu.gyr.transpose();
     imu.gyr = kVecZero3d;
   }
@@ -190,6 +220,32 @@ void sv::ImuQueue::Add(const ImuData& imu_in) {
   }
 
   buf.push_back(imu);
+}
+
+int ImuQueue::IndexAfter(double t) const {
+  int ibuf = GetImuIndexAfterTime(buf, t);
+  if (ibuf == size()) {
+    ibuf = size() - 1;
+    LOG(WARNING) << fmt::format(
+        "All imus are before time {}. Imu buffer size is {}, and the last imu "
+        "in buffer has time {}, t0 - imu1.time = {}, set ibuf to {}",
+        t,
+        size(),
+        buf.back().time,
+        t - buf.back().time,
+        ibuf);
+  } else if (ibuf == 0) {
+    ibuf = 1;
+    LOG(WARNING) << fmt::format(
+        "All imus are after time {}. Imu buffer size is {}, and the first imu "
+        "in buffer has time {}, imu0.time - t0 = {}, set ibuf to {}",
+        t,
+        size(),
+        buf.front().time,
+        buf.front().time - t,
+        ibuf);
+  }
+  return ibuf;
 }
 
 ImuData ImuQueue::CalcMean() const {

@@ -91,6 +91,7 @@ struct DepthPano {
   bool empty() const { return dbuf.empty(); }
   size_t total() const { return dbuf.total(); }
   cv::Size size() const noexcept { return model.size; }
+  bool ready() const { return num_sweeps >= 2; }
 
   /// @brief Compute mean and covar on a window centered at px given range
   /// @return sum(cnt_i) / max_cnt

@@ -32,7 +32,8 @@ struct Trajectory {
   /// @brief Given the first pose in poses, predict using imu
   /// @return Number of imus used
   /// @todo Need to handle partial sweep
-  int Predict(const ImuQueue& imuq, double t0, double dt, int n);
+  int PredictNew(const ImuQueue& imuq, double t0, double dt, int n);
+  int PredictFull(const ImuQueue& imuq);
 
   /// @brief Pop oldest states so that the traj starts at curr end
   void PopOldest(int n);

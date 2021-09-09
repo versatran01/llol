@@ -15,7 +15,7 @@ TEST(TrajTest, TestPredict) {
     imuq.Add(imu);
   }
 
-  const int n = traj.Predict(imuq, 0.5, 1, traj.size() - 1);
+  const int n = traj.PredictNew(imuq, 0.5, 1, traj.size() - 1);
   EXPECT_EQ(n, 4);
   EXPECT_EQ(traj.front().time, 0.5);
   EXPECT_EQ(traj.back().time, 3.5);

@@ -30,6 +30,9 @@ struct ImuBias {
     return os << rhs.Repr();
   }
 
+  void UpdateAcc(const Eigen::Vector3d& z, const Eigen::Vector3d& R);
+  void UpdateGyr(const Eigen::Vector3d& z, const Eigen::Vector3d& R);
+
   Eigen::Vector3d acc{kVecZero3d};
   Eigen::Vector3d gyr{kVecZero3d};
   Eigen::Vector3d acc_var{kVecZero3d};
@@ -44,12 +47,6 @@ struct ImuData {
 
   void Debias(const ImuBias& bias);
   ImuData DeBiased(const ImuBias& bias) const;
-
-  static bool DataHasNan(const Eigen::Vector3d& v) {
-    return std::isnan(v.x()) || std::isnan(v.y()) || std::isnan(v.z());
-  }
-  bool IsAccBad() const { return DataHasNan(acc); }
-  bool IsGyrBad() const { return DataHasNan(gyr); }
 };
 
 using ImuBuffer = boost::circular_buffer<ImuData>;
@@ -135,7 +132,7 @@ struct ImuQueue {
 
   /// @brief Get index into buffer with time rgith next to t
   /// @return -1 if not found
-  int IndexAfter(double t) const { return GetImuIndexAfterTime(buf, t); }
+  int IndexAfter(double t) const;
 
   /// @brief Compute mean imu data
   ImuData CalcMean() const;

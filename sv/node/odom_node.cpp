@@ -184,7 +184,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     const auto dt = grid_.dt;
 
     // Predict the segment of traj corresponding to current grid
-    n_imus = traj_.Predict(imuq_, t0, dt, pred_cols);
+    n_imus = traj_.PredictNew(imuq_, t0, dt, pred_cols);
   }
   sm_.Get("traj.pred_imus").Add(n_imus);
   ROS_DEBUG_STREAM("[traj.Predict] num imus: " << n_imus);
@@ -227,7 +227,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   int n_render = 0;
   if (pano_.ShouldRender(T_p2_p1, match_ratio)) {
     ROS_WARN_STREAM(
-        "!!! Render pano at new location !!! " << fmt::format(
+        "=== Render pano at new location === " << fmt::format(
             "sweeps: {:.3f}, translation: {:.3f}, match_ratio: {:.3f}",
             pano_.num_sweeps,
             T_p1_p2.translation().norm(),
@@ -248,7 +248,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
   int n_points = 0;
   {  // Add scan to sweep
-    auto _ = tm_.Scoped("sweep.add");
+    auto _ = tm_.Scoped("Sweep.Add");
     n_points = sweep_.Add(scan);
   }
   sm_.Get("sweep.add").Add(n_points);
@@ -257,7 +257,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   {  // Update sweep tfs for undistortion
     auto _ = tm_.Scoped("Sweep.Interp");
     sweep_.Interp(traj_, tbb_);
-    grid_.Interp(traj_);
+    //    grid_.Interp(traj_);
   }
 
   if (vis_) {

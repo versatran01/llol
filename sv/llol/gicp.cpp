@@ -84,13 +84,11 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   // Check distance between new pix and old pix (allow 1 pix in azim direction)
   //  if (std::abs(px_p.x - match.px_p.x) <= 1 && px_p.y == match.px_p.y &&
   //      match.PanoOk()) {
-  if (px_p == match.px_p && match.PanoOk()) {
-    // If new and old are the same and pano match is good we reuse this match
-
-    // but we set mean to the new match point if it is valid and assume the
-    // structure (covariance) stays the same
-    // pano.UpdateMean(px_p, rg_p, match.mc_p.mean);
-    return 1;
+  if (match.PanoOk()) {
+    if (px_p == match.px_p) {
+      // If new and old are the same and pano match is good we reuse this match
+      return 1;
+    }
   }
 
   // Compute mean covar around pano point
