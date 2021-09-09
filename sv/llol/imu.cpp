@@ -57,12 +57,12 @@ std::string ImuBias::Repr() const {
 
 void ImuBias::UpdateAcc(const Eigen::Vector3d& z, const Eigen::Vector3d& R) {
   KalmanUpdate(acc, acc_var, z, R);
-  CHECK(!IsNan(acc));
+  CHECK(!IsNan(acc)) << acc.transpose();
 }
 
 void ImuBias::UpdateGyr(const Eigen::Vector3d& z, const Eigen::Vector3d& R) {
   KalmanUpdate(gyr, gyr_var, z, R);
-  CHECK(!IsNan(gyr));
+  CHECK(!IsNan(gyr)) << gyr.transpose();
 }
 
 std::string NavState::Repr() const {

@@ -1,5 +1,5 @@
 imuq:
-  buffer_size: 20
+  buffer_size: 25
   imu_rate: 100.0
   acc_noise: 0.005
   acc_bias_noise: 0.0005
@@ -10,7 +10,7 @@ imuq:
 traj:
   gravity_norm: 9.8
   integrate_acc: true
-  update_acc_bias: true
+  update_acc_bias: false
 grid:
   cell_rows: 2
   cell_cols: 16

@@ -23,7 +23,7 @@ std::string Trajectory::Repr() const {
   return fmt::format(
       "Trajectory(size={}, integrate_acc={}, update_acc_bias={}, g_pano=[{}], "
       "g_norm={:.4f}, "
-      "\nT_imu_lidar=\n{}\n, "
+      "\nT_imu_lidar=\n{}\n"
       "T_odom_pano=\n{}\n)",
       size(),
       integrate_acc,

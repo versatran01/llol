@@ -21,8 +21,7 @@ void OdomNode::Register() {
 
   // Do not update bias if icp was not running
   if (icp_ok) {
-    //    grid_.Interp(traj_);
-    traj_.UpdateBias(imuq_);
+    //    traj_.UpdateBias(imuq_);
     ROS_DEBUG_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
     ROS_DEBUG_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
   }
