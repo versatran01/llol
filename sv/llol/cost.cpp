@@ -104,7 +104,7 @@ bool GicpRigidCost::operator()(const double* x_ptr,
   Eigen::Map<Vector3d> r_gamma(r_ptr + offset + 3);
   const Matrix3d Ug = preint.U.block<3, 3>(6, 6) * imu_weight;
   // r_gamma = R0' * R1 * gamma'
-  r_alpha = Ug * (R0.inverse() * R1 * preint.gamma.inverse()).log();
+  r_alpha = Ug * (R0_t * R1 * preint.gamma.inverse()).log();
 
   if (J_ptr) {
     const auto R0_t_mat = R0_t.matrix();
@@ -112,7 +112,7 @@ bool GicpRigidCost::operator()(const double* x_ptr,
     J.block<3, 3>(offset, Block::kR0 * 3) = -Ua * R0_t_mat * Hat3(p1_bar);
     J.block<3, 3>(offset, Block::kP0 * 3) = Ua * R0_t_mat;
 
-    J.block<3, 3>(offset + 3, Block::kR0 * 3) = Ua * R0_t_mat;
+    J.block<3, 3>(offset + 3, Block::kR0 * 3) = Ug * R0_t_mat;
     J.block<3, 3>(offset + 3, Block::kP0 * 3).setZero();
   }
 
