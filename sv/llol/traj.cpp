@@ -13,23 +13,23 @@ using Quaterniond = Eigen::Quaterniond;
 
 Trajectory::Trajectory(int size, const TrajectoryParams& params)
     : gravity_norm{params.gravity_norm},
-      integrate_acc{params.integrate_acc},
-      update_acc_bias{params.update_acc_bias} {
+      use_acc{params.use_acc},
+      update_bias{params.update_bias} {
   CHECK_GT(size, 0);
   states.resize(size);
 }
 
 std::string Trajectory::Repr() const {
   return fmt::format(
-      "Trajectory(size={}, integrate_acc={}, update_acc_bias={}, g_pano=[{}], "
-      "g_norm={:.4f}, "
+      "Trajectory(size={}, use_acc={}, update_bias={}, g_norm={:.4f}, "
+      "g_pano=[{}], "
       "\nT_imu_lidar=\n{}\n"
       "T_odom_pano=\n{}\n)",
       size(),
-      integrate_acc,
-      update_acc_bias,
-      g_pano.transpose(),
+      use_acc,
+      update_bias,
       gravity_norm,
+      g_pano.transpose(),
       T_imu_lidar.matrix3x4(),
       T_odom_pano.matrix3x4());
 }
@@ -97,7 +97,7 @@ int Trajectory::PredictNew(const ImuQueue& imuq, double t0, double dt, int n) {
     const auto& prev = At(ist - 1);
     auto& curr = At(ist);
 
-    if (integrate_acc) {
+    if (use_acc) {
       IntegrateState(prev, imu0, imu1, g_pano, dt, curr);
     } else {
       curr.time = prev.time + dt;
@@ -130,7 +130,7 @@ int Trajectory::PredictFull(const ImuQueue& imuq) {
       imu1 = imuq.DebiasedAt(ibuf);
     }
 
-    if (integrate_acc) {
+    if (use_acc) {
       IntegrateState(prev, imu0, imu1, g_pano, dt, curr);
     } else {
       curr.time = prev.time + dt;
@@ -205,8 +205,8 @@ int Trajectory::UpdateBias(ImuQueue& imuq) {
     ++ibuf;
   }
 
-  imuq.bias.UpdateGyr(bw.mean, bw.Var());
-  if (update_acc_bias) {
+  if (update_bias) {
+    imuq.bias.UpdateGyr(bw.mean, bw.Var());
     imuq.bias.UpdateAcc(ba.mean, ba.Var());
   }
   return bw.n;

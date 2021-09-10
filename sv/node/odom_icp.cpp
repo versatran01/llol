@@ -91,7 +91,7 @@ bool OdomNode::IcpRigid() {
   t_solve.Commit();
 
   ROS_DEBUG_STREAM(solver.summary.Report());
-  sm_.Get("grid.matches").Add(cost.matches.size());
+  sm_.GetRef("grid.matches").Add(cost.matches.size());
 
   return icp_ok;
 }
@@ -148,7 +148,7 @@ bool OdomNode::IcpLinear() {
   }
 
   ROS_DEBUG_STREAM(solver.summary.Report());
-  sm_.Get("grid.matches").Add(cost.matches.size());
+  sm_.GetRef("grid.matches").Add(cost.matches.size());
 
   t_match.Commit();
   t_solve.Commit();

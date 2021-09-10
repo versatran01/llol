@@ -89,9 +89,9 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
 
 Trajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
   TrajectoryParams tp;
+  tp.use_acc = pnh.param<bool>("use_acc", tp.use_acc);
+  tp.update_bias = pnh.param<bool>("updatec_bias", tp.update_bias);
   tp.gravity_norm = pnh.param<double>("gravity_norm", tp.gravity_norm);
-  tp.integrate_acc = pnh.param<bool>("integrate_acc", tp.integrate_acc);
-  tp.update_acc_bias = pnh.param<bool>("update_acc_bias", tp.update_acc_bias);
   return Trajectory{grid_cols + 1, tp};
 }
 
@@ -105,9 +105,11 @@ ImuQueue InitImuq(const ros::NodeHandle& pnh) {
   const auto acc_bias_noise = pnh.param<double>("acc_bias_noise", 1e-3);
   const auto gyr_bias_noise = pnh.param<double>("gyr_bias_noise", 1e-4);
   imuq.noise = {rate, acc_noise, gyr_noise, acc_bias_noise, gyr_bias_noise};
+
   const auto acc_bias_std = pnh.param<double>("acc_bias_std", 1e-2);
   const auto gyr_bias_std = pnh.param<double>("gry_bias_std", 1e-3);
   imuq.bias = {acc_bias_std, gyr_bias_std};
+
   return imuq;
 }
 

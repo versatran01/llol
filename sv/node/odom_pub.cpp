@@ -4,6 +4,7 @@
 #include <nav_msgs/Path.h>
 #include <pcl_ros/point_cloud.h>
 #include <ros/publisher.h>
+#include <sensor_msgs/Range.h>
 #include <tf2_eigen/tf2_eigen.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -34,6 +35,8 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   static auto pub_pano = pnh_.advertise<CloudXYZ>("pano", 1);
   static auto pub_sweep = pnh_.advertise<CloudXYZ>("sweep", 1);
   static auto pub_grid = pnh_.advertise<MarkerArray>("grid", 1);
+
+  static auto pub_runtime = pnh_.advertise<sensor_msgs::Range>("runtime", 1);
 
   static tf2_ros::TransformBroadcaster tf_broadcaster;
 
@@ -78,7 +81,7 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   }
 
   // Publish match
-  static CloudXYZ feat_cloud;
+  static CloudXYZI feat_cloud;
   if (pub_feat.getNumSubscribers() > 0) {
     Grid2Cloud(grid_, pano_header, feat_cloud);
     pub_feat.publish(feat_cloud);
@@ -123,6 +126,16 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   }
 
   pub_path.publish(path);
+
+  // publish time info
+  sensor_msgs::Range runtime;
+  runtime.header = header;
+  const auto stat = tm_.GetStats("Total");
+  runtime.field_of_view = absl::ToDoubleSeconds(stat.mean());
+  runtime.min_range = absl::ToDoubleSeconds(stat.min());
+  runtime.max_range = absl::ToDoubleSeconds(stat.max());
+  runtime.range = absl::ToDoubleSeconds(stat.last());
+  pub_runtime.publish(runtime);
 }
 
 }  // namespace sv

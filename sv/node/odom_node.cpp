@@ -160,9 +160,9 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 
   PostProcess(scan);
 
-  Publish(cinfo_msg->header);
-
   Logging();
+
+  Publish(cinfo_msg->header);
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {
@@ -174,8 +174,8 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   ROS_DEBUG_STREAM("[grid.Add] Num valid cells: "
                    << n_cells[0] << ", num good cells: " << n_cells[1]);
 
-  sm_.Get("grid.valid_cells").Add(n_cells[0]);
-  sm_.Get("grid.good_cells").Add(n_cells[1]);
+  sm_.GetRef("grid.valid_cells").Add(n_cells[0]);
+  sm_.GetRef("grid.good_cells").Add(n_cells[1]);
 
   int n_imus{};
   {  // Integarte imu to fill nominal traj
@@ -187,7 +187,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     // Predict the segment of traj corresponding to current grid
     n_imus = traj_.PredictNew(imuq_, t0, dt, pred_cols);
   }
-  sm_.Get("traj.pred_imus").Add(n_imus);
+  sm_.GetRef("traj.pred_imus").Add(n_imus);
   ROS_DEBUG_STREAM("[traj.Predict] num imus: " << n_imus);
 
   if (vis_) {
@@ -210,12 +210,12 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Pano.Add");
     n_added = pano_.Add(sweep_, scan.curr, tbb_);
   }
-  sm_.Get("pano.add_points").Add(n_added);
+  sm_.GetRef("pano.add_points").Add(n_added);
   ROS_DEBUG_STREAM("[pano.Add] num added: " << n_added);
 
   const double match_ratio =
-      sm_.Get("grid.matches").last() / sm_.Get("grid.good_cells").last();
-  sm_.Get("grid.match_ratio").Add(match_ratio);
+      sm_.GetRef("grid.matches").last() / sm_.GetRef("grid.good_cells").last();
+  sm_.GetRef("grid.match_ratio").Add(match_ratio);
   ROS_DEBUG_STREAM("[pano.Render] match ratio: " << match_ratio);
 
   auto T_p1_p2 = traj_.TfPanoLidar();
@@ -243,7 +243,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     traj_.MoveFrame(T_p2_p1);
   }
   if (n_render > 0) {
-    sm_.Get("pano.render_points").Add(n_render);
+    sm_.GetRef("pano.render_points").Add(n_render);
     ROS_DEBUG_STREAM("[pano.Render] num render: " << n_render);
   }
 
@@ -252,7 +252,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     auto _ = tm_.Scoped("Sweep.Add");
     n_points = sweep_.Add(scan);
   }
-  sm_.Get("sweep.add").Add(n_points);
+  sm_.GetRef("sweep.add").Add(n_points);
   ROS_DEBUG_STREAM("[sweep.Add] num added: " << n_points);
 
   {  // Update sweep tfs for undistortion

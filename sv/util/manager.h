@@ -97,7 +97,7 @@ class StatsManager final : public StatsManagerBase<double> {
   using StatsManagerBase::StatsManagerBase;
 
   /// @brief Get stats by name
-  StatsT& Get(std::string_view name) { return stats_dict_[name]; }
+  StatsT& GetRef(std::string_view name) { return stats_dict_[name]; }
 
   std::string ReportStats(const std::string& name,
                           const StatsT& stats) const override;

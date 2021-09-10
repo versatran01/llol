@@ -68,7 +68,7 @@ void Sweep2Cloud(const LidarSweep& sweep,
 
 void Grid2Cloud(const SweepGrid& grid,
                 const std_msgs::Header& header,
-                CloudXYZ& cloud) {
+                CloudXYZI& cloud) {
   const auto size = grid.size();
   if (cloud.empty()) {
     cloud.resize(grid.total());
@@ -85,6 +85,10 @@ void Grid2Cloud(const SweepGrid& grid,
                           auto& pc = cloud.at(c, r);
                           if (match.Ok()) {
                             pc.getArray3fMap() = grid.TfAt(c) * match.mc_g.mean;
+                            pc.intensity = 1.0;
+                          } else if (match.GridOk()) {
+                            pc.getArray3fMap() = grid.TfAt(c) * match.mc_g.mean;
+                            pc.intensity = 0.5;
                           } else {
                             pc.x = pc.y = pc.z = kNaNF;
                           }

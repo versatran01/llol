@@ -22,7 +22,6 @@ struct GicpSolver {
   std::pair<int, int> iters;  // (outer, inner) iterations
   float cov_lambda{};         // lambda added to diagonal of covar
   cv::Size pano_win;          // win size in pano used to compute mean covar
-  cv::Size max_dist;          // max dist size to resue pano mc
   int pano_min_pts{};         // min pts in pano win for a valid match
   double imu_weight{};        // how much weight to put on imu cost
   double min_eigval{};        // min eigenvalues for solution remapping

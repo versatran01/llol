@@ -5,9 +5,9 @@
 namespace sv {
 
 struct TrajectoryParams {
+  bool use_acc{false};
+  bool update_bias{false};
   double gravity_norm{0.0};
-  bool integrate_acc{false};
-  bool update_acc_bias{false};
 };
 
 /// @brief Accumulates imu data and integrate
@@ -51,8 +51,8 @@ struct Trajectory {
   const NavState& back() const { return states.back(); }
 
   /// Params
-  bool integrate_acc{};
-  bool update_acc_bias{};
+  bool use_acc{};
+  bool update_bias{};
 
   /// Data
   double gravity_norm{};

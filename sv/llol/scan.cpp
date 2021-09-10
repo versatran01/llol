@@ -83,6 +83,9 @@ cv::Vec2f LidarScan::ScoreAt(const cv::Point& px, int width) const {
   for (int c = 0; c < width; ++c) {
     const auto rg = RangeAt({px.x + c, px.y});
     if (std::isnan(rg)) continue;
+    // Remove points that are just outliers
+    if (std::abs(rg - mid) / mid > 0.5) continue;
+
     sum += rg;
     sq_sum += rg * rg;
     ++n;

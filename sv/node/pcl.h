@@ -23,5 +23,5 @@ void Sweep2Cloud(const LidarSweep& sweep,
 
 void Grid2Cloud(const SweepGrid& grid,
                 const std_msgs::Header& header,
-                CloudXYZ& cloud);
+                CloudXYZI& cloud);
 }  // namespace sv
