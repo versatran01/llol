@@ -255,7 +255,7 @@ class TinySolver2 {
       for (; m < n; ++m) {
         if (eigvals[m] >= options.min_eigenvalue) break;
       }
-      //      LOG(INFO) << "eigenvalues: " << eigvals.transpose();
+      // LOG(INFO) << "eigenvalues: " << eigvals.transpose();
       // Obiviously if all eigenvalues are good then no need for remapping
       need_remap = m > 0;
       summary.degenerate_directions = m;

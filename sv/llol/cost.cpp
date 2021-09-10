@@ -52,6 +52,8 @@ bool GicpRigidCost::operator()(const double* x_ptr,
   const Vector3d ep = es.p0();
   const SE3d eT{eR, ep};
 
+  int n = 0;
+
   tbb::parallel_for(
       tbb::blocked_range<int>(0, matches.size(), gsize_), [&](const auto& blk) {
         for (int i = blk.begin(); i < blk.end(); ++i) {
@@ -66,6 +68,11 @@ bool GicpRigidCost::operator()(const double* x_ptr,
           const int ri = kResidualDim * i;
           Eigen::Map<Vector3d> r(r_ptr + ri);
           r = U * (pt_p - eT * pt_p_hat);
+
+          // Down weight outlier
+          // const auto r2 = r.squaredNorm();
+          // const double s = 1.0 / (1.0 + static_cast<double>(r2 > 64) / 2.0);
+          // r *= s;
 
           if (J_ptr) {
             Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
