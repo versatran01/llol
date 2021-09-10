@@ -102,8 +102,10 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   //  match.CalcSqrtInfo(cov_lambda);
   match.CalcSqrtInfo(T_p_g.rotationMatrix());
   // Although scale could be subsumed by U, we kept it for visualization
-  match.scale = weight / pano_win.area();
-  match.U *= std::sqrt(match.scale);
+  match.scale = std::max(1.0F, weight / pano_min_pts);
+  if (match.scale != 1.0) {
+    match.U *= std::sqrt(match.scale);
+  }
   return 1;
 }
 

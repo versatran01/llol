@@ -131,7 +131,7 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
 
 bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1,
                              double match_ratio) const {
-  if (num_sweeps < max_cnt * 3 / 4) return false;
+  if (num_sweeps < max_cnt) return false;
 
   // match ratio is the most important criteria
   if (match_ratio < min_match_ratio) return true;
@@ -171,7 +171,8 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
 
   // TODO (chao): should we set it to 1 or divide by 4?
   // Need at least 2 for pano to be ready
-  num_sweeps = std::max(2, max_cnt / 4);
+  //  num_sweeps = std::max(2, max_cnt / 4);
+  num_sweeps = max_cnt / 4;
 
   return n;
 }
@@ -209,8 +210,8 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
   auto& dp2 = dbuf2.at<DepthPixel>(px);
   // if the destination pixel is empty, then just set it to range
   if (dp2.raw == 0) {
-    // We set cnt to a low value so that it can be cleared quickly (1 or 2)
-    dp2.SetRangeCount(rg, 1);
+    // We set cnt to a low value so that it can be cleared quickly
+    dp2.SetRangeCount(rg, 2);
     return true;
   }
 
@@ -248,9 +249,7 @@ float DepthPano::MeanCovarAt(const cv::Point& px,
     }
   }
 
-  weight /= max_cnt;
-
-  return weight;
+  return weight / max_cnt;
 }
 
 void DepthPano::UpdateMean(const cv::Point& px,

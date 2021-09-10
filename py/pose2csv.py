@@ -2,12 +2,12 @@ import rosbag
 import numpy as np
 from geometry_msgs.msg import PoseStamped
 
-bagfile = "/home/chao/Workspace/ws/llol_ws/data/2021-09-09-22-46-07.bag"
+bagfile = "/home/chao/Workspace/ws/llol_ws/data/nc-05-llol-pose-time.bag"
 
 poses = []
 
 with rosbag.Bag(bagfile, "r") as bag:
-    for topic, msg, t in bag.read_messages():
+    for topic, msg, t in bag.read_messages(["/os_node/llol_odom/pose"]):
         p = msg.pose.position
         q = msg.pose.orientation
         t = msg.header.stamp.to_sec()
