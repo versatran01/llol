@@ -131,7 +131,7 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
 
 bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1,
                              double match_ratio) const {
-  if (num_sweeps < max_cnt) return false;
+  if (num_sweeps < max_cnt * 3 / 4) return false;
 
   // match ratio is the most important criteria
   if (match_ratio < min_match_ratio) return true;
@@ -170,7 +170,8 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
   cv::swap(dbuf, dbuf2);
 
   // TODO (chao): should we set it to 1 or divide by 4?
-  num_sweeps = max_cnt / 4;
+  // Need at least 2 for pano to be ready
+  num_sweeps = std::max(2, max_cnt / 4);
 
   return n;
 }

@@ -14,8 +14,8 @@ traj:
 grid:
   cell_rows: 2
   cell_cols: 16
-  max_curve: 0.02
-  max_ratio: 0.4
+  max_curve: 0.01
+  max_var: 0.1
   nms: true
 gicp:
   outer: 3
