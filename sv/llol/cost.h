@@ -34,7 +34,7 @@ struct GicpCost {
 
   void ResetError();
   void UpdateMatches(const SweepGrid& grid);
-  void UpdatePreint(const Trajectory& traj, const ImuQueue& imuq);
+  int UpdatePreint(const Trajectory& traj, const ImuQueue& imuq);
   virtual void UpdateTraj(Trajectory& traj) const = 0;
 
   int gsize_{};

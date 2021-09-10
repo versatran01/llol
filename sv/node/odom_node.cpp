@@ -258,7 +258,6 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   {  // Update sweep tfs for undistortion
     auto _ = tm_.Scoped("Sweep.Interp");
     sweep_.Interp(traj_, tbb_);
-    grid_.Interp(traj_);
   }
 
   if (vis_) {

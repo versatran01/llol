@@ -269,7 +269,7 @@ int ImuPreintegration::Compute(const ImuQueue& imuq, double t0, double t1) {
   // to 0.
   if (ibuf == imuq.size()) {
     LOG(WARNING) << "Could not find imu right after time: " << t0;
-    U.setZero();
+    CHECK_EQ(n, 0);
     return 0;
   }
 

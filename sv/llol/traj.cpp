@@ -157,7 +157,7 @@ void Trajectory::MoveFrame(const Sophus::SE3d& tf_p2_p1) {
   for (auto& st : states) {
     st.rot = R_p2_p1 * st.rot;
     st.vel = R_p2_p1 * st.vel;  // ignores angular velocity
-    st.pos = R_p2_p1 * st.pos + tf_p2_p1.translation();
+    st.pos = tf_p2_p1 * st.pos;
   }
   // 2. Update T_odom_pano
   // T_o_p2 = T_o_p1 * T_p1_p2

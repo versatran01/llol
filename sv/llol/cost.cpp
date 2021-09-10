@@ -16,7 +16,7 @@ GicpCost::GicpCost(int gsize) {
 }
 
 int GicpCost::NumResiduals() const {
-  return matches.size() * kResidualDim + (ptraj ? 3 : 0);
+  return matches.size() * kResidualDim + (ptraj ? 6 : 0);
 }
 
 void GicpCost::ResetError() {
@@ -38,10 +38,10 @@ void GicpCost::UpdateMatches(const SweepGrid& grid) {
   }
 }
 
-void GicpCost::UpdatePreint(const Trajectory& traj, const ImuQueue& imuq) {
+int GicpCost::UpdatePreint(const Trajectory& traj, const ImuQueue& imuq) {
   ptraj = &traj;
   preint.Reset();
-  preint.Compute(imuq, traj.front().time, traj.back().time);
+  return preint.Compute(imuq, traj.front().time, traj.back().time);
 }
 
 bool GicpRigidCost::operator()(const double* x_ptr,
@@ -74,6 +74,47 @@ bool GicpRigidCost::operator()(const double* x_ptr,
           }
         }
       });
+
+  if (ptraj == nullptr) return true;
+
+  const auto dt = preint.duration;
+  const auto dt2 = dt * dt;
+  const auto& g = ptraj->g_pano;
+  const auto& st0 = ptraj->front();
+  const auto& st1 = ptraj->back();
+
+  const auto& p0 = st0.pos;
+  const auto& p1_bar = st1.pos;
+  const Vector3d p1 = eR * p1_bar + ep;
+  const auto& R0 = st0.rot;
+  const auto& R1_bar = st1.rot;
+  const auto R1 = eR * R1_bar;
+
+  const auto R0_t = R0.inverse();
+  const Vector3d dp = st0.vel * dt - 0.5 * g * dt2;
+  const Vector3d alpha = R0_t * (p1 - p0 - dp);
+
+  const int offset = matches.size() * kResidualDim;
+
+  Eigen::Map<Vector3d> r_alpha(r_ptr + offset);
+  const Matrix3d Ua = preint.U.topLeftCorner<3, 3>() * imu_weight;
+  // r_alpha = R0^T (p1 - p0 - v0 * dt + 0.5 * g * dt2) - alpha
+  r_alpha = Ua * (alpha - preint.alpha);
+
+  Eigen::Map<Vector3d> r_gamma(r_ptr + offset + 3);
+  const Matrix3d Ug = preint.U.block<3, 3>(6, 6) * imu_weight;
+  // r_gamma = R0' * R1 * gamma'
+  r_alpha = Ug * (R0.inverse() * R1 * preint.gamma.inverse()).log();
+
+  if (J_ptr) {
+    const auto R0_t_mat = R0_t.matrix();
+    Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
+    J.block<3, 3>(offset, Block::kR0 * 3) = -Ua * R0_t_mat * Hat3(p1_bar);
+    J.block<3, 3>(offset, Block::kP0 * 3) = Ua * R0_t_mat;
+
+    J.block<3, 3>(offset + 3, Block::kR0 * 3) = Ua * R0_t_mat;
+    J.block<3, 3>(offset + 3, Block::kP0 * 3).setZero();
+  }
 
   return true;
 }
@@ -135,11 +176,6 @@ bool GicpLinearCost::operator()(const double* x_ptr,
       });
 
   if (ptraj == nullptr) return true;
-
-  // We don't need to zero out residual and jacobian because they are
-  // initialized to zero and assuming imu_weight doesn't change, they will stay
-  // zero so won't affect optimization
-  if (imu_weight == 0) return true;
 
   const auto dt = preint.duration;
   const auto dt2 = dt * dt;

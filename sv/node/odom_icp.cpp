@@ -41,6 +41,9 @@ bool OdomNode::IcpRigid() {
 
   using Cost = GicpRigidCost;
   static Cost cost(tbb_);
+  cost.imu_weight = gicp_.imu_weight;
+  const int n_preint = cost.UpdatePreint(traj_, imuq_);
+  ROS_DEBUG_STREAM("[cost.Preint] num imus: " << n_preint);
 
   static TinySolver2<Cost> solver;
   auto& opts = solver.options;
