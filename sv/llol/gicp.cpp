@@ -104,8 +104,9 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   // Although scale could be subsumed by U, we kept it for visualization
   // weight / pano_area is in [0, 1], but if it is too small, then imu cost will
   // dominate and drift. So we make this scale [0.5, 1]
-  //  match.scale = std::sqrt(weight / pano_win.area() / 2 + 0.5);
-  match.scale = std::sqrt(static_cast<float>(match.mc_p.n) / pano_win.area());
+  match.scale = std::sqrt(weight / pano_win.area() / 2 + 0.5);
+  //  match.scale = std::sqrt(static_cast<float>(match.mc_p.n) /
+  //  pano_win.area());
   return 1;
 }
 
