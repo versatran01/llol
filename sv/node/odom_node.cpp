@@ -77,16 +77,23 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const auto imu_mean = imuq_.CalcMean();
     const auto& imu0 = imuq_.buf.front();
 
-    ROS_INFO_STREAM("acc_first: " << imu0.acc.transpose()
-                                  << ", norm: " << imu0.acc.norm());
     ROS_INFO_STREAM("acc_curr: " << imu.acc.transpose()
                                  << ", norm: " << imu.acc.norm());
     ROS_INFO_STREAM("acc_mean: " << imu_mean.acc.transpose()
                                  << ", norm: " << imu_mean.acc.norm());
 
-    traj_.Init({q_i_l, t_i_l}, imu_mean.acc);
-    //    imuq_.bias.gyr = imu_mean.gyr;
-    //    imuq_.bias.gyr_var = imu_mean.gyr.array().square();
+    // Use the one that is closer to 9.8
+    const Sophus::SE3d T_i_l{q_i_l, t_i_l};
+    const auto curr_acc_norm = imu.acc.norm();
+    const auto mean_acc_norm = imu_mean.acc.norm();
+    if (std::abs(curr_acc_norm - 9.8) < std::abs(mean_acc_norm - 9.8)) {
+      ROS_INFO_STREAM("Use curr acc as gravity");
+      traj_.Init(T_i_l, imu.acc);
+    } else {
+      ROS_INFO_STREAM("Use mean acc as gravity");
+      traj_.Init(T_i_l, imu_mean.acc);
+    }
+
     ROS_INFO_STREAM(traj_);
     tf_init_ = true;
   } catch (tf2::TransformException& ex) {

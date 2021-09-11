@@ -169,10 +169,12 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
 
   cv::swap(dbuf, dbuf2);
 
-  // TODO (chao): should we set it to 1 or divide by 4?
   // Need at least 2 for pano to be ready
-  //  num_sweeps = std::max(2, max_cnt / 4);
-  num_sweeps = max_cnt / 4;
+  // for a well update pano, we will set it to max_cnt / 4.
+  // for one that is not sufficiently updated, we set it to num_sweeps / 4 but
+  // make sure it is more than 2
+  num_sweeps =
+      std::max(2.0F, std::min(num_sweeps, static_cast<float>(max_cnt)) / 4);
 
   return n;
 }

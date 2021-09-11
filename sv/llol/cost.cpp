@@ -59,7 +59,6 @@ bool GicpRigidCost::operator()(const double* x_ptr,
         for (int i = blk.begin(); i < blk.end(); ++i) {
           const auto& match = matches.at(i);
           const auto c = match.px_g.x;
-          const auto U = match.U.cast<double>().eval();
           const auto pt_p = match.mc_p.mean.cast<double>().eval();
           const auto pt_g = match.mc_g.mean.cast<double>().eval();
           const auto tf_p_g = pgrid->TfAt(c).cast<double>();
@@ -67,20 +66,30 @@ bool GicpRigidCost::operator()(const double* x_ptr,
 
           const int ri = kResidualDim * i;
           Eigen::Map<Vector3d> r(r_ptr + ri);
+
+          auto U = match.U.cast<double>().eval();
           r = U * (pt_p - eT * pt_p_hat);
 
-          // Down weight outlier
-          // const auto r2 = r.squaredNorm();
-          // const double s = 1.0 / (1.0 + static_cast<double>(r2 > 64) / 2.0);
-          // r *= s;
+          // Do a simple gating test and downweight outliers
+          // https://www.itl.nist.gov/div898/handbook/eda/section3/eda3674.htm
+          const auto r2 = r.squaredNorm();
+          double s = match.scale;
+          if (r2 > 12) s *= 0.5;
+
+          r *= s;
 
           if (J_ptr) {
             Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
+            U *= s;
             J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
             J.block<3, 3>(ri, Block::kP0 * 3) = -U;
           }
         }
       });
+
+  if (n > 0.1 * matches.size()) {
+    LOG(WARNING) << "Too many outliers: " << n;
+  }
 
   if (ptraj == nullptr) return true;
 
@@ -147,18 +156,6 @@ void GicpRigidCost::UpdateTraj(Trajectory& traj) const {
   st.rot = eR * st.rot;
   st.pos = eR * st.pos + es.p0();
   st.vel += es.p0() / dt;
-
-  // Only update first
-
-  //  for (auto& st : traj.states) {
-  //    st.rot = eR * st.rot;
-  //    st.pos = eR * st.pos + es.p0();
-  //    st.vel += es.p0() / dt;
-  //  }
-
-  //  // only update last velocity because we need it for next round of
-  //  prediction auto& st1 = traj.states.back(); st1.vel += (st1.pos -
-  //  st1_old.pos) / traj.duration();
 }
 
 bool GicpLinearCost::operator()(const double* x_ptr,
