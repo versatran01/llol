@@ -83,7 +83,7 @@ bool OdomNode::IcpRigid() {
 
     // early exit
     icp_ok = true;
-    if (i >= 1 && solver.summary.IsConverged()) {
+    if (i >= 2 && solver.summary.IsConverged()) {
       ROS_DEBUG_STREAM(
           fmt::format("[Icp] converged at outer: {}/{}, inner: {}/{}",
                       i + 1,

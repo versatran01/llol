@@ -95,26 +95,19 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
 
   auto& p = PixelAt(px);
-  // If current pixel is empty, just use this range and give it half of max cnt
-  //  if (p.raw == 0) {
-  //    p.SetRangeCount(rg, max_cnt / 2);
-  //    return true;
-  //  }
 
-  // If cnt is 0 while range is not, this means there exists enough evidence
-  // that differ from previous measurement, for example some new object just
-  // entered and stayed long enough. In this case, we use the new range, but
-  // only increment count by 2 to allow it to survive at least one sweep
-  //  if (p.cnt == 0) {
-  //    p.SetRange(rg);
-  //    p.cnt += 2;
-  //    return true;
-  //  }
+  // If depth is 0, this is a new point and we give it a relatively large cnt
+  if (p.raw == 0) {
+    p.SetRangeCount(rg, max_cnt / 2);
+    return true;
+  }
 
-  // If cnt is empty, we just set the range to the new one
+  // If cnt is empty (no matter what the depth value is, since it doesn't
+  // matter), we just set the range to the new one.
+  // This could happend at the beginning of the odom, or when a pixel is cleared
+  // by new evidence, or right after a new rendering
   if (p.cnt == 0) {
-    p.SetRange(rg);
-    p.cnt = max_cnt / 4;
+    p.SetRangeCount(rg, 2);
     return true;
   }
 
@@ -178,9 +171,8 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
 
   cv::swap(dbuf, dbuf2);
 
-  // set number of sweeps to 2 to differentiate from the first pano
+  // set number of sweeps to 1
   num_sweeps = 1;
-
   return n;
 }
 
@@ -215,18 +207,16 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
   if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
 
   auto& dp2 = dbuf2.at<DepthPixel>(px);
-  // if the destination pixel is empty, then just set it to range
-  if (dp2.raw == 0) {
-    // Newly rendered points will have low cnt so that they can be cleared
-    dp2.SetRange(rg);
-    dp2.cnt = 2;
-    return true;
-  }
 
-  // Depth buffer update, handles occlusion by taking the closer one
-  const auto rg2 = dp2.GetRange();
-  if (rg < rg2) {
-    dp2.SetRange(rg);
+  // if the destination pixel is empty, or the new rg is smaller than the old
+  // one, we update the depth
+  if (dp2.raw == 0 || rg < dp2.GetRange()) {
+    // When rendering a new depth pano, if the original pixel is well estimated
+    // (high cnt), this means that it also has good visibility from the current
+    // viewpoint. On the other hand, if it has low cnt, this means that it was
+    // probably occluded. Therefore, we simply half the original cnt and make it
+    // the new one
+    dp2.SetRangeCount(rg, cnt / 2);
     return true;
   }
 

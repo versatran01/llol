@@ -1,5 +1,5 @@
 imuq:
-  buffer_size: 30
+  buffer_size: 25
   imu_rate: 100.0
   acc_noise: 0.005
   acc_bias_noise: 0.0005
@@ -14,12 +14,12 @@ traj:
 grid:
   cell_rows: 2
   cell_cols: 16
-  max_curve: 0.1
+  max_curve: 0.05
   max_var: 0.1
   nms: true
 gicp:
   outer: 3
-  inner: 4
+  inner: 3
   half_rows: 2
   half_cols: 2
   cov_lambda: 0.0

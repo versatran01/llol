@@ -251,13 +251,14 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
   int n_render = 0;
   if (pano_.ShouldRender(T_p2_p1, match_ratio)) {
-    ROS_WARN_STREAM("=Render= " << fmt::format(
-                        "sweeps: {:2.3f}, trans: {:.3f}, match: {:.2f}% = {}/{}",
-                        pano_.num_sweeps,
-                        T_p1_p2.translation().norm(),
-                        match_ratio * 100,
-                        num_matches,
-                        num_good_cells));
+    ROS_WARN_STREAM(
+        "=Render= " << fmt::format(
+            "sweeps: {:2.3f}, trans: {:.3f}, match: {:.2f}% = {}/{}",
+            pano_.num_sweeps,
+            T_p1_p2.translation().norm(),
+            match_ratio * 100,
+            num_matches,
+            num_good_cells));
 
     // TODO (chao): need to think about how to run this in background without
     // interfering with odom
@@ -276,8 +277,9 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   {
     auto _ = tm_.Scoped("7.Sweep.Interp");
     sweep_.Interp(traj_, tbb_);
-    grid_.Interp(traj_);
   }
+
+  grid_.Interp(traj_);
 
   if (vis_) {
     Imshow("sweep",

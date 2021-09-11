@@ -113,20 +113,23 @@ bool GicpRigidCost::operator()(const double* x_ptr,
 
   const int offset = matches.size() * kResidualDim;
 
-  Eigen::Map<Vector3d> r_gamma(r_ptr + offset);
+  // gamma residual
   // r_gamma = R0' * R1 * gamma'
+  Eigen::Map<Vector3d> r_gamma(r_ptr + offset);
   r_gamma = (R0_t * R1 * preint.gamma.inverse()).log();
 
-  Eigen::Map<Vector3d> r_alpha(r_ptr + offset + 3);
+  // alpha residual
   // r_alpha = R0^T (p1 - p0 - v0 * dt + 0.5 * g * dt2) - alpha
+  Eigen::Map<Vector3d> r_alpha(r_ptr + offset + 3);
   r_alpha = alpha - preint.alpha;
 
   // Premultiply by U
   using Index = ImuPreintegration::Index;
-  const auto U = (preint.U * imu_weight).eval();
-  const Matrix3d Ua = U.block<3, 3>(Index::kAlpha, Index::kAlpha);
-  const Matrix3d Uag = U.block<3, 3>(Index::kAlpha, Index::kTheta);
-  const Matrix3d Ug = U.block<3, 3>(Index::kTheta, Index::kTheta);
+  const auto& U = preint.U;
+  const auto s = std::sqrt(imu_weight);
+  const Matrix3d Ua = U.block<3, 3>(Index::kAlpha, Index::kAlpha) * s;
+  const Matrix3d Uag = U.block<3, 3>(Index::kAlpha, Index::kTheta) * s;
+  const Matrix3d Ug = U.block<3, 3>(Index::kTheta, Index::kTheta) * s;
 
   r_alpha = Ua * r_alpha + Uag * r_gamma;
   r_gamma = Ug * r_gamma;
@@ -135,8 +138,8 @@ bool GicpRigidCost::operator()(const double* x_ptr,
     const auto R0_t_mat = R0_t.matrix();
     Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
     // gamma jacobian
-    J.block<3, 3>(offset + 3, Block::kR0 * 3) = Ug * R0_t_mat;
-    J.block<3, 3>(offset + 3, Block::kP0 * 3).setZero();
+    J.block<3, 3>(offset, Block::kR0 * 3) = Ug * R0_t_mat;
+    J.block<3, 3>(offset, Block::kP0 * 3).setZero();
 
     // alpha jacobian
     J.block<3, 3>(offset + 3, Block::kR0 * 3) = -Ua * R0_t_mat * Hat3(p1_bar);
