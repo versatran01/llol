@@ -10,7 +10,7 @@ imuq:
 traj:
   use_acc: true
   update_bias: false
-  gravity_norm: 9.8
+  gravity_norm: 9.812
 grid:
   cell_rows: 2
   cell_cols: 16

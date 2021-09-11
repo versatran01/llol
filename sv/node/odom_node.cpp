@@ -272,6 +272,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   {
     auto _ = tm_.Scoped("7.Sweep.Interp");
     sweep_.Interp(traj_, tbb_);
+    grid_.Interp(traj_);
   }
 
   if (vis_) {
