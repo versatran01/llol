@@ -1,5 +1,5 @@
 imuq:
-  buffer_size: 20
+  buffer_size: 30
   imu_rate: 100.0
   acc_noise: 0.005
   acc_bias_noise: 0.0005
@@ -19,7 +19,7 @@ grid:
   nms: true
 gicp:
   outer: 3
-  inner: 3
+  inner: 4
   half_rows: 2
   half_cols: 2
   cov_lambda: 0.0
@@ -35,4 +35,4 @@ pano:
   fuse_ratio: 0.05 # range ratio when fusing (0.05)
   align_gravity: true # render pano gravity algned (true)
   min_match_ratio: 0.9 # min match ratio to render (0.9)
-  max_translation: 5.0 # max translation to render (4.0) [meter]
+  max_translation: 4.0 # max translation to render (4.0) [meter]

@@ -20,6 +20,9 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   tbb_ = pnh_.param<int>("tbb", 0);
   ROS_INFO_STREAM("Tbb grainsize: " << tbb_);
 
+  log_ = pnh_.param<int>("log", 0);
+  ROS_INFO_STREAM("Log interval: " << log_);
+
   rigid_ = pnh_.param<bool>("rigid", true);
   ROS_WARN_STREAM("GICP: " << (rigid_ ? "Rigid" : "Linear"));
 
@@ -173,9 +176,28 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 }
 
 void OdomNode::Preprocess(const LidarScan& scan) {
+  // 1. Eject scan to pano, assuming traj is optimized
+  int n_added = 0;
+  {  // Note that at this point the new scan is not yet added to the sweep
+    auto _ = tm_.Scoped("1.Pano.Add");
+    n_added = pano_.Add(sweep_, scan.curr, tbb_);
+  }
+  sm_.GetRef("pano.add_points").Add(n_added);
+  ROS_DEBUG_STREAM("[pano.Add] num added: " << n_added);
+
+  // 2. Add current scan to sweep
+  int n_points = 0;
+  {  // Add scan to sweep
+    auto _ = tm_.Scoped("2.Sweep.Add");
+    n_points = sweep_.Add(scan);
+  }
+  sm_.GetRef("sweep.add").Add(n_points);
+  ROS_DEBUG_STREAM("[sweep.Add] num added: " << n_points);
+
+  // 3. Add current scan to grid
   cv::Vec2i n_cells{};
   {  // Reduce scan to grid and Filter
-    auto _ = tm_.Scoped("Grid.Add");
+    auto _ = tm_.Scoped("3.Grid.Add");
     n_cells = grid_.Add(scan, tbb_);
   }
   ROS_DEBUG_STREAM("[grid.Add] Num valid cells: "
@@ -184,9 +206,10 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   sm_.GetRef("grid.valid_cells").Add(n_cells[0]);
   sm_.GetRef("grid.good_cells").Add(n_cells[1]);
 
+  // 4. Predict new scetion in trajectory
   int n_imus{};
   {  // Integarte imu to fill nominal traj
-    auto _ = tm_.Scoped("Imu.Integrate");
+    auto _ = tm_.Scoped("4.Imu.Integrate");
     const int pred_cols = grid_.curr.size();
     const auto t0 = grid_.TimeAt(grid_.cols() - pred_cols);
     const auto dt = grid_.dt;
@@ -211,15 +234,6 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 }
 
 void OdomNode::PostProcess(const LidarScan& scan) {
-  int n_added = 0;
-  {  // Add sweep to pano
-    // Note that at this point the new scan is not yet added to the sweep
-    auto _ = tm_.Scoped("Pano.Add");
-    n_added = pano_.Add(sweep_, scan.curr, tbb_);
-  }
-  sm_.GetRef("pano.add_points").Add(n_added);
-  ROS_DEBUG_STREAM("[pano.Add] num added: " << n_added);
-
   const double match_ratio =
       sm_.GetRef("grid.matches").last() / sm_.GetRef("grid.good_cells").last();
   sm_.GetRef("grid.match_ratio").Add(match_ratio);
@@ -254,16 +268,9 @@ void OdomNode::PostProcess(const LidarScan& scan) {
     ROS_DEBUG_STREAM("[pano.Render] num render: " << n_render);
   }
 
-  int n_points = 0;
-  {  // Add scan to sweep
-    auto _ = tm_.Scoped("Sweep.Add");
-    n_points = sweep_.Add(scan);
-  }
-  sm_.GetRef("sweep.add").Add(n_points);
-  ROS_DEBUG_STREAM("[sweep.Add] num added: " << n_points);
-
-  {  // Update sweep tfs for undistortion
-    auto _ = tm_.Scoped("Sweep.Interp");
+  // 7. Update sweep transforms for undistortion
+  {
+    auto _ = tm_.Scoped("7.Sweep.Interp");
     sweep_.Interp(traj_, tbb_);
   }
 
@@ -292,8 +299,9 @@ void OdomNode::Logging() {
   stats.Add(time);
   tm_.Update("Total", stats);
 
-  //  ROS_DEBUG_STREAM_THROTTLE(0.5, sm_.ReportAll(true));
-  ROS_DEBUG_STREAM_THROTTLE(0.5, tm_.ReportAll(true));
+  if (log_ > 0) {
+    ROS_INFO_STREAM_THROTTLE(log_, tm_.ReportAll(true));
+  }
 }
 
 }  // namespace sv

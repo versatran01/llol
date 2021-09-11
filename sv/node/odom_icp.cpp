@@ -13,7 +13,7 @@ void OdomNode::Register() {
   if (pano_.ready()) {
     icp_ok = IcpRigid();
   } else {
-    ROS_WARN_STREAM("Pano is not full: " << pano_.num_sweeps);
+    ROS_WARN_STREAM("Pano is not ready, num sweeps: " << pano_.num_sweeps);
   }
 
   ROS_DEBUG_STREAM("velocity: " << traj_.back().vel.transpose()
@@ -36,8 +36,8 @@ void OdomNode::Register() {
 }
 
 bool OdomNode::IcpRigid() {
-  auto t_match = tm_.Manual("Grid.Match", false);
-  auto t_solve = tm_.Manual("Icp.Solve", false);
+  auto t_match = tm_.Manual("5.Grid.Match", false);
+  auto t_solve = tm_.Manual("6.Icp.Solve", false);
 
   using Cost = GicpRigidCost;
   static Cost cost(tbb_);
@@ -84,8 +84,12 @@ bool OdomNode::IcpRigid() {
     // early exit
     icp_ok = true;
     if (i >= 1 && solver.summary.IsConverged()) {
-      ROS_DEBUG_STREAM("[Icp.Iter] Icp converged at iter: "
-                       << i << "/" << gicp_.iters.first);
+      ROS_DEBUG_STREAM(
+          fmt::format("[Icp] converged at outer: {}/{}, inner: {}/{}",
+                      i + 1,
+                      gicp_.iters.first,
+                      solver.summary.iterations,
+                      gicp_.iters.second));
       break;
     }
   }

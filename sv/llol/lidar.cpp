@@ -63,6 +63,7 @@ int LidarModel::ToRow(float z, float r) const {
 
 int LidarModel::ToCol(float x, float y) const {
   const float azim = std::atan2(y, -x) + kPiF;
+  //  const float azim = Atan2Approx(y, -x) + kPiF;
   return static_cast<int>(azim / azim_delta);
 }
 

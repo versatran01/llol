@@ -21,6 +21,7 @@ struct OdomNode {
 
   /// params
   int tbb_{0};
+  int log_{0};
   bool vis_{true};
 
   bool rigid_{false};
