@@ -30,6 +30,7 @@ static_assert(sizeof(DepthPixel) == 4, "Size of DepthPixel is not 4");
 struct PanoParams {
   float vfov{0.0F};
   int max_cnt{10};
+  int min_sweeps{8};
   float min_range{0.5F};
   float win_ratio{0.1F};
   float fuse_ratio{0.05F};
@@ -42,6 +43,7 @@ struct PanoParams {
 struct DepthPano {
   /// Params
   int max_cnt{};
+  int min_sweeps{};
   float min_range{};
   float win_ratio{};
   float fuse_ratio{};

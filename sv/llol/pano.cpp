@@ -13,6 +13,7 @@ namespace sv {
 
 DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
     : max_cnt{params.max_cnt},
+      min_sweeps{params.min_sweeps},
       min_range{params.min_range},
       win_ratio{params.win_ratio},
       fuse_ratio{params.fuse_ratio},
@@ -25,15 +26,16 @@ DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
 
 std::string DepthPano::Repr() const {
   return fmt::format(
-      "DepthPano(max_cnt={}, min_range={}, win_ratio={}, fuse_ratio={}, "
-      "align_gravity={}, min_match_ratio={}, max_translation={}, model={}, "
-      "dbuf={}, pixel=(scale={}, max_range={})",
+      "DepthPano(max_cnt={}, min_sweeps={}, min_range={}, win_ratio={}, "
+      "fuse_ratio={}, match_ratio={}, align_gravity={}, "
+      "max_translation={}, model={}, dbuf={}, pixel=(scale={}, max_range={})",
       max_cnt,
+      min_sweeps,
       min_range,
       win_ratio,
       fuse_ratio,
-      align_gravity,
       min_match_ratio,
+      align_gravity,
       max_translation,
       model.Repr(),
       sv::Repr(dbuf),
@@ -131,12 +133,14 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
 
 bool DepthPano::ShouldRender(const Sophus::SE3d& tf_p2_p1,
                              double match_ratio) const {
-  if (num_sweeps < max_cnt) return false;
+  // This is to prevent too frequent render
+  if (num_sweeps <= min_sweeps) return false;
 
   // match ratio is the most important criteria
   if (match_ratio < min_match_ratio) return true;
 
   // Otherwise we have enough match, then we check translation
+  // TODO (chao): Replace this with vel * time
   if (max_translation > 0) {
     const auto trans = tf_p2_p1.translation().norm();
     if (trans > max_translation) return true;
@@ -170,11 +174,7 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
   cv::swap(dbuf, dbuf2);
 
   // Need at least 2 for pano to be ready
-  // for a well update pano, we will set it to max_cnt / 4.
-  // for one that is not sufficiently updated, we set it to num_sweeps / 4 but
-  // make sure it is more than 2
-  num_sweeps =
-      std::max(2.0F, std::min(num_sweeps, static_cast<float>(max_cnt)) / 4);
+  num_sweeps = 2;
 
   return n;
 }
@@ -212,8 +212,8 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
   auto& dp2 = dbuf2.at<DepthPixel>(px);
   // if the destination pixel is empty, then just set it to range
   if (dp2.raw == 0) {
-    // We set cnt to a low value so that it can be cleared quickly
-    dp2.SetRangeCount(rg, 2);
+    // We half its cnt
+    dp2.SetRangeCount(rg, std::max(2, cnt / 2));
     return true;
   }
 

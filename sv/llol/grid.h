@@ -72,6 +72,8 @@ struct SweepGrid final : public ScanBase {
   /// @brief Interpolate poses of each col (cell)
   void Interp(const Trajectory& traj);
 
+  int NumCandidates() const;
+
   /// @brief Draw
   cv::Mat DrawFilter() const;
   cv::Mat DrawMatch() const;

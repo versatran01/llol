@@ -66,6 +66,7 @@ DepthPano InitPano(const ros::NodeHandle& pnh) {
   const auto pano_cols = pnh.param<int>("cols", 1024);
   pp.vfov = Deg2Rad(pnh.param<double>("vfov", pp.vfov));
   pp.max_cnt = pnh.param<int>("max_cnt", pp.max_cnt);
+  pp.min_sweeps = pnh.param<int>("min_sweeps", pp.min_sweeps);
   pp.min_range = pnh.param<double>("min_range", pp.min_range);
   pp.win_ratio = pnh.param<double>("win_ratio", pp.win_ratio);
   pp.fuse_ratio = pnh.param<double>("fuse_ratio", pp.fuse_ratio);
@@ -90,7 +91,7 @@ GicpSolver InitGicp(const ros::NodeHandle& pnh) {
 Trajectory InitTraj(const ros::NodeHandle& pnh, int grid_cols) {
   TrajectoryParams tp;
   tp.use_acc = pnh.param<bool>("use_acc", tp.use_acc);
-  tp.update_bias = pnh.param<bool>("updatec_bias", tp.update_bias);
+  tp.update_bias = pnh.param<bool>("update_bias", tp.update_bias);
   tp.gravity_norm = pnh.param<double>("gravity_norm", tp.gravity_norm);
   return Trajectory{grid_cols + 1, tp};
 }

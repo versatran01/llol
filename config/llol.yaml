@@ -10,7 +10,7 @@ imuq:
 traj:
   use_acc: true
   update_bias: false
-  gravity_norm: 9.812
+  gravity_norm: 9.8
 grid:
   cell_rows: 2
   cell_cols: 16
@@ -30,6 +30,7 @@ pano:
   cols: 1024 # cols of pano (1024)
   vfov: 90.0 # vertical fov (90.0) [degree]
   max_cnt: 20 # maximum count of pixel (20)
+  min_sweeps: 5 # do not render when under min_sweeps
   min_range: 0.5 # min range to add to pano (1.0) [meter]
   win_ratio: 0.1 # range ratio when matching (0.1)
   fuse_ratio: 0.05 # range ratio when fusing (0.05)

@@ -89,7 +89,10 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
     const Sophus::SE3d T_i_l{q_i_l, t_i_l};
     const auto curr_acc_norm = imu.acc.norm();
     const auto mean_acc_norm = imu_mean.acc.norm();
-    if (std::abs(curr_acc_norm - 9.8) < std::abs(mean_acc_norm - 9.8)) {
+    const auto gnorm = traj_.gravity_norm;
+
+    if (gnorm > 0 &&
+        std::abs(curr_acc_norm - gnorm) < std::abs(mean_acc_norm - gnorm)) {
       ROS_INFO_STREAM("Use curr acc as gravity");
       traj_.Init(T_i_l, imu.acc);
     } else {
@@ -234,10 +237,10 @@ void OdomNode::Preprocess(const LidarScan& scan) {
 }
 
 void OdomNode::PostProcess(const LidarScan& scan) {
-  const double match_ratio =
-      sm_.GetRef("grid.matches").last() / sm_.GetRef("grid.good_cells").last();
-  sm_.GetRef("grid.match_ratio").Add(match_ratio);
-  ROS_DEBUG_STREAM("[pano.Render] match ratio: " << match_ratio);
+  const auto num_good_cells = grid_.NumCandidates();
+  const auto num_matches = sm_.GetRef("grid.matches").last();
+  const double match_ratio = num_matches / num_good_cells;
+  ROS_DEBUG_STREAM("[pano.RenderCheck] match ratio: " << match_ratio);
 
   auto T_p1_p2 = traj_.TfPanoLidar();
   // Algin gravity means we will just set rotation to identity
@@ -248,12 +251,13 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
   int n_render = 0;
   if (pano_.ShouldRender(T_p2_p1, match_ratio)) {
-    ROS_WARN_STREAM(
-        "=== Render pano at new location === " << fmt::format(
-            "sweeps: {:.3f}, translation: {:.3f}, match_ratio: {:.3f}",
-            pano_.num_sweeps,
-            T_p1_p2.translation().norm(),
-            match_ratio));
+    ROS_WARN_STREAM("=Render= " << fmt::format(
+                        "sweeps: {:.3f}, trans: {:.3f}, match: {:.2f}% = {}/{}",
+                        pano_.num_sweeps,
+                        T_p1_p2.translation().norm(),
+                        match_ratio * 100,
+                        num_matches,
+                        num_good_cells));
 
     // TODO (chao): need to think about how to run this in background without
     // interfering with odom

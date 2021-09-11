@@ -69,7 +69,7 @@ int LidarModel::ToCol(float x, float y) const {
 
 std::string LidarModel::Repr() const {
   return fmt::format(
-      "LidarModel(size={}, elev_max={:.4f}[deg], elev_delta={:.4f}[deg], "
+      "LidarModel(size={}, elev_max={:.2f}[deg], elev_delta={:.4f}[deg], "
       "azim_delta={:.4f}[deg])",
       sv::Repr(size),
       Rad2Deg(elev_max),

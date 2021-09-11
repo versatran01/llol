@@ -139,6 +139,7 @@ void IntegrateState(const NavState& s0,
   s1.rot = s0.rot * SO3d::exp(omg * dt);
 
   // Given the two rotations, rotate both acc measurements into world frame
+  // TODO (chao): these ideally should be the rotation at new states
   const Vector3d a0 = s0.rot * imu0.acc;
   const Vector3d a1 = s1.rot * imu1.acc;
   // a is world frame acceleration without gravity

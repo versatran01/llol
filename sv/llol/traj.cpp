@@ -205,8 +205,8 @@ int Trajectory::UpdateBias(ImuQueue& imuq) {
     ++ibuf;
   }
 
-  if (update_bias) {
-    imuq.bias.UpdateGyr(bw.mean, bw.Var());
+  imuq.bias.UpdateGyr(bw.mean, bw.Var());
+  if (use_acc) {
     imuq.bias.UpdateAcc(ba.mean, ba.Var());
   }
   return bw.n;

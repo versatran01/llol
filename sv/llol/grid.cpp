@@ -162,6 +162,15 @@ void SweepGrid::Interp(const Trajectory& traj) {
     tfs.at(gc) = (tf_p_i * traj.T_imu_lidar).cast<float>();
   }
 }
+
+int SweepGrid::NumCandidates() const {
+  int n = 0;
+  for (const auto& match : matches) {
+    n += static_cast<int>(match.GridOk());
+  }
+  return n;
+}
+
 cv::Mat SweepGrid::DrawFilter() const {
   static cv::Mat disp;
   if (disp.empty()) disp.create(size(), CV_32FC1);

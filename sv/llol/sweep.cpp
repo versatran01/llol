@@ -3,6 +3,8 @@
 #include <glog/logging.h>
 #include <tbb/parallel_for.h>
 
+#include <opencv2/core.hpp>
+
 #include "sv/util/ocv.h"
 
 namespace sv {
@@ -15,12 +17,12 @@ int LidarSweep::Add(const LidarScan& scan) {
   UpdateTime(scan.time, scan.dt);
   UpdateView(scan.curr);
 
-  //  static cv::Mat range;
-  //  cv::extractChannel(scan.mat, range, 3);
+  static cv::Mat range;
+  cv::extractChannel(scan.mat, range, 3);
 
   // copy to storage
   scan.mat.copyTo(mat.colRange(curr));  // x,y,w,h
-  return scan.total();
+  return cv::countNonZero(range == range);
 }
 
 void LidarSweep::Interp(const Trajectory& traj, int gsize) {
