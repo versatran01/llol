@@ -91,25 +91,30 @@ int DepthPano::AddRow(const LidarSweep& sweep, const cv::Range& curr, int sr) {
 }
 
 bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
-  // TODO (chao): should we increment count based on the distance?
-
   // Ignore too far and too close stuff
   if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
 
   auto& p = PixelAt(px);
   // If current pixel is empty, just use this range and give it half of max cnt
-  if (p.raw == 0) {
-    p.SetRangeCount(rg, max_cnt / 2);
-    return true;
-  }
+  //  if (p.raw == 0) {
+  //    p.SetRangeCount(rg, max_cnt / 2);
+  //    return true;
+  //  }
 
   // If cnt is 0 while range is not, this means there exists enough evidence
   // that differ from previous measurement, for example some new object just
   // entered and stayed long enough. In this case, we use the new range, but
-  // only increment count by 1
+  // only increment count by 2 to allow it to survive at least one sweep
+  //  if (p.cnt == 0) {
+  //    p.SetRange(rg);
+  //    p.cnt += 2;
+  //    return true;
+  //  }
+
+  // If cnt is empty, we just set the range to the new one
   if (p.cnt == 0) {
     p.SetRange(rg);
-    ++p.cnt;
+    p.cnt = max_cnt / 4;
     return true;
   }
 
@@ -173,8 +178,8 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
 
   cv::swap(dbuf, dbuf2);
 
-  // Need at least 2 for pano to be ready
-  num_sweeps = 2;
+  // set number of sweeps to 2 to differentiate from the first pano
+  num_sweeps = 1;
 
   return n;
 }
@@ -212,8 +217,9 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
   auto& dp2 = dbuf2.at<DepthPixel>(px);
   // if the destination pixel is empty, then just set it to range
   if (dp2.raw == 0) {
-    // We half its cnt
-    dp2.SetRangeCount(rg, std::max(2, cnt / 2));
+    // Newly rendered points will have low cnt so that they can be cleared
+    dp2.SetRange(rg);
+    dp2.cnt = 2;
     return true;
   }
 

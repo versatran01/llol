@@ -50,12 +50,12 @@ struct DepthPano {
   bool align_gravity{};
   double min_match_ratio{};
   double max_translation{};
-  float num_sweeps{};  // number of pano added, float since we could add partial
 
   /// Data
   LidarModel model;
-  cv::Mat dbuf;   // depth buffer
-  cv::Mat dbuf2;  // depth buffer 2
+  cv::Mat dbuf;
+  cv::Mat dbuf2;
+  float num_sweeps{-1};  // number of sweeps added
 
   /// @brief Ctors
   DepthPano() = default;
@@ -93,7 +93,7 @@ struct DepthPano {
   bool empty() const { return dbuf.empty(); }
   size_t total() const { return dbuf.total(); }
   cv::Size size() const noexcept { return model.size; }
-  bool ready() const { return num_sweeps >= 2; }
+  bool ready() const { return num_sweeps >= 1; }
 
   /// @brief Compute mean and covar on a window centered at px given range
   /// @return sum(cnt_i) / max_cnt

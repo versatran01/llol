@@ -252,7 +252,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
   int n_render = 0;
   if (pano_.ShouldRender(T_p2_p1, match_ratio)) {
     ROS_WARN_STREAM("=Render= " << fmt::format(
-                        "sweeps: {:.3f}, trans: {:.3f}, match: {:.2f}% = {}/{}",
+                        "sweeps: {:2.3f}, trans: {:.3f}, match: {:.2f}% = {}/{}",
                         pano_.num_sweeps,
                         T_p1_p2.translation().norm(),
                         match_ratio * 100,
