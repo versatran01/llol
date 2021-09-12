@@ -1,5 +1,5 @@
 imuq:
-  buffer_size: 25
+  buffer_size: 30
   imu_rate: 100.0
   acc_noise: 0.005
   acc_bias_noise: 0.0005
@@ -31,7 +31,7 @@ pano:
   vfov: 90.0 # vertical fov (90.0) [degree]
   max_cnt: 20 # maximum count of pixel (20)
   min_sweeps: 10 # do not render when under min_sweeps
-  min_range: 2.0 # min range to add to pano (1.0) [meter]
+  min_range: 1.0 # min range to add to pano (1.0) [meter]
   win_ratio: 0.1 # range ratio when matching (0.1)
   fuse_ratio: 0.05 # range ratio when fusing (0.05)
   align_gravity: true # render pano gravity algned (true)

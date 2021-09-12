@@ -1,5 +1,5 @@
 <launch>
-    <arg name="debug" default="true"/>
+    <arg name="debug" default="false"/>
     <env if="$(arg debug)" name="ROSCONSOLE_CONFIG_FILE" value="$(find llol)/launch/debug.conf"/>
 
     <arg name="tbb" default="0"/>

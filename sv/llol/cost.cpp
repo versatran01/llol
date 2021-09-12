@@ -201,26 +201,51 @@ bool GicpLinearCost::operator()(const double* x_ptr,
   const auto& st0 = ptraj->front();
   const auto& st1 = ptraj->back();
 
-  const Vector3d p0 = eR * st0.pos;
-  const Vector3d p1 = eR * st1.pos + ep;
-  const auto R0 = eR * st0.rot;
+  const auto& p0 = st0.pos;
+  const auto& p1_bar = st1.pos;
+  const Vector3d p1 = eR * p1_bar + ep;
+
+  const auto& R0 = st0.rot;
+  const auto& R1_bar = st1.rot;
+  const auto R1 = eR * R1_bar;
 
   const auto R0_t = R0.inverse();
   const Vector3d dp = st0.vel * dt - 0.5 * g * dt2;
   const Vector3d alpha = R0_t * (p1 - p0 - dp);
 
-  const int gicp_residuals = matches.size() * kResidualDim;
-  Eigen::Map<Vector3d> r_alpha(r_ptr + gicp_residuals);
-  const Matrix3d Ua = preint.U.topLeftCorner<3, 3>() * imu_weight;
-  // alpha = R0^T (p1 - p0 - v0 * dt + 0.5 * g * dt2)
-  r_alpha = Ua * (alpha - preint.alpha);
+  const int offset = matches.size() * kResidualDim;
+
+  // gamma residual
+  // r_gamma = R0' * R1 * gamma'
+  Eigen::Map<Vector3d> r_gamma(r_ptr + offset);
+  r_gamma = (R0_t * R1 * preint.gamma.inverse()).log();
+
+  // alpha residual
+  // r_alpha = R0^T (p1 - p0 - v0 * dt + 0.5 * g * dt2) - alpha
+  Eigen::Map<Vector3d> r_alpha(r_ptr + offset + 3);
+  r_alpha = alpha - preint.alpha;
+
+  // Premultiply by U
+  using Index = ImuPreintegration::Index;
+  const auto& U = preint.U;
+  const auto s = std::sqrt(imu_weight);
+  const Matrix3d Ua = U.block<3, 3>(Index::kAlpha, Index::kAlpha) * s;
+  const Matrix3d Uag = U.block<3, 3>(Index::kAlpha, Index::kTheta) * s;
+  const Matrix3d Ug = U.block<3, 3>(Index::kTheta, Index::kTheta) * s;
+
+  r_alpha = Ua * r_alpha + Uag * r_gamma;
+  r_gamma = Ug * r_gamma;
 
   if (J_ptr) {
     const auto R0_t_mat = R0_t.matrix();
     Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
-    J.block<3, 3>(gicp_residuals, Block::kR0 * 3) =
-        Ua * R0_t_mat * Hat3((ep - dp).eval());
-    J.block<3, 3>(gicp_residuals, Block::kP0 * 3) = Ua * R0_t_mat;
+    // gamma jacobian
+    J.block<3, 3>(offset, Block::kR0 * 3) = Ug * R0_t_mat;
+    J.block<3, 3>(offset, Block::kP0 * 3).setZero();
+
+    // alpha jacobian
+    J.block<3, 3>(offset + 3, Block::kR0 * 3) = -Ua * R0_t_mat * Hat3(p1_bar);
+    J.block<3, 3>(offset + 3, Block::kP0 * 3) = Ua * R0_t_mat;
   }
 
   return true;
@@ -230,8 +255,6 @@ void GicpLinearCost::UpdateTraj(Trajectory& traj) const {
   const State es(error.data());
   const auto eR = SO3d::exp(es.r0());
 
-  MeanVar3d vel{};
-
   for (int i = 0; i < traj.size(); ++i) {
     auto& st_i = traj.At(i);
     const double s = i / (traj.size() - 1.0);
@@ -239,14 +262,10 @@ void GicpLinearCost::UpdateTraj(Trajectory& traj) const {
     st_i.pos = eR * st_i.pos + s * es.p0();
 
     if (i > 1) {
-      auto& st_im1 = traj.At(i - 1);
-      st_im1.vel = (st_i.pos - st_im1.pos) / (st_i.time - st_im1.time);
-      vel.Add(st_im1.vel);
+      const auto& st_im1 = traj.At(i - 1);
+      st_i.vel = (st_i.pos - st_im1.pos) / (st_i.time - st_im1.time);
     }
   }
-
-  // Last vel is the average vel
-  traj.states.back().vel = vel.mean;
 }
 
 }  // namespace sv

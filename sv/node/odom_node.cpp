@@ -262,7 +262,7 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
     // TODO (chao): need to think about how to run this in background without
     // interfering with odom
-    auto _ = tm_.Scoped("Pano.Render");
+    auto _ = tm_.Scoped("Render");
     // Render pano at the latest lidar pose wrt pano (T_p1_p2 = T_p1_lidar)
     n_render = pano_.Render(T_p2_p1.cast<float>(), tbb_);
     // Once rendering is done we need to update traj accordingly
@@ -300,7 +300,7 @@ void OdomNode::Logging() {
   absl::Duration time;
   for (const auto& kv : tm_.dict()) {
     if (absl::StartsWith(kv.first, "Total")) continue;
-    if (absl::StartsWith(kv.first, "Pano.Render")) continue;
+    if (absl::StartsWith(kv.first, "Render")) continue;
     time += kv.second.last();
   }
   stats.Add(time);
