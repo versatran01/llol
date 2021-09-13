@@ -99,7 +99,7 @@ int DepthPano::AddRow(const LidarSweep& sweep, const cv::Range& curr, int sr) {
 
 bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   // Ignore too far and too close stuff
-  if (rg <= min_range || rg >= max_range) return false;
+  if (rg < min_range || rg > max_range) return false;
 
   auto& p = PixelAt(px);
 
@@ -211,7 +211,7 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_p2_p1, int r1) {
 }
 
 bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
-  if (rg < min_range || rg >= max_range) return false;
+  if (rg < min_range || rg > max_range) return false;
 
   auto& dp2 = dbuf2.at<DepthPixel>(px);
 
