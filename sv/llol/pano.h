@@ -32,6 +32,7 @@ struct PanoParams {
   int max_cnt{10};
   int min_sweeps{8};
   float min_range{0.5F};
+  float max_range{0.0F};
   float win_ratio{0.1F};
   float fuse_ratio{0.05F};
   bool align_gravity{false};
@@ -45,6 +46,7 @@ struct DepthPano {
   int max_cnt{};
   int min_sweeps{};
   float min_range{};
+  float max_range{};
   float win_ratio{};
   float fuse_ratio{};
   bool align_gravity{};

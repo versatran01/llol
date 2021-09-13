@@ -13,7 +13,7 @@ traj:
   gravity_norm: 9.8
 grid:
   cell_rows: 2
-  cell_cols: 16
+  cell_cols: 8
   max_curve: 0.05
   max_var: 0.1
   nms: true
@@ -32,8 +32,9 @@ pano:
   max_cnt: 20 # maximum count of pixel (20)
   min_sweeps: 10 # do not render when under min_sweeps
   min_range: 1.0 # min range to add to pano (1.0) [meter]
-  win_ratio: 0.1 # range ratio when matching (0.1)
-  fuse_ratio: 0.05 # range ratio when fusing (0.05)
+  max_range: 100.0 # min range to add to pano (1.0) [meter]
+  win_ratio: 0.08 # range ratio when matching (0.1)
+  fuse_ratio: 0.04 # range ratio when fusing (0.05)
   align_gravity: true # render pano gravity algned (true)
   min_match_ratio: 0.9 # min match ratio to render (0.9)
   max_translation: 4.0 # max translation to render (4.0) [meter]

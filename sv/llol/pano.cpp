@@ -15,6 +15,7 @@ DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
     : max_cnt{params.max_cnt},
       min_sweeps{params.min_sweeps},
       min_range{params.min_range},
+      max_range{params.max_range},
       win_ratio{params.win_ratio},
       fuse_ratio{params.fuse_ratio},
       align_gravity{params.align_gravity},
@@ -22,16 +23,22 @@ DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
       max_translation{params.max_translation},
       model{size, params.vfov},
       dbuf{size, CV_16UC2},
-      dbuf2{size, CV_16UC2} {}
+      dbuf2{size, CV_16UC2} {
+  if (max_range <= 0) max_range = DepthPixel::kMaxRange;
+  CHECK_LE(0, min_range);
+  CHECK_LT(min_range, max_range);
+  CHECK_LT(max_range, DepthPixel::kMaxRange);
+}
 
 std::string DepthPano::Repr() const {
   return fmt::format(
-      "DepthPano(max_cnt={}, min_sweeps={}, min_range={}, win_ratio={}, "
-      "fuse_ratio={}, match_ratio={}, align_gravity={}, "
+      "DepthPano(max_cnt={}, min_sweeps={}, min_range={}, max_range={}, "
+      "win_ratio={}, fuse_ratio={}, match_ratio={}, align_gravity={}, "
       "max_translation={}, model={}, dbuf={}, pixel=(scale={}, max_range={})",
       max_cnt,
       min_sweeps,
       min_range,
+      max_range,
       win_ratio,
       fuse_ratio,
       min_match_ratio,
@@ -92,7 +99,7 @@ int DepthPano::AddRow(const LidarSweep& sweep, const cv::Range& curr, int sr) {
 
 bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   // Ignore too far and too close stuff
-  if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
+  if (rg <= min_range || rg >= max_range) return false;
 
   auto& p = PixelAt(px);
 
@@ -204,7 +211,7 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_p2_p1, int r1) {
 }
 
 bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
-  if (rg < min_range || rg >= DepthPixel::kMaxRange) return false;
+  if (rg < min_range || rg >= max_range) return false;
 
   auto& dp2 = dbuf2.at<DepthPixel>(px);
 

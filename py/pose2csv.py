@@ -2,7 +2,7 @@ import rosbag
 import numpy as np
 from geometry_msgs.msg import PoseStamped
 
-bagfile = "/home/chao/Workspace/ws/llol_ws/data/nc-05-llol-pose-time.bag"
+bagfile = "/home/chao/Documents/llol_eval/nc-01-llol-cc8-pose-time.bag"
 
 poses = []
 
@@ -15,4 +15,4 @@ with rosbag.Bag(bagfile, "r") as bag:
         poses.append(pose)
 
 poses = np.array(poses)
-np.savetxt("/home/chao/Workspace/ws/llol_ws/data/nc-05.txt", poses, fmt="%10.10f")
+np.savetxt("/home/chao/Documents/llol_eval/nc-01-llol.txt", poses, fmt="%10.10f")
