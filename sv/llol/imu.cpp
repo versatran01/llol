@@ -149,20 +149,11 @@ void IntegrateState(const NavState& s0,
 }
 
 int GetImuIndexAfterTime(const ImuBuffer& buf, double t) {
-  const auto it = std::upper_bound(
-      buf.cbegin(), buf.cend(), t, [](const auto& time, const ImuData& imu) {
-        return time < imu.time;
-      });
-  return std::distance(buf.cbegin(), it);
-
-  //  int ibuf = -1;
-  //  for (int i = 0; i < buf.size(); ++i) {
-  //    if (buf.at(i).time > t) {
-  //      ibuf = i;
-  //      break;
-  //    }
-  //  }
-  //  return ibuf;
+  int i = buf.size();
+  for (; i > 0; --i) {
+    if (buf.at(i - 1).time <= t) break;
+  }
+  return i;
 }
 
 ImuNoise::ImuNoise(double rate,
@@ -249,16 +240,21 @@ int ImuQueue::IndexAfter(double t) const {
   return ibuf;
 }
 
-ImuData ImuQueue::CalcMean() const {
+ImuData ImuQueue::CalcMean(int last_n) const {
   ImuData mean;
   // Use last imu time
   mean.time = buf.back().time;
-  for (const auto& imu : buf) {
+
+  const int start = std::max(0, size() - last_n);
+  const int n = size() - start;
+
+  for (int i = start; i < size(); ++i) {
+    const auto& imu = buf[i];
     mean.acc += imu.acc;
     mean.gyr += imu.gyr;
   }
-  mean.acc /= size();
-  mean.gyr /= size();
+  mean.acc /= n;
+  mean.gyr /= n;
   return mean;
 }
 

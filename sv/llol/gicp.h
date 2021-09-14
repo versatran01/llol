@@ -6,10 +6,10 @@
 namespace sv {
 
 struct GicpParams {
-  int outer{2};
-  int inner{2};
+  int outer{3};
+  int inner{3};
   int half_rows{2};
-  int half_cols{6};
+  int half_cols{2};
   float cov_lambda{1e-6F};
   double imu_weight{0.0};
   double min_eigval{0.0};

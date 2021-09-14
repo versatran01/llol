@@ -35,27 +35,6 @@ TEST(ImuTest, TestFindNextImu) {
   EXPECT_EQ(GetImuIndexAfterTime(buffer, 15), 5);
 }
 
-int UpperBound(const ImuBuffer& buf, double t) {
-  const auto it = std::upper_bound(
-      buf.cbegin(), buf.cend(), t, [](const auto& time, const auto& imu) {
-        return time < imu.time;
-      });
-  return std::distance(buf.cbegin(), it);
-}
-
-TEST(ImuTest, TestFindNextImuLowerBound) {
-  ImuBuffer buffer(5);
-  for (int i = 0; i < 5; ++i) {
-    ImuData d;
-    d.time = i;
-    buffer.push_back(d);
-  }
-
-  EXPECT_EQ(UpperBound(buffer, 0), 1);
-  EXPECT_EQ(UpperBound(buffer, 0.5), 1);
-  EXPECT_EQ(UpperBound(buffer, 5.5), 5);
-}
-
 TEST(ImuTest, TestImuPreintegration) {
   ImuQueue imuq;
   for (int i = 0; i < 5; ++i) {

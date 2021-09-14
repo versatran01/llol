@@ -13,7 +13,7 @@ traj:
   gravity_norm: 9.8
 grid:
   cell_rows: 2
-  cell_cols: 8
+  cell_cols: 16
   max_curve: 0.05
   max_var: 0.1
   nms: true

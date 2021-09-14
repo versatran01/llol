@@ -77,7 +77,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 
     // Just use current acc
     ROS_INFO_STREAM("buffer size: " << imuq_.size());
-    const auto imu_mean = imuq_.CalcMean();
+    const auto imu_mean = imuq_.CalcMean(10);
     const auto& imu0 = imuq_.buf.front();
 
     ROS_INFO_STREAM("acc_curr: " << imu.acc.transpose()

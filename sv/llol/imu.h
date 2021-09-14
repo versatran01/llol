@@ -135,7 +135,7 @@ struct ImuQueue {
   int IndexAfter(double t) const;
 
   /// @brief Compute mean imu data
-  ImuData CalcMean() const;
+  ImuData CalcMean(int last_n = 0) const;
 };
 
 /// @brief Imu preintegration

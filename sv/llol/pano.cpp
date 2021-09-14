@@ -27,7 +27,7 @@ DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
   if (max_range <= 0) max_range = DepthPixel::kMaxRange;
   CHECK_LE(0, min_range);
   CHECK_LT(min_range, max_range);
-  CHECK_LT(max_range, DepthPixel::kMaxRange);
+  CHECK_LE(max_range, DepthPixel::kMaxRange);
 }
 
 std::string DepthPano::Repr() const {
