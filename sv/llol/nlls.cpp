@@ -31,8 +31,14 @@ std::string NllsSummary::Report() const {
       Repr(status));
 }
 
+bool NllsSummary::IsConverged() const {
+  return status == NllsStatus::GRADIENT_TOO_SMALL ||
+         status == NllsStatus::RELATIVE_STEP_SIZE_TOO_SMALL ||
+         status == NllsStatus::COST_TOO_SMALL;
+}
+
 bool NllsSolver::Update(const CostBase& function, const Scalar* x) {
-  if (!function.Compute(x, error_.data(), jacobian_.data())) {
+  if (!function(x, error_.data(), jacobian_.data())) {
     return false;
   }
 
@@ -65,7 +71,7 @@ const NllsSummary& NllsSolver::Solve(const CostBase& function,
                                      double* x_and_min) {
   Initialize(function.NumResiduals(), function.NumParameters());
   CHECK_NOTNULL(x_and_min);
-  ParametersMap x(x_and_min, function.NumParameters());
+  VectorMap x(x_and_min, function.NumParameters());
   summary = NllsSummary();
   summary.iterations = 0;
 
@@ -147,7 +153,7 @@ const NllsSummary& NllsSolver::Solve(const CostBase& function,
 
     // TODO(keir): Add proper handling of errors from user eval of cost
     // functions.
-    function.Compute(x_new_.data(), f_x_new_.data(), nullptr);
+    function(x_new_.data(), f_x_new_.data(), nullptr);
 
     const Scalar cost_change = (2 * cost_ - f_x_new_.squaredNorm());
 
@@ -175,7 +181,7 @@ const NllsSummary& NllsSolver::Solve(const CostBase& function,
         break;
       }
 
-      Scalar tmp = Scalar(2 * rho - 1);
+      Scalar tmp{2 * rho - 1};
       u = u * std::max(1 / 3., 1 - tmp * tmp * tmp);
       v = 2;
       continue;
@@ -195,10 +201,11 @@ const NllsSummary& NllsSolver::Solve(const CostBase& function,
 void NllsSolver::Initialize(int num_residuals, int num_parameters) {
   const int num_jacobian = num_residuals * num_parameters;
   const int num_hessian = num_parameters * num_parameters;
-  const int total = num_parameters * 6  // dx, xnew, g, jscale, lm_diag, lm_step
-                    + num_residuals * 2  // error, f_x_new
-                    + num_jacobian * 1   // jacobian
-                    + num_hessian * 3;   // jtj, jtj_reg, Vf_inv_Vu
+  const int total =
+      num_parameters * 6   // dx, xnew, g, jacobi_scaling, lm_diag, lm_step
+      + num_residuals * 2  // error, f_x_new
+      + num_jacobian * 1   // jacobian
+      + num_hessian * 3;   // jtj, jtj_reg, Vf_inv_Vu
   storage_.resize(total);
   auto* s = storage_.data();
 
@@ -210,37 +217,37 @@ void NllsSolver::Initialize(int num_residuals, int num_parameters) {
   // lm_diagonal_.resize(num_parameters);
   // lm_step_.resize(num_parameters);
 
-  new (&dx_) ParametersMap(s, num_parameters);
+  new (&dx_) VectorMap(s, num_parameters);
   s += num_parameters;
-  new (&x_new_) ParametersMap(s, num_parameters);
+  new (&x_new_) VectorMap(s, num_parameters);
   s += num_parameters;
-  new (&g_) ParametersMap(s, num_parameters);
+  new (&g_) VectorMap(s, num_parameters);
   s += num_parameters;
-  new (&jacobi_scaling_) ParametersMap(s, num_parameters);
+  new (&jacobi_scaling_) VectorMap(s, num_parameters);
   s += num_parameters;
-  new (&lm_diag_) ParametersMap(s, num_parameters);
+  new (&lm_diag_) VectorMap(s, num_parameters);
   s += num_parameters;
-  new (&lm_step_) ParametersMap(s, num_parameters);
+  new (&lm_step_) VectorMap(s, num_parameters);
   s += num_parameters;
 
   // error_.resize(num_residuals);
   // f_x_new_.resize(num_residuals);
-  new (&error_) ResidualsMap(s, num_residuals);
+  new (&error_) VectorMap(s, num_residuals);
   s += num_residuals;
-  new (&f_x_new_) ResidualsMap(s, num_residuals);
+  new (&f_x_new_) VectorMap(s, num_residuals);
   s += num_residuals;
 
   // jacobian_.resize(num_residuals, num_parameters);
-  new (&jacobian_) JacobianMap(s, num_residuals, num_parameters);
+  new (&jacobian_) MatrixMap(s, num_residuals, num_parameters);
   s += num_jacobian;
 
   // jtj_.resize(num_parameters, num_parameters);
   // jtj_regularized_.resize(num_parameters, num_parameters);
-  new (&jtj_) HessianMap(s, num_parameters, num_parameters);
+  new (&jtj_) MatrixMap(s, num_parameters, num_parameters);
   s += num_hessian;
-  new (&jtj_reg_) HessianMap(s, num_parameters, num_parameters);
+  new (&jtj_reg_) MatrixMap(s, num_parameters, num_parameters);
   s += num_hessian;
-  new (&Vf_inv_Vu_) HessianMap(s, num_parameters, num_parameters);
+  new (&Vf_inv_Vu_) MatrixMap(s, num_parameters, num_parameters);
   s += num_hessian;
 
   CHECK_EQ(s - storage_.data(), total);

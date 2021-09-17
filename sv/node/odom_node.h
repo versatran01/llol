@@ -60,7 +60,7 @@ struct OdomNode {
   void Preprocess(const LidarScan& scan);
   void Register();
   bool IcpRigid();
-  bool IcpLinear();
+  //  bool IcpLinear();
   void PostProcess(const LidarScan& scan);
 };
 

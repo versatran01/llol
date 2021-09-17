@@ -38,16 +38,14 @@ void GicpCost::UpdateMatches(const SweepGrid& grid) {
   }
 }
 
-int GicpCost::UpdatePreint(const Trajectory& traj, const ImuQueue& imuq) {
+void GicpCost::UpdatePreint(const Trajectory& traj, const ImuQueue& imuq) {
   ptraj = &traj;
   preint.Reset();
-  return preint.Compute(imuq, traj.front().time, traj.back().time);
+  preint.Compute(imuq, traj.front().time, traj.back().time);
 }
 
-bool GicpRigidCost::operator()(const double* x_ptr,
-                               double* r_ptr,
-                               double* J_ptr) const {
-  const State es(x_ptr);
+bool GicpCost::Compute(const double* px, double* pr, double* pJ) const {
+  const State es(px);
   const SO3d eR = SO3d::exp(es.r0());
   const Vector3d ep = es.p0();
   const SE3d eT{eR, ep};
@@ -65,7 +63,7 @@ bool GicpRigidCost::operator()(const double* x_ptr,
           const auto pt_p_hat = tf_p_g * pt_g;
 
           const int ri = kResidualDim * i;
-          Eigen::Map<Vector3d> r(r_ptr + ri);
+          Eigen::Map<Vector3d> r(pr + ri);
 
           auto U = match.U.cast<double>().eval();
           r = U * (pt_p - eT * pt_p_hat);
@@ -78,8 +76,8 @@ bool GicpRigidCost::operator()(const double* x_ptr,
 
           r *= s;
 
-          if (J_ptr) {
-            Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
+          if (pJ) {
+            Eigen::Map<MatrixXd> J(pJ, NumResiduals(), kNumParams);
             U *= s;
             J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
             J.block<3, 3>(ri, Block::kP0 * 3) = -U;
@@ -115,12 +113,12 @@ bool GicpRigidCost::operator()(const double* x_ptr,
 
   // gamma residual
   // r_gamma = R0' * R1 * gamma'
-  Eigen::Map<Vector3d> r_gamma(r_ptr + offset);
+  Eigen::Map<Vector3d> r_gamma(pr + offset);
   r_gamma = (R0_t * R1 * preint.gamma.inverse()).log();
 
   // alpha residual
   // r_alpha = R0^T (p1 - p0 - v0 * dt + 0.5 * g * dt2) - alpha
-  Eigen::Map<Vector3d> r_alpha(r_ptr + offset + 3);
+  Eigen::Map<Vector3d> r_alpha(pr + offset + 3);
   r_alpha = alpha - preint.alpha;
 
   // Premultiply by U
@@ -134,9 +132,9 @@ bool GicpRigidCost::operator()(const double* x_ptr,
   r_alpha = Ua * r_alpha + Uag * r_gamma;
   r_gamma = Ug * r_gamma;
 
-  if (J_ptr) {
+  if (pJ) {
     const auto R0_t_mat = R0_t.matrix();
-    Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
+    Eigen::Map<MatrixXd> J(pJ, NumResiduals(), kNumParams);
     // gamma jacobian
     J.block<3, 3>(offset, Block::kR0 * 3) = Ug * R0_t_mat;
     J.block<3, 3>(offset, Block::kP0 * 3).setZero();
@@ -149,7 +147,7 @@ bool GicpRigidCost::operator()(const double* x_ptr,
   return true;
 }
 
-void GicpRigidCost::UpdateTraj(Trajectory& traj) const {
+void GicpCost::UpdateTraj(Trajectory& traj) const {
   const auto dt = traj.duration();
   const State es(error.data());
   const auto eR = SO3d::exp(es.r0());
@@ -161,111 +159,112 @@ void GicpRigidCost::UpdateTraj(Trajectory& traj) const {
   st.vel += es.p0() / dt;
 }
 
-bool GicpLinearCost::operator()(const double* x_ptr,
-                                double* r_ptr,
-                                double* J_ptr) const {
-  const State es(x_ptr);
-  const auto eR = SO3d::exp(es.r0());
-  const Vector3d ep = es.p0();
+// bool GicpLinearCost::operator()(const double* x_ptr,
+//                                double* r_ptr,
+//                                double* J_ptr) const {
+//  const State es(x_ptr);
+//  const auto eR = SO3d::exp(es.r0());
+//  const Vector3d ep = es.p0();
 
-  tbb::parallel_for(
-      tbb::blocked_range<int>(0, matches.size(), gsize_), [&](const auto& blk) {
-        for (int i = blk.begin(); i < blk.end(); ++i) {
-          const auto& match = matches.at(i);
-          const auto c = match.px_g.x;
-          const auto U = match.U.cast<double>().eval();
-          const auto pt_p = match.mc_p.mean.cast<double>().eval();
-          const auto pt_g = match.mc_g.mean.cast<double>().eval();
-          const auto tf_p_g = pgrid->TfAt(c).cast<double>();
-          const auto pt_p_hat = tf_p_g * pt_g;
-          // +0.5 is because we assume point is at cell center
-          const double s = (c + 0.5) / pgrid->cols();
+//  tbb::parallel_for(
+//      tbb::blocked_range<int>(0, matches.size(), gsize_), [&](const auto& blk)
+//      {
+//        for (int i = blk.begin(); i < blk.end(); ++i) {
+//          const auto& match = matches.at(i);
+//          const auto c = match.px_g.x;
+//          const auto U = match.U.cast<double>().eval();
+//          const auto pt_p = match.mc_p.mean.cast<double>().eval();
+//          const auto pt_g = match.mc_g.mean.cast<double>().eval();
+//          const auto tf_p_g = pgrid->TfAt(c).cast<double>();
+//          const auto pt_p_hat = tf_p_g * pt_g;
+//          // +0.5 is because we assume point is at cell center
+//          const double s = (c + 0.5) / pgrid->cols();
 
-          const int ri = kResidualDim * i;
-          Eigen::Map<Vector3d> r(r_ptr + ri);
-          r = U * (pt_p - (eR * pt_p_hat + s * ep));
+//          const int ri = kResidualDim * i;
+//          Eigen::Map<Vector3d> r(r_ptr + ri);
+//          r = U * (pt_p - (eR * pt_p_hat + s * ep));
 
-          if (J_ptr) {
-            Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
-            J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
-            J.block<3, 3>(ri, Block::kP0 * 3) = -s * U;
-          }
-        }
-      });
+//          if (J_ptr) {
+//            Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
+//            J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
+//            J.block<3, 3>(ri, Block::kP0 * 3) = -s * U;
+//          }
+//        }
+//      });
 
-  if (ptraj == nullptr) return true;
+//  if (ptraj == nullptr) return true;
 
-  const auto dt = preint.duration;
-  const auto dt2 = dt * dt;
-  const auto& g = ptraj->g_pano;
-  const auto& st0 = ptraj->front();
-  const auto& st1 = ptraj->back();
+//  const auto dt = preint.duration;
+//  const auto dt2 = dt * dt;
+//  const auto& g = ptraj->g_pano;
+//  const auto& st0 = ptraj->front();
+//  const auto& st1 = ptraj->back();
 
-  const auto& p0 = st0.pos;
-  const auto& p1_bar = st1.pos;
-  const Vector3d p1 = eR * p1_bar + ep;
+//  const auto& p0 = st0.pos;
+//  const auto& p1_bar = st1.pos;
+//  const Vector3d p1 = eR * p1_bar + ep;
 
-  const auto& R0 = st0.rot;
-  const auto& R1_bar = st1.rot;
-  const auto R1 = eR * R1_bar;
+//  const auto& R0 = st0.rot;
+//  const auto& R1_bar = st1.rot;
+//  const auto R1 = eR * R1_bar;
 
-  const auto R0_t = R0.inverse();
-  const Vector3d dp = st0.vel * dt - 0.5 * g * dt2;
-  const Vector3d alpha = R0_t * (p1 - p0 - dp);
+//  const auto R0_t = R0.inverse();
+//  const Vector3d dp = st0.vel * dt - 0.5 * g * dt2;
+//  const Vector3d alpha = R0_t * (p1 - p0 - dp);
 
-  const int offset = matches.size() * kResidualDim;
+//  const int offset = matches.size() * kResidualDim;
 
-  // gamma residual
-  // r_gamma = R0' * R1 * gamma'
-  Eigen::Map<Vector3d> r_gamma(r_ptr + offset);
-  r_gamma = (R0_t * R1 * preint.gamma.inverse()).log();
+//  // gamma residual
+//  // r_gamma = R0' * R1 * gamma'
+//  Eigen::Map<Vector3d> r_gamma(r_ptr + offset);
+//  r_gamma = (R0_t * R1 * preint.gamma.inverse()).log();
 
-  // alpha residual
-  // r_alpha = R0^T (p1 - p0 - v0 * dt + 0.5 * g * dt2) - alpha
-  Eigen::Map<Vector3d> r_alpha(r_ptr + offset + 3);
-  r_alpha = alpha - preint.alpha;
+//  // alpha residual
+//  // r_alpha = R0^T (p1 - p0 - v0 * dt + 0.5 * g * dt2) - alpha
+//  Eigen::Map<Vector3d> r_alpha(r_ptr + offset + 3);
+//  r_alpha = alpha - preint.alpha;
 
-  // Premultiply by U
-  using Index = ImuPreintegration::Index;
-  const auto& U = preint.U;
-  const auto s = std::sqrt(imu_weight);
-  const Matrix3d Ua = U.block<3, 3>(Index::kAlpha, Index::kAlpha) * s;
-  const Matrix3d Uag = U.block<3, 3>(Index::kAlpha, Index::kTheta) * s;
-  const Matrix3d Ug = U.block<3, 3>(Index::kTheta, Index::kTheta) * s;
+//  // Premultiply by U
+//  using Index = ImuPreintegration::Index;
+//  const auto& U = preint.U;
+//  const auto s = std::sqrt(imu_weight);
+//  const Matrix3d Ua = U.block<3, 3>(Index::kAlpha, Index::kAlpha) * s;
+//  const Matrix3d Uag = U.block<3, 3>(Index::kAlpha, Index::kTheta) * s;
+//  const Matrix3d Ug = U.block<3, 3>(Index::kTheta, Index::kTheta) * s;
 
-  r_alpha = Ua * r_alpha + Uag * r_gamma;
-  r_gamma = Ug * r_gamma;
+//  r_alpha = Ua * r_alpha + Uag * r_gamma;
+//  r_gamma = Ug * r_gamma;
 
-  if (J_ptr) {
-    const auto R0_t_mat = R0_t.matrix();
-    Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
-    // gamma jacobian
-    J.block<3, 3>(offset, Block::kR0 * 3) = Ug * R0_t_mat;
-    J.block<3, 3>(offset, Block::kP0 * 3).setZero();
+//  if (J_ptr) {
+//    const auto R0_t_mat = R0_t.matrix();
+//    Eigen::Map<MatrixXd> J(J_ptr, NumResiduals(), kNumParams);
+//    // gamma jacobian
+//    J.block<3, 3>(offset, Block::kR0 * 3) = Ug * R0_t_mat;
+//    J.block<3, 3>(offset, Block::kP0 * 3).setZero();
 
-    // alpha jacobian
-    J.block<3, 3>(offset + 3, Block::kR0 * 3) = -Ua * R0_t_mat * Hat3(p1_bar);
-    J.block<3, 3>(offset + 3, Block::kP0 * 3) = Ua * R0_t_mat;
-  }
+//    // alpha jacobian
+//    J.block<3, 3>(offset + 3, Block::kR0 * 3) = -Ua * R0_t_mat * Hat3(p1_bar);
+//    J.block<3, 3>(offset + 3, Block::kP0 * 3) = Ua * R0_t_mat;
+//  }
 
-  return true;
-}
+//  return true;
+//}
 
-void GicpLinearCost::UpdateTraj(Trajectory& traj) const {
-  const State es(error.data());
-  const auto eR = SO3d::exp(es.r0());
+// void GicpLinearCost::UpdateTraj(Trajectory& traj) const {
+//  const State es(error.data());
+//  const auto eR = SO3d::exp(es.r0());
 
-  for (int i = 0; i < traj.size(); ++i) {
-    auto& st_i = traj.At(i);
-    const double s = i / (traj.size() - 1.0);
-    st_i.rot = eR * st_i.rot;
-    st_i.pos = eR * st_i.pos + s * es.p0();
+//  for (int i = 0; i < traj.size(); ++i) {
+//    auto& st_i = traj.At(i);
+//    const double s = i / (traj.size() - 1.0);
+//    st_i.rot = eR * st_i.rot;
+//    st_i.pos = eR * st_i.pos + s * es.p0();
 
-    if (i > 1) {
-      const auto& st_im1 = traj.At(i - 1);
-      st_i.vel = (st_i.pos - st_im1.pos) / (st_i.time - st_im1.time);
-    }
-  }
-}
+//    if (i > 1) {
+//      const auto& st_im1 = traj.At(i - 1);
+//      st_i.vel = (st_i.pos - st_im1.pos) / (st_i.time - st_im1.time);
+//    }
+//  }
+//}
 
 }  // namespace sv

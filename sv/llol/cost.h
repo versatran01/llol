@@ -2,16 +2,16 @@
 
 #include "sv/llol/grid.h"
 #include "sv/llol/imu.h"
+#include "sv/llol/nlls.h"
 
 namespace sv {
 
-struct GicpCost {
+struct GicpCost final : public CostBase {
  public:
-  using Scalar = double;
   static constexpr int kNumParams = 6;
   static constexpr int kResidualDim = 3;
   enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
-  using ErrorVector = Eigen::Matrix<Scalar, kNumParams, 1>;
+  using ErrorVector = Eigen::Matrix<double, kNumParams, 1>;
 
   /// @brief Error state
   enum Block { kR0, kP0 };
@@ -27,15 +27,15 @@ struct GicpCost {
   };
 
   GicpCost(int gsize = 0);
-  virtual ~GicpCost() noexcept = default;
 
-  int NumResiduals() const;
-  int NumParameters() const { return kNumParams; }
+  int NumResiduals() const override;
+  int NumParameters() const override { return kNumParams; }
+  bool Compute(const double* px, double* pr, double* pJ) const override;
 
   void ResetError();
   void UpdateMatches(const SweepGrid& grid);
-  int UpdatePreint(const Trajectory& traj, const ImuQueue& imuq);
-  virtual void UpdateTraj(Trajectory& traj) const = 0;
+  void UpdatePreint(const Trajectory& traj, const ImuQueue& imuq);
+  void UpdateTraj(Trajectory& traj) const;
 
   int gsize_{};
   double imu_weight{0.0};
@@ -50,17 +50,17 @@ struct GicpCost {
 };
 
 /// @brief Gicp with rigid transformation
-struct GicpRigidCost final : public GicpCost {
-  using GicpCost::GicpCost;
-  bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
-  void UpdateTraj(Trajectory& traj) const override;
-};
+// struct GicpRigidCost final : public GicpCost {
+//  using GicpCost::GicpCost;
+//  bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
+//  void UpdateTraj(Trajectory& traj) const override;
+//};
 
-/// @brief Linear interpolation in translation error state
-struct GicpLinearCost final : public GicpCost {
-  using GicpCost::GicpCost;
-  bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
-  void UpdateTraj(Trajectory& traj) const override;
-};
+///// @brief Linear interpolation in translation error state
+// struct GicpLinearCost final : public GicpCost {
+//  using GicpCost::GicpCost;
+//  bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
+//  void UpdateTraj(Trajectory& traj) const override;
+//};
 
 }  // namespace sv

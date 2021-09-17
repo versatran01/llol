@@ -149,9 +149,18 @@ cc_bench(
   DEPS sv_llol_grid GTest::GTest)
 
 cc_library(
+  NAME llol_nlls
+  SRCS "llol/nlls.cpp"
+  DEPS sv_base sv_log Eigen3::Eigen)
+cc_test(
+  NAME llol_nlls_test
+  SRCS "llol/nlls_test.cpp"
+  DEPS sv_llol_nlls)
+
+cc_library(
   NAME llol_cost
   SRCS "llol/cost.cpp"
-  DEPS sv_llol_grid)
+  DEPS sv_llol_grid sv_llol_nlls)
 cc_test(
   NAME llol_cost_test
   SRCS "llol/cost_test.cpp"
@@ -207,7 +216,7 @@ if(catkin_FOUND AND BUILD_NODE)
     NAME node_odom
     SRCS "node/odom_main.cpp" "node/odom_node.cpp" "node/odom_pub.cpp"
          "node/odom_icp.cpp"
-    DEPS sv_node_conv sv_node_viz sv_node_pcl sv_util_manager sv_util_solver)
+    DEPS sv_node_conv sv_node_viz sv_node_pcl sv_util_manager)
 endif()
 
 # sim ==========================================================================

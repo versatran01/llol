@@ -58,6 +58,18 @@
 
 namespace sv {
 
+struct CostBase {
+  virtual ~CostBase() noexcept = default;
+
+  bool operator()(const double* x, double* r, double* J) const {
+    return Compute(x, r, J);
+  }
+
+  virtual bool Compute(const double* x, double* r, double* J) const = 0;
+  virtual int NumResiduals() const = 0;
+  virtual int NumParameters() const = 0;
+};
+
 enum class NllsStatus {
   GRADIENT_TOO_SMALL,            // eps > max(J'*f(x))
   RELATIVE_STEP_SIZE_TOO_SMALL,  // eps > ||dx|| / (||x|| + eps)
@@ -70,8 +82,8 @@ std::string Repr(NllsStatus status);
 struct NllsOptions {
   double gradient_tolerance = 1e-10;  // eps > max(J'*f(x))
   double parameter_tolerance = 1e-8;  // eps > ||dx|| / ||x||
-  double cost_threshold =
-      std::numeric_limits<double>::epsilon();  // eps > ||f(x)||
+  double cost_threshold =             // eps > ||f(x)||
+      std::numeric_limits<double>::epsilon();
   double initial_trust_region_radius = 1e4;
   int max_num_iterations = 50;
   double min_eigenvalue = 0.0;
@@ -86,12 +98,7 @@ struct NllsSummary {
   NllsStatus status = NllsStatus::HIT_MAX_ITERATIONS;
 
   std::string Report() const;
-};
-
-struct CostBase {
-  virtual bool Compute(const double* x, double* r, double* J) const = 0;
-  virtual int NumResiduals() const = 0;
-  virtual int NumParameters() const = 0;
+  bool IsConverged() const;
 };
 
 /// @brief This version allocates once and use Eigen::Map
@@ -102,14 +109,10 @@ class NllsSolver {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   using Scalar = double;
-  using Parameters = Eigen::VectorX<Scalar>;
-  using ParametersMap = Eigen::Map<Parameters>;
-  using Residuals = Eigen::VectorX<Scalar>;
-  using ResidualsMap = Eigen::Map<Residuals>;
-  using Jacobian = Eigen::MatrixX<Scalar>;
-  using JacobianMap = Eigen::Map<Jacobian>;
-  using Hessian = Eigen::MatrixX<Scalar>;
-  using HessianMap = Eigen::Map<Hessian>;
+  using Vector = Eigen::VectorX<Scalar>;
+  using Matrix = Eigen::MatrixX<Scalar>;
+  using VectorMap = Eigen::Map<Vector>;
+  using MatrixMap = Eigen::Map<Matrix>;
 
   bool Update(const CostBase& function, const Scalar* x);
   const NllsSummary& Solve(const CostBase& function, double* x_and_min);
@@ -120,23 +123,23 @@ class NllsSolver {
  private:
   // Preallocate everything, including temporary storage needed for solving the
   // linear system. This allows reusing the intermediate storage across solves.
-  using LinearSolver = Eigen::LDLT<Hessian>;
+  using LinearSolver = Eigen::LDLT<Matrix>;
   LinearSolver linear_solver_;
   Scalar cost_;
 
-  ParametersMap dx_{nullptr, 0}, x_new_{nullptr, 0};
-  ParametersMap g_{nullptr, 0}, jacobi_scaling_{nullptr, 0};
-  ParametersMap lm_diag_{nullptr, 0}, lm_step_{nullptr, 0};
+  VectorMap dx_{nullptr, 0}, x_new_{nullptr, 0};
+  VectorMap g_{nullptr, 0}, jacobi_scaling_{nullptr, 0};
+  VectorMap lm_diag_{nullptr, 0}, lm_step_{nullptr, 0};
 
-  ResidualsMap error_{nullptr, 0}, f_x_new_{nullptr, 0};
-  JacobianMap jacobian_{nullptr, 0, 0};
-  HessianMap jtj_{nullptr, 0, 0}, jtj_reg_{nullptr, 0, 0};
-  HessianMap Vf_inv_Vu_{nullptr, 0, 0};
+  VectorMap error_{nullptr, 0}, f_x_new_{nullptr, 0};
+  MatrixMap jacobian_{nullptr, 0, 0};
+  MatrixMap jtj_{nullptr, 0, 0}, jtj_reg_{nullptr, 0, 0};
+  MatrixMap Vf_inv_Vu_{nullptr, 0, 0};
 
   std::vector<Scalar> storage_;
 
   // Remapping stuff
-  using EigenSolver = Eigen::SelfAdjointEigenSolver<Hessian>;
+  using EigenSolver = Eigen::SelfAdjointEigenSolver<Matrix>;
   EigenSolver eigen_solver_;
 
   void Initialize(int num_residuals, int num_parameters);
