@@ -10,6 +10,7 @@ using SE3d = Sophus::SE3d;
 using Vector3d = Eigen::Vector3d;
 using Matrix3d = Eigen::Matrix3d;
 using MatrixXd = Eigen::MatrixXd;
+using RowMatXd = NllsSolver::RowMat;
 
 GicpCost::GicpCost(int gsize) {
   // we don't want to use grainsize of 1 or 2, because each residual is 3
@@ -78,7 +79,7 @@ bool GicpCost::Compute(const double* px, double* pr, double* pJ) const {
           r *= s;
 
           if (pJ) {
-            Eigen::Map<MatrixXd> J(pJ, NumResiduals(), kNumParams);
+            Eigen::Map<RowMatXd> J(pJ, NumResiduals(), kNumParams);
             U *= s;
             J.block<3, 3>(ri, Block::kR0 * 3) = U * Hat3(pt_p_hat);
             J.block<3, 3>(ri, Block::kP0 * 3) = -U;
@@ -131,7 +132,7 @@ bool GicpCost::Compute(const double* px, double* pr, double* pJ) const {
 
   if (pJ) {
     const auto R0_t_mat = R0_t.matrix();
-    Eigen::Map<MatrixXd> J(pJ, NumResiduals(), kNumParams);
+    Eigen::Map<RowMatXd> J(pJ, NumResiduals(), kNumParams);
     // gamma jacobian
     J.block<3, 3>(offset, Block::kR0 * 3) = Ug * R0_t_mat;
     J.block<3, 3>(offset, Block::kP0 * 3).setZero();

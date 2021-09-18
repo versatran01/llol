@@ -18,14 +18,21 @@ bool EvalResAndJac(const T* parameters, T* residuals, T* jacobian) {
   residuals[1] = y * z;
 
   if (jacobian) {
-    jacobian[0 * 2 + 0] = static_cast<T>(1);
-    jacobian[0 * 2 + 1] = static_cast<T>(0);
+    //    jacobian[0 * 2 + 0] = static_cast<T>(1);
+    //    jacobian[0 * 2 + 1] = static_cast<T>(0);
 
-    jacobian[1 * 2 + 0] = static_cast<T>(2);
-    jacobian[1 * 2 + 1] = z;
+    //    jacobian[1 * 2 + 0] = static_cast<T>(2);
+    //    jacobian[1 * 2 + 1] = z;
 
-    jacobian[2 * 2 + 0] = static_cast<T>(4);
-    jacobian[2 * 2 + 1] = y;
+    //    jacobian[2 * 2 + 0] = static_cast<T>(4);
+    //    jacobian[2 * 2 + 1] = y;
+    // Jacobian is row major
+    jacobian[0] = 1;
+    jacobian[1] = 2;
+    jacobian[2] = 4;
+    jacobian[3] = 0;
+    jacobian[4] = z;
+    jacobian[5] = y;
   }
   return true;
 }
@@ -39,10 +46,8 @@ class ExampleCost final : public CostBase {
   int NumResiduals() const override { return 2; }
   int NumParameters() const override { return 3; }
 
-  bool Compute(const double* parameters,
-               double* residuals,
-               double* jacobian) const override {
-    return EvalResAndJac(parameters, residuals, jacobian);
+  bool Compute(const double* x, double* r, double* J) const override {
+    return EvalResAndJac(x, r, J);
   }
 };
 

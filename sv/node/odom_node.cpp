@@ -72,7 +72,7 @@ void OdomNode::ImuCb(const sensor_msgs::Imu& imu_msg) {
 
     const auto& t = tf_i_l.transform.translation;
     const auto& q = tf_i_l.transform.rotation;
-    const Vector3d t_i_l{t.x, t.y, t.z};
+    const Eigen::Vector3d t_i_l{t.x, t.y, t.z};
     const Eigen::Quaterniond q_i_l{q.w, q.x, q.y, q.z};
 
     // Just use current acc

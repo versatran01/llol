@@ -81,6 +81,15 @@ bool OdomNode::IcpRigid() {
     ROS_DEBUG_STREAM("[Traj.PredictFull] using imus: " << n_imus);
 
     icp_ok = true;
+    if (i >= 2 && solver.summary.IsConverged()) {
+      ROS_DEBUG_STREAM(
+          fmt::format("[Icp] converged at outer: {}/{}, inner: {}/{}",
+                      i + 1,
+                      gicp_.iters.first,
+                      solver.summary.iterations,
+                      gicp_.iters.second));
+      break;
+    }
   }
 
   t_match.Commit();

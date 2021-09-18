@@ -238,7 +238,7 @@ void NllsSolver::Initialize(int num_residuals, int num_parameters) {
   s += num_residuals;
 
   // jacobian_.resize(num_residuals, num_parameters);
-  new (&jacobian_) MatrixMap(s, num_residuals, num_parameters);
+  new (&jacobian_) RowMatMap(s, num_residuals, num_parameters);
   s += num_jacobian;
 
   // jtj_.resize(num_parameters, num_parameters);

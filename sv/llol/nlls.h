@@ -111,11 +111,15 @@ class NllsSolver {
   using Scalar = double;
   using Vector = Eigen::VectorX<Scalar>;
   using Matrix = Eigen::MatrixX<Scalar>;
+  using RowMat =
+      Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
   using VectorMap = Eigen::Map<Vector>;
   using MatrixMap = Eigen::Map<Matrix>;
+  using RowMatMap = Eigen::Map<RowMat>;
 
   bool Update(const CostBase& function, const Scalar* x);
   const NllsSummary& Solve(const CostBase& function, double* x_and_min);
+  Matrix GetJtJ() const { return jtj_; }
 
   NllsOptions options;
   NllsSummary summary;
@@ -132,7 +136,7 @@ class NllsSolver {
   VectorMap lm_diag_{nullptr, 0}, lm_step_{nullptr, 0};
 
   VectorMap error_{nullptr, 0}, f_x_new_{nullptr, 0};
-  MatrixMap jacobian_{nullptr, 0, 0};
+  RowMatMap jacobian_{nullptr, 0, 0};  // jacobian is row major
   MatrixMap jtj_{nullptr, 0, 0}, jtj_reg_{nullptr, 0, 0};
   MatrixMap Vf_inv_Vu_{nullptr, 0, 0};
 
