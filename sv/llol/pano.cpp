@@ -188,11 +188,11 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_p2_p1, int r1) {
 
   for (int c1 = 0; c1 < cols(); ++c1) {
     const auto& dp1 = PixelAt({c1, r1});
-    const auto rg1 = dp1.GetRange();
-    if (rg1 == 0) continue;
+    // We skip pixel that is empty or uncertainy
+    if (dp1.raw == 0 || dp1.cnt < max_cnt / 4) continue;
 
     // px1 -> xyz1
-    const auto pt1 = model.Backward(r1, c1, rg1);
+    const auto pt1 = model.Backward(r1, c1, dp1.GetRange());
     Eigen::Map<const Vector3f> pt1_map(&pt1.x);
 
     // xyz1 -> xyz2

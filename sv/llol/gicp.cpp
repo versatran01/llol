@@ -17,22 +17,17 @@ bool PointInSize(const cv::Point& p, const cv::Size& size) {
 GicpSolver::GicpSolver(const GicpParams& params)
     : iters{params.outer, params.inner},
       cov_lambda{params.cov_lambda},
-      pano_win{params.half_rows * 2 + 1, params.half_cols * 2 + 1},
+      pano_win{params.half_cols * 2 + 1, params.half_rows * 2 + 1},
       imu_weight{params.imu_weight},
-      min_eigval{params.min_eigval} {
-  pano_min_pts = std::max(pano_win.height, pano_win.width) * 2;
-}
+      min_eigval{params.min_eigval} {}
 
 std::string GicpSolver::Repr() const {
   return fmt::format(
-      "GicpSolver(outer={}, inner={}, cov_lambda={}, min_pano_pts={}, "
-      "imu_weight={}, pano_win={})",
+      "GicpSolver(outer={}, inner={}, cov_lambda={}, imu_weight={})",
       iters.first,
       iters.second,
       cov_lambda,
-      pano_min_pts,
-      imu_weight,
-      sv::Repr(pano_win));
+      imu_weight);
 }
 
 int GicpSolver::Match(SweepGrid& grid, const DepthPano& pano, int gsize) {
@@ -91,7 +86,8 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   //  pano.UpdateMean(px_p, rg_p, match.mc_p.mean);
 
   // if we don't have enough points also reset and return 0
-  if (match.mc_p.n < pano_min_pts) {
+  const int pano_pts = pano_win.area();
+  if (match.mc_p.n < (pano_pts / 2)) {
     match.ResetPano();
     return 0;
   }
@@ -104,7 +100,7 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   // Although scale could be subsumed by U, we kept it for visualization
   // weight / pano_area is in [0, 1], but if it is too small, then imu cost will
   // dominate and drift. So we make this scale [0.5, 1]
-  match.scale = std::sqrt(weight / pano_win.area() / 2 + 0.5);
+  match.scale = std::sqrt(weight / pano_pts / 2 + 0.5);
   //  match.scale = std::sqrt(static_cast<float>(match.mc_p.n) /
   //  pano_win.area());
   return 1;

@@ -50,8 +50,6 @@ bool GicpCost::Compute(const double* px, double* pr, double* pJ) const {
   const Vector3d ep = es.p0();
   const SE3d eT{eR, ep};
 
-  int n = 0;
-
   tbb::parallel_for(
       tbb::blocked_range<int>(0, matches.size(), gsize_), [&](const auto& blk) {
         for (int i = blk.begin(); i < blk.end(); ++i) {
@@ -67,11 +65,11 @@ bool GicpCost::Compute(const double* px, double* pr, double* pJ) const {
 
           auto U = match.U.cast<double>().eval();
           r = U * (pt_p - eT * pt_p_hat);
+          double s = match.scale;
 
           // Do a simple gating test and downweight outliers
           // https://www.itl.nist.gov/div898/handbook/eda/section3/eda3674.htm
           const auto r2 = r.squaredNorm();
-          double s = match.scale;
           if (r2 > 12) s *= 0.5;
 
           r *= s;
@@ -84,10 +82,6 @@ bool GicpCost::Compute(const double* px, double* pr, double* pJ) const {
           }
         }
       });
-
-  if (n > 0.1 * matches.size()) {
-    LOG(WARNING) << "Too many outliers: " << n;
-  }
 
   if (ptraj == nullptr) return true;
 
