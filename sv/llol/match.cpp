@@ -27,7 +27,7 @@ void PointMatch::CalcSqrtInfo(float lambda) {
   U = MatrixSqrtUtU(cov.inverse().eval());
 }
 
-void PointMatch::CalcSqrtInfo(const Matrix3f& R_p_g, float lambda) {
+void PointMatch::CalcSqrtInfo(const Eigen::Matrix3f& R_p_g, float lambda) {
   auto cov = mc_p.Covar();
   cov.noalias() += R_p_g * mc_g.Covar() * R_p_g.transpose();
   if (lambda > 0) cov.diagonal().array() += lambda;

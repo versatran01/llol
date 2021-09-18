@@ -5,6 +5,8 @@
 
 namespace sv {
 
+using Vector3f = Eigen::Vector3f;
+
 void Pano2Cloud(const DepthPano& pano,
                 const std_msgs::Header header,
                 CloudXYZ& cloud) {

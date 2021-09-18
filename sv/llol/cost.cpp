@@ -7,6 +7,9 @@ namespace sv {
 
 using SO3d = Sophus::SO3d;
 using SE3d = Sophus::SE3d;
+using Vector3d = Eigen::Vector3d;
+using Matrix3d = Eigen::Matrix3d;
+using MatrixXd = Eigen::MatrixXd;
 
 GicpCost::GicpCost(int gsize) {
   // we don't want to use grainsize of 1 or 2, because each residual is 3

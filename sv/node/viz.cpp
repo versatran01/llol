@@ -10,6 +10,8 @@ namespace sv {
 
 using visualization_msgs::Marker;
 using visualization_msgs::MarkerArray;
+using Vector3d = Eigen::Vector3d;
+using Matrix3d = Eigen::Matrix3d;
 
 void MeanCovar2Marker(const Vector3d& mean,
                       Vector3d eigvals,

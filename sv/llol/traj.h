@@ -13,6 +13,8 @@ struct TrajectoryParams {
 /// @brief Accumulates imu data and integrate
 /// @todo for now only integrate gyro for rotation
 struct Trajectory {
+  using Matrix6d = Eigen::Matrix<double, 6, 6>;
+
   Trajectory() = default;
   explicit Trajectory(int size, const TrajectoryParams& params = {});
 
@@ -60,6 +62,7 @@ struct Trajectory {
   Sophus::SE3d T_odom_pano{};    // tf from pano to odom frame
   Sophus::SE3d T_imu_lidar{};    // extrinsics lidar to imu
   std::vector<NavState> states;  // imu state wrt current pano
+  Matrix6d cov{Matrix6d::Zero()};
 };
 
 }  // namespace sv

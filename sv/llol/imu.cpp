@@ -7,6 +7,12 @@
 
 namespace sv {
 
+using SO3d = Sophus::SO3d;
+using SE3d = Sophus::SE3d;
+using Vector3d = Eigen::Vector3d;
+using Matrix3d = Eigen::Matrix3d;
+using Quaterniond = Eigen::Quaterniond;
+
 namespace {
 
 bool IsNan(const Eigen::Vector3d& v) {
@@ -37,10 +43,6 @@ void KalmanUpdate(Vector3d& x,
 }
 
 }  // namespace
-
-using SO3d = Sophus::SO3d;
-using SE3d = Sophus::SE3d;
-using Quaterniond = Eigen::Quaterniond;
 
 ImuBias::ImuBias(double acc_bias_std, double gyr_bias_std) {
   acc_var.setConstant(Sq(acc_bias_std));

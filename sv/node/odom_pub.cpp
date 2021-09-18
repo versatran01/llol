@@ -1,4 +1,5 @@
 #include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
@@ -15,8 +16,10 @@
 
 namespace sv {
 
+using Vector3d = Eigen::Vector3d;
 using geometry_msgs::PoseArray;
 using geometry_msgs::PoseStamped;
+using geometry_msgs::PoseWithCovarianceStamped;
 using geometry_msgs::TransformStamped;
 using nav_msgs::Odometry;
 using nav_msgs::Path;
@@ -27,9 +30,11 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   //  static auto pub_odom = pnh_.advertise<Odometry>("odom", 1);
   static auto pub_traj = pnh_.advertise<PoseArray>("traj", 1);
   static auto pub_pose = pnh_.advertise<PoseStamped>("pose", 1);
+  static auto pub_pose_cov =
+      pnh_.advertise<PoseWithCovarianceStamped>("pose_cov", 1);
   static auto pub_bias = pnh_.advertise<sensor_msgs::Imu>("imu_bias", 1);
-  static auto pub_bias_std =
-      pnh_.advertise<sensor_msgs::Imu>("imu_bias_std", 1);
+  //  static auto pub_bias_std =
+  //      pnh_.advertise<sensor_msgs::Imu>("imu_bias_std", 1);
 
   static auto pub_feat = pnh_.advertise<CloudXYZ>("feat", 1);
   static auto pub_pano = pnh_.advertise<CloudXYZ>("pano", 1);
@@ -96,14 +101,14 @@ void OdomNode::Publish(const std_msgs::Header& header) {
     pub_bias.publish(imu_bias);
   }
 
-  static sensor_msgs::Imu imu_bias_std;
-  if (pub_bias_std.getNumSubscribers() > 0) {
-    imu_bias_std.header = imu_bias.header;
-    tf2::toMsg(imuq_.bias.acc_var.cwiseSqrt(),
-               imu_bias_std.linear_acceleration);
-    tf2::toMsg(imuq_.bias.gyr_var.cwiseSqrt(), imu_bias_std.angular_velocity);
-    pub_bias_std.publish(imu_bias_std);
-  }
+  //  static sensor_msgs::Imu imu_bias_std;
+  //  if (pub_bias_std.getNumSubscribers() > 0) {
+  //    imu_bias_std.header = imu_bias.header;
+  //    tf2::toMsg(imuq_.bias.acc_var.cwiseSqrt(),
+  //               imu_bias_std.linear_acceleration);
+  //    tf2::toMsg(imuq_.bias.gyr_var.cwiseSqrt(),
+  //    imu_bias_std.angular_velocity); pub_bias_std.publish(imu_bias_std);
+  //  }
 
   // publish latest traj as path
   PoseStamped pose;
@@ -111,6 +116,10 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   pose.header.frame_id = odom_frame_;
   SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
   pub_pose.publish(pose);
+
+  PoseWithCovarianceStamped pose_cov;
+  pose_cov.header = pose.header;
+  pose_cov.pose.pose = pose.pose;
 
   static Path path;
   path.header = pose.header;

@@ -11,6 +11,8 @@
 
 namespace sv {
 
+using Vector3f = Eigen::Vector3f;
+
 DepthPano::DepthPano(const cv::Size& size, const PanoParams& params)
     : max_cnt{params.max_cnt},
       min_sweeps{params.min_sweeps},

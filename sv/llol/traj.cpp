@@ -9,6 +9,7 @@ namespace sv {
 
 using SO3d = Sophus::SO3d;
 using SE3d = Sophus::SE3d;
+using Vector3d = Eigen::Vector3d;
 using Quaterniond = Eigen::Quaterniond;
 
 Trajectory::Trajectory(int size, const TrajectoryParams& params)

@@ -20,10 +20,12 @@ void OdomNode::Register() {
                                 << ", norm: " << traj_.back().vel.norm());
 
   // Do not update bias if icp was not running
-  if (icp_ok && traj_.update_bias) {
-    traj_.UpdateBias(imuq_);
-    ROS_DEBUG_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
-    ROS_DEBUG_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+  if (icp_ok) {
+    if (traj_.update_bias) {
+      traj_.UpdateBias(imuq_);
+      ROS_DEBUG_STREAM("gyr_bias: " << imuq_.bias.gyr.transpose());
+      ROS_DEBUG_STREAM("acc_bias: " << imuq_.bias.acc.transpose());
+    }
   }
 
   if (vis_) {
@@ -78,22 +80,13 @@ bool OdomNode::IcpRigid() {
     t_solve.Stop(false);
     ROS_DEBUG_STREAM("[Traj.PredictFull] using imus: " << n_imus);
 
-    // early exit
     icp_ok = true;
-    if (i >= 2 && solver.summary.IsConverged()) {
-      ROS_DEBUG_STREAM(
-          fmt::format("[Icp] converged at outer: {}/{}, inner: {}/{}",
-                      i + 1,
-                      gicp_.iters.first,
-                      solver.summary.iterations,
-                      gicp_.iters.second));
-      break;
-    }
   }
 
   t_match.Commit();
   t_solve.Commit();
 
+  traj_.cov = solver.GetJtJ();
   ROS_DEBUG_STREAM(solver.summary.Report());
   sm_.GetRef("grid.matches").Add(cost.matches.size());
 
