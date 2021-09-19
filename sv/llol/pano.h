@@ -5,10 +5,6 @@
 
 namespace sv {
 
-inline cv::Rect WinCenterAt(const cv::Point& pt, const cv::Size& size) {
-  return {{pt.x - size.width / 2, pt.y - size.height / 2}, size};
-}
-
 /// @brief Pixel stored in DepthPano
 struct DepthPixel {
   static constexpr float kScale = 512.0F;
@@ -74,8 +70,6 @@ struct DepthPano {
     return dbuf.at<DepthPixel>(pt);
   }
   float RangeAt(const cv::Point& pt) const { return PixelAt(pt).GetRange(); }
-  /// @brief Get a bounded window centered at pt with given size
-  cv::Rect BoundWinCenterAt(const cv::Point& pt, const cv::Size& size) const;
 
   /// @brief Add a partial sweep to the pano
   int Add(const LidarSweep& sweep, const cv::Range& curr, int gsize = 0);
@@ -99,11 +93,7 @@ struct DepthPano {
 
   /// @brief Compute mean and covar on a window centered at px given range
   /// @return sum(cnt_i) / max_cnt
-  float MeanCovarAt(const cv::Point& px,
-                    const cv::Size& size,
-                    float rg,
-                    MeanCovar3f& mc) const;
-  void UpdateMean(const cv::Point& px, float rg, Eigen::Vector3f& mean) const;
+  float CalcMeanCovar(cv::Rect win, float rg, MeanCovar3f& mc) const;
 
   /// @brief Viz
   const std::vector<cv::Mat>& DrawRangeCount() const;

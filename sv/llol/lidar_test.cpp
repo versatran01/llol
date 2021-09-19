@@ -6,6 +6,33 @@
 namespace sv {
 namespace {
 
+int IndexLower(float x) { return std::floor(std::round(x * 2) / 2.0F); }
+int IndexUpper(float x) { return std::ceil(std::round(x * 2) / 2.0F); }
+
+TEST(LidarTest, TestIndexLower) {
+  EXPECT_EQ(IndexLower(0), 0);
+  EXPECT_EQ(IndexLower(0.1), 0);
+  EXPECT_EQ(IndexLower(0.25), 0);
+  EXPECT_EQ(IndexLower(0.26), 0);
+  EXPECT_EQ(IndexLower(0.5), 0);
+  EXPECT_EQ(IndexLower(0.74), 0);
+  EXPECT_EQ(IndexLower(0.75), 1);
+  EXPECT_EQ(IndexLower(0.9), 1);
+  EXPECT_EQ(IndexLower(1.0), 1);
+}
+
+TEST(LidarTest, TestIndexUpper) {
+  EXPECT_EQ(IndexUpper(4.0), 4);
+  EXPECT_EQ(IndexUpper(4.1), 4);
+  EXPECT_EQ(IndexUpper(4.25), 5);
+  EXPECT_EQ(IndexUpper(4.26), 5);
+  EXPECT_EQ(IndexUpper(4.5), 5);
+  EXPECT_EQ(IndexUpper(4.74), 5);
+  EXPECT_EQ(IndexUpper(4.75), 5);
+  EXPECT_EQ(IndexUpper(4.9), 5);
+  EXPECT_EQ(IndexUpper(5.0), 5);
+}
+
 TEST(LidarTest, TestCtor) {
   const LidarModel lm{{1024, 64}};
 

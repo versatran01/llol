@@ -53,14 +53,12 @@ LidarScan::LidarScan(double time,
   CHECK_EQ(xyzr.type(), kDtype) << "Mat type mismatch";
 }
 
-void LidarScan::MeanCovarAt(const cv::Point& px,
-                            int width,
-                            MeanCovar3f& mc) const {
+void LidarScan::CalcMeanCovar(const cv::Rect& rect, MeanCovar3f& mc) const {
   mc.Reset();
 
   // NOTE (chao): for now only take first row of cell due to staggered scan
-  for (int c = 0; c < width; ++c) {
-    const auto& xyzr = XyzrAt({px.x + c, px.y});
+  for (int c = 0; c < rect.width; ++c) {
+    const auto& xyzr = XyzrAt({rect.x + c, rect.y});
     if (std::isnan(xyzr[0])) continue;
     mc.Add({xyzr[0], xyzr[1], xyzr[2]});
   }

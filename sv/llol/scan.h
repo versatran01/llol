@@ -54,9 +54,9 @@ struct LidarScan : public ScanBase {
   /// @brief At
   float RangeAt(const cv::Point& px) const { return mat.at<PixelT>(px)[3]; }
   const auto& XyzrAt(const cv::Point& px) const { return mat.at<PixelT>(px); }
-
-  void MeanCovarAt(const cv::Point& px, int width, MeanCovar3f& mc) const;
   cv::Vec2f ScoreAt(const cv::Point& px, int width) const;
+
+  void CalcMeanCovar(const cv::Rect& rect, MeanCovar3f& mc) const;
 
   /// @brief Draw
   cv::Mat DrawRange() const;

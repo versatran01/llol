@@ -121,7 +121,8 @@ int SweepGrid::FilterRow(const LidarScan& scan, int r) {
     // Handle pad for nms
     if (pad <= c && c < curr.size() - pad && IsCellGood(px_g)) {
       // No need to offset for px scan
-      scan.MeanCovarAt(Grid2Sweep({c, r}), cell_size.width, match.mc_g);
+      const cv::Rect rect{Grid2Sweep({c, r}), cell_size};
+      scan.CalcMeanCovar(rect, match.mc_g);
       match.px_g = px_g;
       ++n;
     }

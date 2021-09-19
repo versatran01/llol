@@ -17,7 +17,7 @@ bool PointInSize(const cv::Point& p, const cv::Size& size) {
 GicpSolver::GicpSolver(const GicpParams& params)
     : iters{params.outer, params.inner},
       cov_lambda{params.cov_lambda},
-      pano_win{params.half_cols * 2 + 1, params.half_rows * 2 + 1},
+      half_win{params.half_cols, params.half_rows},
       imu_weight{params.imu_weight},
       min_eigval{params.min_eigval} {}
 
@@ -82,8 +82,10 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   }
 
   // Compute mean covar around pano point
-  const auto weight = pano.MeanCovarAt(px_p, pano_win, rg_g, match.mc_p);
-  //  pano.UpdateMean(px_p, rg_p, match.mc_p.mean);
+  const cv::Rect pano_win{
+      cv::Point{px_p.x - half_win.width, px_p.y - half_win.height},
+      cv::Point{px_p.x + half_win.width + 1, px_p.y + half_win.height + 1}};
+  const auto weight = pano.CalcMeanCovar(pano_win, rg_g, match.mc_p);
 
   // if we don't have enough points also reset and return 0
   const int pano_pts = pano_win.area();
@@ -95,7 +97,7 @@ int GicpSolver::MatchCell(SweepGrid& grid,
   // Now this is a good match
   match.px_p = px_p;
   // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
-  //  match.CalcSqrtInfo(cov_lambda);
+  // match.CalcSqrtInfo(cov_lambda);
   match.CalcSqrtInfo(T_p_g.rotationMatrix());
   // Although scale could be subsumed by U, we kept it for visualization
   // weight / pano_area is in [0, 1], but if it is too small, then imu cost will

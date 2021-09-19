@@ -52,12 +52,6 @@ std::string DepthPano::Repr() const {
       DepthPixel::kMaxRange);
 }
 
-cv::Rect DepthPano::BoundWinCenterAt(const cv::Point& pt,
-                                     const cv::Size& win_size) const {
-  const cv::Rect bound{cv::Point{}, size()};
-  return WinCenterAt(pt, win_size) & bound;
-}
-
 int DepthPano::Add(const LidarSweep& sweep, const cv::Range& curr, int gsize) {
   gsize = gsize <= 0 ? sweep.rows() : gsize;
 
@@ -232,14 +226,13 @@ bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
   return false;
 }
 
-float DepthPano::MeanCovarAt(const cv::Point& px,
-                             const cv::Size& size,
-                             float rg,
-                             MeanCovar3f& mc) const {
+float DepthPano::CalcMeanCovar(cv::Rect win, float rg, MeanCovar3f& mc) const {
   mc.Reset();
-  const auto win = BoundWinCenterAt(px, size);
-  float weight = 0.0;
 
+  // Make sure window is within bound
+  win = win & cv::Rect{cv::Point{}, size()};
+
+  float weight = 0.0;
   for (int wr = 0; wr < win.height; ++wr) {
     for (int wc = 0; wc < win.width; ++wc) {
       const cv::Point px_w{wc + win.x, wr + win.y};
@@ -257,19 +250,6 @@ float DepthPano::MeanCovarAt(const cv::Point& px,
   }
 
   return weight / max_cnt;
-}
-
-void DepthPano::UpdateMean(const cv::Point& px,
-                           float rg,
-                           Eigen::Vector3f& mean) const {
-  const auto& dp = PixelAt(px);
-  const auto rg_w = dp.GetRange();
-
-  if (rg_w == 0 || (std::abs(rg_w - rg) / rg) > win_ratio) return;
-  const auto pt = model.Backward(px.y, px.x, rg_w);
-  mean.x() = pt.x;
-  mean.y() = pt.y;
-  mean.z() = pt.z;
 }
 
 const std::vector<cv::Mat>& DepthPano::DrawRangeCount() const {

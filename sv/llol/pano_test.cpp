@@ -17,24 +17,6 @@ TEST(DepthPanoTest, TestCtor) {
   std::cout << dp << std::endl;
 }
 
-TEST(DepthPanoTest, TestWinAt) {
-  DepthPano dp({256, 64});
-  const auto win = WinCenterAt({0, 0}, {5, 7});
-  EXPECT_EQ(win.x, -2);
-  EXPECT_EQ(win.y, -3);
-  EXPECT_EQ(win.width, 5);
-  EXPECT_EQ(win.height, 7);
-}
-
-TEST(DepthPanoTest, TestBoundedWinAt) {
-  DepthPano dp({256, 64});
-  const auto win = dp.BoundWinCenterAt({0, 0}, {5, 7});
-  EXPECT_EQ(win.x, 0);
-  EXPECT_EQ(win.y, 0);
-  EXPECT_EQ(win.width, 3);
-  EXPECT_EQ(win.height, 4);
-}
-
 void BM_PanoAddSweep(benchmark::State& state) {
   DepthPano pano({1024, 256});
   const auto sweep = MakeTestSweep({1024, 64});

@@ -21,7 +21,7 @@ struct GicpSolver {
   /// Params
   std::pair<int, int> iters;  // (outer, inner) iterations
   float cov_lambda{};         // lambda added to diagonal of covar
-  cv::Size pano_win{};        // pano window size
+  cv::Size half_win{};        // pano window size
   double imu_weight{};        // how much weight to put on imu cost
   double min_eigval{};        // min eigenvalues for solution remapping
 

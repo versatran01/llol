@@ -32,7 +32,7 @@ void OdomNode::Register() {
     // display good match
     Imshow("match",
            ApplyCmap(grid_.DrawMatch(),
-                     1.0 / gicp_.pano_win.area(),
+                     1.0 / (gicp_.half_win.area() * 4.0),
                      cv::COLORMAP_VIRIDIS));
   }
 }
