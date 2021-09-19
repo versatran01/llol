@@ -9,10 +9,6 @@
 
 namespace sv {
 
-bool PointInSize(const cv::Point& p, const cv::Size& size) {
-  return std::abs(p.x) <= size.width && std::abs(p.y) <= size.height;
-}
-
 /// GicpSolver =================================================================
 GicpSolver::GicpSolver(const GicpParams& params)
     : iters{params.outer, params.inner},

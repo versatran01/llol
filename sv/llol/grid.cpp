@@ -12,10 +12,6 @@
 
 namespace sv {
 
-bool PointInSize(const cv::Point& p, const cv::Size& size) {
-  return std::abs(p.x) <= size.width && std::abs(p.y) <= size.height;
-}
-
 SweepGrid::SweepGrid(const cv::Size& sweep_size, const GridParams& params)
     : ScanBase{sweep_size / cv::Size{params.cell_cols, params.cell_rows},
                kDtype},
