@@ -93,8 +93,8 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   }
 
   // publish imu bias
-  static sensor_msgs::Imu imu_bias;
   if (pub_bias.getNumSubscribers() > 0) {
+    sensor_msgs::Imu imu_bias;
     imu_bias.header.stamp = header.stamp;
     tf2::toMsg(imuq_.bias.acc, imu_bias.linear_acceleration);
     tf2::toMsg(imuq_.bias.gyr, imu_bias.angular_velocity);
@@ -110,6 +110,18 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   //    imu_bias_std.angular_velocity); pub_bias_std.publish(imu_bias_std);
   //  }
 
+  // publish time info
+  if (pub_runtime.getNumSubscribers() > 0) {
+    sensor_msgs::Range runtime;
+    runtime.header = header;
+    const auto stat = tm_.GetStats("Total");
+    runtime.field_of_view = absl::ToDoubleSeconds(stat.mean());
+    runtime.min_range = absl::ToDoubleSeconds(stat.min());
+    runtime.max_range = absl::ToDoubleSeconds(stat.max());
+    runtime.range = absl::ToDoubleSeconds(stat.last());
+    pub_runtime.publish(runtime);
+  }
+
   // publish latest traj as path
   PoseStamped pose;
   pose.header.stamp = header.stamp;
@@ -117,9 +129,16 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   SE3dToMsg(traj_.TfOdomLidar(), pose.pose);
   pub_pose.publish(pose);
 
-  PoseWithCovarianceStamped pose_cov;
-  pose_cov.header = pose.header;
-  pose_cov.pose.pose = pose.pose;
+  if (pub_pose_cov.getNumSubscribers() > 0) {
+    PoseWithCovarianceStamped pose_cov;
+    pose_cov.header = pose.header;
+    pose_cov.pose.pose = pose.pose;
+    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov(
+        &pose_cov.pose.covariance[0]);
+    cov.topLeftCorner<3, 3>() = traj_.cov.bottomRightCorner<3, 3>();
+    cov.bottomLeftCorner<3, 3>() = traj_.cov.topRightCorner<3, 3>();
+    pub_pose_cov.publish(pose_cov);
+  }
 
   static Path path;
   path.header = pose.header;
@@ -135,16 +154,6 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   }
 
   pub_path.publish(path);
-
-  // publish time info
-  sensor_msgs::Range runtime;
-  runtime.header = header;
-  const auto stat = tm_.GetStats("Total");
-  runtime.field_of_view = absl::ToDoubleSeconds(stat.mean());
-  runtime.min_range = absl::ToDoubleSeconds(stat.min());
-  runtime.max_range = absl::ToDoubleSeconds(stat.max());
-  runtime.range = absl::ToDoubleSeconds(stat.last());
-  pub_runtime.publish(runtime);
 }
 
 }  // namespace sv

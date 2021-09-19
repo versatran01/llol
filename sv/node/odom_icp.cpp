@@ -95,7 +95,8 @@ bool OdomNode::IcpRigid() {
   t_match.Commit();
   t_solve.Commit();
 
-  traj_.cov = solver.GetJtJ();
+  // TODO (chao): need a better api
+  traj_.cov = solver.GetJtJ().inverse();
   ROS_DEBUG_STREAM(solver.summary.Report());
   sm_.GetRef("grid.matches").Add(cost.matches.size());
 
