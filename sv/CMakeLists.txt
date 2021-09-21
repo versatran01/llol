@@ -218,12 +218,3 @@ if(catkin_FOUND AND BUILD_NODE)
          "node/odom_icp.cpp"
     DEPS sv_node_conv sv_node_viz sv_node_pcl sv_util_manager)
 endif()
-
-# sim ==========================================================================
-# cc_library( NAME sim_rt SRCS "sim/transform.cpp" DEPS sv_base Eigen3::Eigen
-# Sophus::Sophus)
-
-# cc_library( NAME doctest_main SRCS "sim/doctest_main.cpp" DEPS sv_base)
-
-# cc_binary( NAME sim_test SRCS "sim/tuple_test.cpp" "sim/transform_test.cpp"
-# "sim/ray_test.cpp" DEPS sv_sim_rt sv_doctest_main)
