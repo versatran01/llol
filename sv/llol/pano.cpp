@@ -74,14 +74,15 @@ int DepthPano::AddRow(const LidarSweep& sweep, const cv::Range& curr, int sr) {
   int n = 0;
 
   for (int sc = curr.start; sc < curr.end; ++sc) {
-    const auto& xyzr = sweep.XyzrAt({sc, sr});
-    const float rg_s = xyzr[3];  // precomputed range
-    if (!(rg_s > 0)) continue;   // filter out nan
+    const auto& pixel_s = sweep.PixelAt({sc, sr});
+    if (!pixel_s.Ok()) continue;
 
     // Transform into pano frame
-    Eigen::Map<const Vector3f> pt_s(&xyzr[0]);
-    const auto pt_p = sweep.TfAt(sc) * pt_s;
+    const auto pt_p = sweep.TfAt(sc) * pixel_s.Vec3fMap();
     const auto rg_p = pt_p.norm();
+
+    // Ignore too far and too close stuff
+    if (rg_p < min_range || rg_p > max_range) continue;
 
     // Project to pano
     const auto px_p = model.Forward(pt_p.x(), pt_p.y(), pt_p.z(), rg_p);
@@ -94,14 +95,11 @@ int DepthPano::AddRow(const LidarSweep& sweep, const cv::Range& curr, int sr) {
 }
 
 bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
-  // Ignore too far and too close stuff
-  if (rg < min_range || rg > max_range) return false;
-
-  auto& p = PixelAt(px);
+  auto& pixel = PixelAt(px);
 
   // If depth is 0, this is a new point and we give it a relatively large cnt
-  if (p.raw == 0) {
-    p.SetRangeCount(rg, max_cnt / 2);
+  if (pixel.raw == 0) {
+    pixel.SetRangeCount(rg, max_cnt / 2);
     return true;
   }
 
@@ -109,25 +107,25 @@ bool DepthPano::FuseDepth(const cv::Point& px, float rg) {
   // matter), we just set the range to the new one.
   // This could happend at the beginning of the odom, or when a pixel is cleared
   // by new evidence, or right after a new rendering
-  if (p.cnt == 0) {
-    p.SetRangeCount(rg, 2);
+  if (pixel.cnt == 0) {
+    pixel.SetRangeCount(rg, 2);
     return true;
   }
 
   // Otherwise we have a valid depth with some evidence (cnt > 0)
-  const auto rg0 = p.GetRange();
+  const auto rg0 = pixel.GetRange();
 
   // Check if new and old are close enough
   if ((std::abs(rg - rg0) / rg0) < fuse_ratio) {
     // close enough, do a weighted update
-    const auto rg1 = (rg0 * p.cnt + rg) / (p.cnt + 1);
-    p.SetRange(rg1);
+    const auto rg1 = (rg0 * pixel.cnt + rg) / (pixel.cnt + 1);
+    pixel.SetRange(rg1);
     // And increment cnt but do not exceed max
-    if (p.cnt < max_cnt) ++p.cnt;
+    if (pixel.cnt < max_cnt) ++pixel.cnt;
     return true;
   } else {
     // not close, keep old but decrement its cnt
-    if (p.cnt > 0) --p.cnt;
+    if (pixel.cnt > 0) --pixel.cnt;
     return false;
   }
 }
@@ -161,7 +159,7 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
   dbuf2.setTo(0);
   gsize = gsize <= 0 ? rows() : gsize;
 
-  const int n = tbb::parallel_reduce(
+  const int total = tbb::parallel_reduce(
       tbb::blocked_range<int>(0, rows(), gsize),
       0,
       [&](const auto& blk, int n) {
@@ -176,7 +174,7 @@ int DepthPano::Render(Sophus::SE3f tf_p2_p1, int gsize) {
 
   // set number of sweeps to 1
   num_sweeps = 1;
-  return n;
+  return total;
 }
 
 int DepthPano::RenderRow(const Sophus::SE3f& tf_p2_p1, int r1) {
@@ -195,6 +193,8 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_p2_p1, int r1) {
     const auto pt2 = tf_p2_p1 * pt1_map;
     const auto rg2 = pt2.norm();
 
+    if (rg2 < min_range || rg2 > max_range) continue;
+
     // xyz2 -> px2
     const auto px2 = model.Forward(pt2.x(), pt2.y(), pt2.z(), rg2);
     if (px2.x < 0) continue;
@@ -207,19 +207,17 @@ int DepthPano::RenderRow(const Sophus::SE3f& tf_p2_p1, int r1) {
 }
 
 bool DepthPano::UpdateBuffer(const cv::Point& px, float rg, int cnt) {
-  if (rg < min_range || rg > max_range) return false;
-
-  auto& dp2 = dbuf2.at<DepthPixel>(px);
+  auto& pixel = dbuf2.at<DepthPixel>(px);
 
   // if the destination pixel is empty, or the new rg is smaller than the old
   // one, we update the depth
-  if (dp2.raw == 0 || rg < dp2.GetRange()) {
+  if (pixel.raw == 0 || rg < pixel.GetRange()) {
     // When rendering a new depth pano, if the original pixel is well estimated
     // (high cnt), this means that it also has good visibility from the current
     // viewpoint. On the other hand, if it has low cnt, this means that it was
     // probably occluded. Therefore, we simply half the original cnt and make it
     // the new one
-    dp2.SetRangeCount(rg, cnt / 2);
+    pixel.SetRangeCount(rg, cnt / 2);
     return true;
   }
 

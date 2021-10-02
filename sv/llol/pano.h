@@ -18,7 +18,7 @@ struct DepthPixel {
   void SetRange(float rg) { raw = static_cast<uint16_t>(rg * kScale); }
   void SetRangeCount(float rg, int n) {
     SetRange(rg);
-    cnt = n;
+    cnt = static_cast<uint16_t>(n);
   }
 } __attribute__((packed));
 static_assert(sizeof(DepthPixel) == 4, "Size of DepthPixel is not 4");

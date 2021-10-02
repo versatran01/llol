@@ -72,7 +72,7 @@ int SweepGrid::ScoreRow(const LidarScan& scan, int r) {
     // Note that we only take the first row regardless of row size
     // this is because ouster lidar image is staggered.
     // Maybe we will handle destaggering it later
-    const auto curve = scan.ScoreAt(px_s, cell_size.width);
+    const auto curve = scan.CalcScore(px_s, cell_size.width);
     // but the corresponding cell is within a sweep so need to offset
     ScoreAt({c + curr.start, r}) = curve;  // could be nan
     n += static_cast<int>(!std::isnan(curve[0]));

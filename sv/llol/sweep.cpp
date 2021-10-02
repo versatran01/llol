@@ -16,13 +16,11 @@ int LidarSweep::Add(const LidarScan& scan) {
 
   UpdateTime(scan.time, scan.dt);
   UpdateView(scan.curr);
-
-  static cv::Mat range;
-  cv::extractChannel(scan.mat, range, 3);
+  scale = scan.scale;
 
   // copy to storage
   scan.mat.copyTo(mat.colRange(curr));  // x,y,w,h
-  return cv::countNonZero(range == range);
+  return cv::countNonZero(ExtractRange());
 }
 
 void LidarSweep::Interp(const Trajectory& traj, int gsize) {
@@ -43,7 +41,7 @@ void LidarSweep::Interp(const Trajectory& traj, int gsize) {
           const auto& st1 = traj.At(tc + 1);
 
           const auto dr = (st0.rot.inverse() * st1.rot).log();
-          const auto dp = (-st0.pos + st1.pos).eval();
+          const auto dp = (st1.pos - st0.pos).eval();
 
           for (int j = 0; j < cell_width; ++j) {
             // which column
@@ -59,7 +57,7 @@ void LidarSweep::Interp(const Trajectory& traj, int gsize) {
 }
 
 std::string LidarSweep::Repr() const {
-  return fmt::format("LidarSweep( t0={}, dt={}, xyzr={}, col_range={})",
+  return fmt::format("LidarSweep(t0={}, dt={}, xyzr={}, col_range={})",
                      time,
                      dt,
                      sv::Repr(mat),

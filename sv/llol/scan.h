@@ -19,7 +19,7 @@ struct ScanBase {
 
   ScanBase() = default;
   ScanBase(const cv::Size& size, int dtype);
-  ScanBase(double time, double dt, const cv::Mat& mat, const cv::Range& curr);
+  ScanBase(double time, double dt, const cv::Mat& scan, const cv::Range& curr);
   virtual ~ScanBase() noexcept = default;
 
   /// @brief Info
@@ -38,31 +38,54 @@ struct ScanBase {
   void UpdateView(const cv::Range& new_curr);
   /// @brief Update time (time and dt) given new time
   void UpdateTime(double new_time, double new_dt);
+  /// @brief Extract the range channel (16UC1)
+  cv::Mat ExtractRange() const;
 };
+
+/// @struct This should match the ouster scan
+struct ScanPixel {
+  float x{};
+  float y{};
+  float z{};
+  uint16_t range_raw{};
+  uint16_t intensity{};
+
+  bool Ok() const noexcept { return !std::isnan(x); }
+  auto Vec3fMap() const { return Eigen::Map<const Eigen::Vector3f>(&x); }
+};
+static_assert(sizeof(ScanPixel) == sizeof(float) * 4,
+              "Size of ScanPixel must be 16");
 
 /// @struct Lidar Scan like an image, with pixel (x,y,z,r)
 struct LidarScan : public ScanBase {
-  using PixelT = cv::Vec4f;
+  using PixelT = ScanPixel;
   static constexpr int kDtype = CV_32FC4;
+
+  /// data
+  double scale{};  // scale for converting range to float
 
   LidarScan() = default;
   /// @brief Ctor for allocating storage
   explicit LidarScan(const cv::Size& size);
   /// @brief Ctor for incoming lidar scan
-  LidarScan(double time, double dt, const cv::Mat& xyzr, const cv::Range& curr);
+  LidarScan(double time,
+            double dt,
+            double scale,
+            const cv::Mat& scan,
+            const cv::Range& curr);
 
   /// @brief At
-  float RangeAt(const cv::Point& px) const { return mat.at<PixelT>(px)[3]; }
-  const auto& XyzrAt(const cv::Point& px) const { return mat.at<PixelT>(px); }
-  cv::Vec2f ScoreAt(const cv::Point& px, int width) const;
+  const auto& PixelAt(const cv::Point& px) const { return mat.at<PixelT>(px); }
+  float RangeAt(const cv::Point& px) const {
+    return PixelAt(px).range_raw / scale;
+  }
 
+  /// @brief Calculate smoothness and variance score of a cell starting at px
+  cv::Vec2f CalcScore(const cv::Point& px, int width) const;
+  /// @brief Calculate mean and covar of a cell in rect
   void CalcMeanCovar(const cv::Rect& rect, MeanCovar3f& mc) const;
-
-  /// @brief Draw
-  cv::Mat DrawRange() const;
 };
 
-cv::Mat MakeTestXyzr(const cv::Size& size);
 LidarScan MakeTestScan(const cv::Size& size);
 
 }  // namespace sv

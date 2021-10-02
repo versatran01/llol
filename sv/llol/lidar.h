@@ -19,15 +19,16 @@ struct LidarModel {
 
   /// @brief xyzr to pixel, bad result is {-1, -1}
   cv::Point Forward(float x, float y, float z, float r) const;
-  cv::Point2f ForwardF(float x, float y, float z, float r) const;
   /// @brief pixel to xyz
   cv::Point3f Backward(int r, int c, float rg = 1.0) const;
 
   /// @brief compute row and col given xyzr
   int ToRow(float z, float r) const;
   int ToCol(float x, float y) const;
-  float ToRowF(float z, float r) const;
-  float ToColF(float x, float y) const;
+
+  //  cv::Point2f ForwardF(float x, float y, float z, float r) const;
+  //  float ToRowF(float z, float r) const;
+  //  float ToColF(float x, float y) const;
 
   /// @brief Check if r/c inside image
   bool RowInside(float r) const noexcept { return 0 <= r && r < size.height; }

@@ -2,65 +2,70 @@
 
 #include "sv/llol/grid.h"
 #include "sv/llol/imu.h"
-#include "sv/llol/nlls.h"
+#include "sv/util/nlls.h"
 
 namespace sv {
 
-struct GicpCost final : public CostBase {
- public:
-  static constexpr int kNumParams = 6;
+struct GicpCost : public CostBase {
   static constexpr int kResidualDim = 3;
-  enum { NUM_PARAMETERS = kNumParams, NUM_RESIDUALS = Eigen::Dynamic };
-  using ErrorVector = Eigen::Matrix<double, kNumParams, 1>;
 
-  /// @brief Error state
-  enum Block { kR0, kP0 };
-  struct State {
-    static constexpr int kBlockSize = 3;
-    using Vec3CMap = Eigen::Map<const Eigen::Vector3d>;
-
-    State(const double* const x) : x_{x} {}
-    auto r0() const { return Vec3CMap{x_ + Block::kR0 * kBlockSize}; }
-    auto p0() const { return Vec3CMap{x_ + Block::kP0 * kBlockSize}; }
-
-    const double* const x_{nullptr};
-  };
-
-  GicpCost(int gsize = 0);
-
-  int NumResiduals() const override;
-  int NumParameters() const override { return kNumParams; }
-  bool Compute(const double* px, double* pr, double* pJ) const override;
+  GicpCost(int num_params, double w_imu, int gsize = 0);
 
   void ResetError();
+  int NumResiduals() const override;
+  int NumParameters() const override { return error.size(); }
+
   void UpdateMatches(const SweepGrid& grid);
   void UpdatePreint(const Trajectory& traj, const ImuQueue& imuq);
-  void UpdateTraj(Trajectory& traj) const;
+
+  virtual void UpdateTraj(Trajectory& traj) const = 0;
 
   int gsize_{};
   double imu_weight{0.0};
 
   const SweepGrid* pgrid{nullptr};
   std::vector<PointMatch> matches;
+  std::vector<Eigen::Vector3d> pts_p_hat;
 
   const Trajectory* ptraj{nullptr};
   ImuPreintegration preint;
 
-  ErrorVector error{};
+  Eigen::VectorXd error{};
 };
 
-/// @brief Gicp with rigid transformation
-// struct GicpRigidCost final : public GicpCost {
-//  using GicpCost::GicpCost;
-//  bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
-//  void UpdateTraj(Trajectory& traj) const override;
-//};
+struct GicpCostRigid final : public GicpCost {
+  GicpCostRigid(double w_imu, int gsize = 0) : GicpCost(6, w_imu, gsize) {}
 
-///// @brief Linear interpolation in translation error state
-// struct GicpLinearCost final : public GicpCost {
-//  using GicpCost::GicpCost;
-//  bool operator()(const double* x_ptr, double* r_ptr, double* J_ptr) const;
-//  void UpdateTraj(Trajectory& traj) const override;
-//};
+  /// @brief Error state
+  enum Block { kR0, kP0 };
+  struct State {
+    using Vec3CMap = Eigen::Map<const Eigen::Vector3d>;
+    State(const double* const x) : x_{x} {}
+    auto r0() const { return Vec3CMap{x_ + Block::kR0 * 3}; }
+    auto p0() const { return Vec3CMap{x_ + Block::kP0 * 3}; }
+    const double* const x_{nullptr};
+  };
+
+  bool Compute(const double* px, double* pr, double* pJ) const override;
+  void UpdateTraj(Trajectory& traj) const override;
+};
+
+struct GicpCostLinear final : public GicpCost {
+  GicpCostLinear(double w_imu, int gsize = 0) : GicpCost(9, w_imu, gsize) {}
+
+  /// @brief Error state
+  enum Block { kR0, kP0, kP1 };
+  struct State {
+    using Vec3CMap = Eigen::Map<const Eigen::Vector3d>;
+    State(const double* const x) : x_{x} {}
+    auto r0() const { return Vec3CMap{x_ + Block::kR0 * 3}; }
+    auto p0() const { return Vec3CMap{x_ + Block::kP0 * 3}; }
+    auto p1() const { return Vec3CMap{x_ + Block::kP1 * 3}; }
+    const double* const x_{nullptr};
+  };
+
+  bool Compute(const double* px, double* pr, double* pJ) const override;
+  void UpdateTraj(Trajectory& traj) const override;
+};
 
 }  // namespace sv

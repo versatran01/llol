@@ -43,15 +43,6 @@ cv::Point LidarModel::Forward(float x, float y, float z, float r) const {
   return {col, row};
 }
 
-cv::Point2f LidarModel::ForwardF(float x, float y, float z, float r) const {
-  cv::Point2f bad{-1.0F, -1.0F};
-  const auto row = ToRowF(z, r);
-  if (!RowInside(row)) return bad;
-  const auto col = ToColF(x, y);
-  if (!ColInside(col)) return bad;
-  return {col, row};
-}
-
 cv::Point3f LidarModel::Backward(int r, int c, float rg) const {
   //  CHECK_GT(rg, 0);
   const auto& elev = elevs.at(r);
@@ -70,15 +61,24 @@ int LidarModel::ToCol(float x, float y) const {
   return static_cast<int>(azim / azim_delta);
 }
 
-float LidarModel::ToRowF(float z, float r) const {
-  const float elev = std::asin(z / r);
-  return (elev_max - elev) / elev_delta;
-}
+// cv::Point2f LidarModel::ForwardF(float x, float y, float z, float r) const {
+//  cv::Point2f bad{-1.0F, -1.0F};
+//  const auto row = ToRowF(z, r);
+//  if (!RowInside(row)) return bad;
+//  const auto col = ToColF(x, y);
+//  if (!ColInside(col)) return bad;
+//  return {col, row};
+//}
 
-float LidarModel::ToColF(float x, float y) const {
-  const float azim = std::atan2(y, -x) + kPiF;
-  return azim / azim_delta;
-}
+// float LidarModel::ToRowF(float z, float r) const {
+//  const float elev = std::asin(z / r);
+//  return (elev_max - elev) / elev_delta;
+//}
+
+// float LidarModel::ToColF(float x, float y) const {
+//  const float azim = std::atan2(y, -x) + kPiF;
+//  return azim / azim_delta;
+//}
 
 std::string LidarModel::Repr() const {
   return fmt::format(

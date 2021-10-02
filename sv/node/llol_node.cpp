@@ -1,4 +1,4 @@
-#include "sv/node/odom_node.h"
+#include "sv/node/llol_node.h"
 
 #include <absl/strings/match.h>
 
@@ -171,7 +171,7 @@ void OdomNode::CameraCb(const sensor_msgs::ImageConstPtr& image_msg,
 
   Register();
 
-  PostProcess(scan);
+  PostProcess();
 
   Logging();
 
@@ -227,7 +227,10 @@ void OdomNode::Preprocess(const LidarScan& scan) {
     const auto& disps = grid_.DrawCurveVar();
 
     Imshow("scan",
-           ApplyCmap(scan.DrawRange(), 1 / kMaxRange, cv::COLORMAP_PINK, 0));
+           ApplyCmap(scan.ExtractRange(),
+                     1.0 / scan.scale / kMaxRange,
+                     cv::COLORMAP_PINK,
+                     0));
     Imshow("curve", ApplyCmap(disps[0], 1 / 0.25, cv::COLORMAP_VIRIDIS));
     Imshow("var", ApplyCmap(disps[1], 1 / 0.25, cv::COLORMAP_VIRIDIS));
     Imshow("filter",
@@ -236,7 +239,7 @@ void OdomNode::Preprocess(const LidarScan& scan) {
   }
 }
 
-void OdomNode::PostProcess(const LidarScan& scan) {
+void OdomNode::PostProcess() {
   const auto num_good_cells = grid_.NumCandidates();
   const auto num_matches = sm_.GetRef("grid.matches").last();
   const double match_ratio = num_matches / num_good_cells;
@@ -283,7 +286,10 @@ void OdomNode::PostProcess(const LidarScan& scan) {
 
   if (vis_) {
     Imshow("sweep",
-           ApplyCmap(sweep_.DrawRange(), 1 / kMaxRange, cv::COLORMAP_PINK, 0));
+           ApplyCmap(sweep_.ExtractRange(),
+                     1.0 / sweep_.scale / kMaxRange,
+                     cv::COLORMAP_PINK,
+                     0));
     const auto& disps = pano_.DrawRangeCount();
     Imshow(
         "pano",

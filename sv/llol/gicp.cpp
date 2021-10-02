@@ -11,7 +11,8 @@ namespace sv {
 
 /// GicpSolver =================================================================
 GicpSolver::GicpSolver(const GicpParams& params)
-    : iters{params.outer, params.inner},
+    : outer_iters{params.outer},
+      inner_iters{params.inner},
       cov_lambda{params.cov_lambda},
       half_win{params.half_cols, params.half_rows},
       imu_weight{params.imu_weight},
@@ -20,8 +21,8 @@ GicpSolver::GicpSolver(const GicpParams& params)
 std::string GicpSolver::Repr() const {
   return fmt::format(
       "GicpSolver(outer={}, inner={}, cov_lambda={}, imu_weight={})",
-      iters.first,
-      iters.second,
+      outer_iters,
+      inner_iters,
       cov_lambda,
       imu_weight);
 }
@@ -85,15 +86,13 @@ int GicpSolver::MatchCell(SweepGrid& grid,
 
   // if we don't have enough points also reset and return 0
   const int pano_pts = pano_win.area();
-  if (match.mc_p.n < (pano_pts / 2)) {
+  if (match.mc_p.n * 2 < pano_pts) {
     match.ResetPano();
     return 0;
   }
 
-  // Now this is a good match
+  // Now this is a good match, we update the px location
   match.px_p = px_p;
-  // Otherwise compute U'U = inv(C + lambda * I) and we have a good match
-  // match.CalcSqrtInfo(cov_lambda);
   match.CalcSqrtInfo(T_p_g.rotationMatrix());
   // Although scale could be subsumed by U, we kept it for visualization
   // weight / pano_area is in [0, 1], but if it is too small, then imu cost will

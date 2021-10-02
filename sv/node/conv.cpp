@@ -41,6 +41,7 @@ LidarScan MakeScan(const sensor_msgs::Image& image_msg,
 
   return {image_msg.header.stamp.toSec(),    // t
           cinfo_msg.K[0],                    // dt
+          cinfo_msg.R[0],                    // scale
           cv_ptr->image,                     // xyzr
           cv::Range(cinfo_msg.roi.x_offset,  // col_rg
                     cinfo_msg.roi.x_offset + cinfo_msg.roi.width)};

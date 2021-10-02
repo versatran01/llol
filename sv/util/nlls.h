@@ -109,8 +109,8 @@ class NllsSolver {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   using Scalar = double;
-  using Vector = Eigen::VectorX<Scalar>;
-  using Matrix = Eigen::MatrixX<Scalar>;
+  using Vector = Eigen::Matrix<Scalar, Eigen::Dynamic, 1>;
+  using Matrix = Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic>;
   using RowMat =
       Eigen::Matrix<Scalar, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
   using VectorMap = Eigen::Map<Vector>;

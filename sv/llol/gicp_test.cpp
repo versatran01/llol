@@ -10,8 +10,8 @@ TEST(GicpTest, TestCtor) {
   GicpSolver gicp;
   std::cout << gicp << "\n";
 
-  EXPECT_EQ(gicp.iters.first, 3);
-  EXPECT_EQ(gicp.iters.second, 3);
+  EXPECT_EQ(gicp.outer_iters, 3);
+  EXPECT_EQ(gicp.inner_iters, 3);
   EXPECT_EQ(gicp.cov_lambda, 1e-6F);
 }
 
@@ -25,7 +25,7 @@ TEST(GicpTest, TestMatch) {
 
   GicpSolver gicp;
 
-  const int n = gicp.Match(grid, pano);
+  const auto n = gicp.Match(grid, pano);
   EXPECT_EQ(n, 1984);  // probably miss top and bottom
 }
 
@@ -39,7 +39,7 @@ void BM_GicpMatch(benchmark::State& state) {
 
   GicpSolver gicp;
 
-  const int gsize = state.range(0);
+  const auto gsize = state.range(0);
   for (auto _ : state) {
     const auto n = gicp.Match(grid, pano, gsize);
     benchmark::DoNotOptimize(n);

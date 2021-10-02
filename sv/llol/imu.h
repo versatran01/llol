@@ -147,8 +147,8 @@ struct ImuPreintegration {
   /// @brief Compute measurement for imu trajectory
   int Compute(const ImuQueue& imuq, double t0, double t1);
   void Reset();
-
   void Integrate(double dt, const ImuData& imu, const ImuNoise& noise);
+  bool Ok() const noexcept { return n > 0; }
 
   /// Data
   int n{0};           // number of times integrated

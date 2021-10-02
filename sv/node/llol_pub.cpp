@@ -1,3 +1,4 @@
+#include <cv_bridge/cv_bridge.h>
 #include <geometry_msgs/PoseArray.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -10,13 +11,14 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include "sv/node/odom_node.h"
+#include "sv/node/llol_node.h"
 #include "sv/node/pcl.h"
 #include "sv/node/viz.h"
 
 namespace sv {
 
 using Vector3d = Eigen::Vector3d;
+using RowMat6d = Eigen::Matrix<double, 6, 6, Eigen::RowMajor>;
 using geometry_msgs::PoseArray;
 using geometry_msgs::PoseStamped;
 using geometry_msgs::PoseWithCovarianceStamped;
@@ -36,10 +38,11 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   //  static auto pub_bias_std =
   //      pnh_.advertise<sensor_msgs::Imu>("imu_bias_std", 1);
 
-  static auto pub_feat = pnh_.advertise<CloudXYZ>("feat", 1);
-  static auto pub_pano = pnh_.advertise<CloudXYZ>("pano", 1);
-  static auto pub_sweep = pnh_.advertise<CloudXYZ>("sweep", 1);
   static auto pub_grid = pnh_.advertise<MarkerArray>("grid", 1);
+  static auto pub_feat = pnh_.advertise<CloudXYZ>("feat", 1);
+  static auto pub_sweep = pnh_.advertise<CloudXYZ>("sweep", 1);
+  static auto pub_pano_image = it_.advertiseCamera("pano", 1);
+  static auto pub_pano_cloud = pnh_.advertise<CloudXYZ>("pano_cloud", 1);
 
   static auto pub_runtime = pnh_.advertise<sensor_msgs::Range>("runtime", 1);
 
@@ -80,9 +83,9 @@ void OdomNode::Publish(const std_msgs::Header& header) {
 
   // Publish pano
   static CloudXYZ pano_cloud;
-  if (pub_pano.getNumSubscribers() > 0) {
+  if (pub_pano_cloud.getNumSubscribers() > 0) {
     Pano2Cloud(pano_, pano_header, pano_cloud);
-    pub_pano.publish(pano_cloud);
+    pub_pano_cloud.publish(pano_cloud);
   }
 
   // Publish match
@@ -122,6 +125,12 @@ void OdomNode::Publish(const std_msgs::Header& header) {
     pub_runtime.publish(runtime);
   }
 
+  // publish pano image/cinfo
+  static cv_bridge::CvImagePtr cv_ptr;
+  static sensor_msgs::CameraInfoPtr cinfo_msg;
+  if (pub_pano_image.getNumSubscribers() > 0) {
+  }
+
   // publish latest traj as path
   PoseStamped pose;
   pose.header.stamp = header.stamp;
@@ -133,10 +142,15 @@ void OdomNode::Publish(const std_msgs::Header& header) {
     PoseWithCovarianceStamped pose_cov;
     pose_cov.header = pose.header;
     pose_cov.pose.pose = pose.pose;
-    Eigen::Map<Eigen::Matrix<double, 6, 6, Eigen::RowMajor>> cov(
-        &pose_cov.pose.covariance[0]);
-    cov.topLeftCorner<3, 3>() = traj_.cov.bottomRightCorner<3, 3>();
-    cov.bottomLeftCorner<3, 3>() = traj_.cov.topRightCorner<3, 3>();
+    Eigen::Map<RowMat6d> cov(&pose_cov.pose.covariance[0]);
+    // transform covariance from local frame to odom frame
+    const auto R_odom_lidar = traj_.TfOdomLidar().so3().matrix();
+    cov.topLeftCorner<3, 3>().noalias() = R_odom_lidar *
+                                          traj_.cov.bottomRightCorner<3, 3>() *
+                                          R_odom_lidar.transpose();
+    cov.bottomRightCorner<3, 3>().noalias() = R_odom_lidar *
+                                              traj_.cov.topLeftCorner<3, 3>() *
+                                              R_odom_lidar.transpose();
     pub_pose_cov.publish(pose_cov);
   }
 

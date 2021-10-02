@@ -30,10 +30,10 @@ struct Cost {
 
   template <typename T>
   bool operator()(const T* _x, T* _r) const {
-    Eigen::Map<const Eigen::Vector3<T>> x(_x);
+    Eigen::Map<const Eigen::Matrix<T, 3, 1>> x(_x);
 
     const auto eR = Sophus::SO3<T>::exp(x);
-    Eigen::Map<Eigen::Vector3<T>> r(_r);
+    Eigen::Map<Eigen::Matrix<T, 3, 1>> r(_r);
 
     r = a - eR * (R * b);
     return true;
@@ -53,7 +53,7 @@ Cost MakeCost() {
   return c;
 }
 
-//TEST(CostTest, TestJacobian) {
+// TEST(CostTest, TestJacobian) {
 //  Cost c = MakeCost();
 
 //  Eigen::Vector3d x0;
@@ -88,7 +88,7 @@ void BM_CostManual(benchmark::State& state) {
 }
 BENCHMARK(BM_CostManual);
 
-//void BM_CostAutodiff(benchmark::State& state) {
+// void BM_CostAutodiff(benchmark::State& state) {
 //  Cost c = MakeCost();
 //  AdCost<Cost> adc(c);
 
@@ -102,7 +102,7 @@ BENCHMARK(BM_CostManual);
 //    benchmark::DoNotOptimize(r0);
 //  }
 //}
-//BENCHMARK(BM_CostAutodiff);
+// BENCHMARK(BM_CostAutodiff);
 
 }  // namespace
 }  // namespace sv

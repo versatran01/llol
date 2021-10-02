@@ -43,6 +43,7 @@ struct OdomNode {
   SweepGrid grid_;
   DepthPano pano_;
   GicpSolver gicp_;
+  std::optional<Sophus::SE3d> pano_pose_;
 
   /// stats
   TimerManager tm_{"llol"};
@@ -60,8 +61,7 @@ struct OdomNode {
   void Preprocess(const LidarScan& scan);
   void Register();
   bool IcpRigid();
-  //  bool IcpLinear();
-  void PostProcess(const LidarScan& scan);
+  void PostProcess();
 };
 
 }  // namespace sv

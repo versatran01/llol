@@ -55,7 +55,6 @@
 #include <glog/logging.h>
 
 #include <Eigen/Cholesky>
-#include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 #include <cassert>
 #include <cmath>

@@ -19,11 +19,12 @@ struct GicpSolver {
   explicit GicpSolver(const GicpParams& params = {});
 
   /// Params
-  std::pair<int, int> iters;  // (outer, inner) iterations
-  float cov_lambda{};         // lambda added to diagonal of covar
-  cv::Size half_win{};        // pano window size
-  double imu_weight{};        // how much weight to put on imu cost
-  double min_eigval{};        // min eigenvalues for solution remapping
+  int outer_iters{};
+  int inner_iters{};
+  float cov_lambda{};   // lambda added to diagonal of covar
+  cv::Size half_win{};  // pano window size
+  double imu_weight{};  // how much weight to put on imu cost
+  double min_eigval{};  // min eigenvalues for solution remapping
 
   /// @brief Repr / <<
   std::string Repr() const;

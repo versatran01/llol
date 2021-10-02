@@ -33,8 +33,8 @@ pano:
   min_sweeps: 10 # do not render when under min_sweeps
   min_range: 1.0 # min range to add to pano (1.0) [meter]
   max_range: 0.0 # min range to add to pano (1.0) [meter]
-  win_ratio: 0.08 # range ratio when matching (0.1)
-  fuse_ratio: 0.04 # range ratio when fusing (0.05)
+  win_ratio: 0.1 # range ratio when matching (0.1)
+  fuse_ratio: 0.025 # range ratio when fusing (0.05)
   align_gravity: true # render pano gravity algned (true)
   min_match_ratio: 0.9 # min match ratio to render (0.9)
-  max_translation: 4.0 # max translation to render (4.0) [meter]
+  max_translation: 5.0 # max translation to render (4.0) [meter]

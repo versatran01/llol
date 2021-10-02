@@ -16,18 +16,13 @@ static constexpr auto kTauD = static_cast<double>(M_PI * 2);
 // clang-format off
 /// @brief Make skew symmetric matrix
 template <typename T>
-Eigen::Matrix3<T> Hat3(const Eigen::Vector3<T>& w) {
+Eigen::Matrix<T, 3, 3> Hat3(const Eigen::Matrix<T, 3, 1>& w) {
   static_assert(std::is_floating_point_v<T>, "T must be floating point");
-  Eigen::Matrix3<T> S;
+  Eigen::Matrix<T, 3, 3> S;
   S << T(0.0),  -w(2),  w(1),
        w(2),    T(0.0), -w(0),
        -w(1),   w(0),   T(0.0);
   return S;
-}
-
-template <typename T>
-Eigen::Matrix3<T> ExpApprox(const Eigen::Vector3<T>& w) {
-  return Eigen::Matrix3<T>::Identity() + Hat3(w);
 }
 // clang-format on
 
@@ -172,6 +167,8 @@ Eigen::Matrix<T, N, N> MatrixSqrtUtU(const Eigen::Matrix<T, N, N>& A) {
 }
 
 /// @brief Basically c % cols
-inline int WrapCols(int c, int cols) { return c < 0 ? c + cols : c; }
+inline constexpr int WrapCols(int c, int cols) noexcept {
+  return c < 0 ? c + cols : c;
+}
 
 }  // namespace sv
