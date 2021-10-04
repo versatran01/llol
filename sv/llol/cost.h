@@ -50,22 +50,4 @@ struct GicpCostRigid final : public GicpCost {
   void UpdateTraj(Trajectory& traj) const override;
 };
 
-struct GicpCostLinear final : public GicpCost {
-  GicpCostLinear(double w_imu, int gsize = 0) : GicpCost(9, w_imu, gsize) {}
-
-  /// @brief Error state
-  enum Block { kR0, kP0, kP1 };
-  struct State {
-    using Vec3CMap = Eigen::Map<const Eigen::Vector3d>;
-    State(const double* const x) : x_{x} {}
-    auto r0() const { return Vec3CMap{x_ + Block::kR0 * 3}; }
-    auto p0() const { return Vec3CMap{x_ + Block::kP0 * 3}; }
-    auto p1() const { return Vec3CMap{x_ + Block::kP1 * 3}; }
-    const double* const x_{nullptr};
-  };
-
-  bool Compute(const double* px, double* pr, double* pJ) const override;
-  void UpdateTraj(Trajectory& traj) const override;
-};
-
 }  // namespace sv
