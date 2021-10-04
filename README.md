@@ -28,3 +28,10 @@ Run bag.
 
 See CMakeLists.txt for dependencies.
 
+To run multithread and show timing every 5s do
+```
+roslaunch llol llol.launch tbb:=1 log:=5
+```
+
+This is the open-source version, some advanced features may be missing.
+
