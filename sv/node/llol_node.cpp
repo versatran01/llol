@@ -14,6 +14,9 @@ OdomNode::OdomNode(const ros::NodeHandle& pnh)
   sub_imu_ = pnh_.subscribe(
       "imu", 100, &OdomNode::ImuCb, this, ros::TransportHints().tcpNoDelay());
 
+  odom_frame_ = pnh_.param<std::string>("odom_frame", "odom");
+  ROS_INFO_STREAM("Odom frame: " << odom_frame_);
+
   vis_ = pnh_.param<bool>("vis", true);
   ROS_INFO_STREAM("Visualize: " << (vis_ ? "True" : "False"));
 

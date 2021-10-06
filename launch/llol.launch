@@ -6,6 +6,7 @@
     <arg name="log" default="0"/>
     <arg name="vis" default="false"/>
     <arg name="rigid" default="true"/>
+    <arg name="odom_frame" default="odom"/>
 
     <node pkg="llol" type="sv_node_llol" name="llol_odom" output="screen" ns="os_node">
         <remap from="~imu" to="imu"/>
@@ -17,5 +18,6 @@
         <param name="log" type="int" value="$(arg log)"/>
         <param name="vis" type="bool" value="$(arg vis)"/>
         <param name="rigid" type="bool" value="$(arg rigid)"/>
+        <param name="odom_frame" type="string" value="$(arg odom_frame)"/>
     </node>
 </launch>
