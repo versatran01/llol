@@ -1,4 +1,4 @@
-# Low-Latency Odometry for Spinning Lidars
+# :laughing: Low-Latency Odometry for Spinning Lidars
 
 Sample data at
 https://www.dropbox.com/s/v4cth3z7hrqjsvf/raw-perch-loop-2021-09-06-17-22-06.bag?dl=0
