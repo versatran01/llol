@@ -34,7 +34,7 @@ void OdomNode::Register() {
     Imshow("match",
            ApplyCmap(grid_.DrawMatch(),
                      1.0 / (gicp_.half_win.area() * 4.0),
-                     cv::COLORMAP_VIRIDIS));
+                     cv::COLORMAP_JET));
   }
 }
 

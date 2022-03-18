@@ -11,7 +11,7 @@ namespace sv {
 /// LidarModel =================================================================
 LidarModel::LidarModel(const cv::Size& size_in, float vfov) : size{size_in} {
   if (vfov <= 0) {
-    vfov = kTauF / size.aspectRatio();
+    vfov = kTauF / (static_cast<double>(size.width)/size.height);
   }
 
   CHECK_GT(size.width, 0);
