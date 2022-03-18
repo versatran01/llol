@@ -19,7 +19,6 @@ namespace sv {
 
 using Vector3d = Eigen::Vector3d;
 using RowMat6d = Eigen::Matrix<double, 6, 6, Eigen::RowMajor>;
-using RowMat34d = Eigen::Matrix<double, 3, 4, Eigen::RowMajor>;
 using geometry_msgs::PoseArray;
 using geometry_msgs::PoseStamped;
 using geometry_msgs::PoseWithCovarianceStamped;
