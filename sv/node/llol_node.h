@@ -44,6 +44,7 @@ struct OdomNode {
   DepthPano pano_;
   GicpSolver gicp_;
   std::optional<Sophus::SE3d> pano_pose_;
+  std::optional<Sophus::SE3d> T_odom_pano_;
 
   /// stats
   TimerManager tm_{"llol"};

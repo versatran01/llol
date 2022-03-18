@@ -19,6 +19,7 @@ namespace sv {
 
 using Vector3d = Eigen::Vector3d;
 using RowMat6d = Eigen::Matrix<double, 6, 6, Eigen::RowMajor>;
+using RowMat34d = Eigen::Matrix<double, 3, 4, Eigen::RowMajor>;
 using geometry_msgs::PoseArray;
 using geometry_msgs::PoseStamped;
 using geometry_msgs::PoseWithCovarianceStamped;
@@ -42,6 +43,7 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   static auto pub_feat = pnh_.advertise<CloudXYZ>("feat", 1);
   static auto pub_sweep = pnh_.advertise<CloudXYZ>("sweep", 1);
   static auto pub_pano_image = it_.advertiseCamera("pano", 1);
+  static auto pub_pano_viz_image = it_.advertiseCamera("pano_viz", 1);
   static auto pub_pano_cloud = pnh_.advertise<CloudXYZ>("pano_cloud", 1);
 
   static auto pub_runtime = pnh_.advertise<sensor_msgs::Range>("runtime", 1);
@@ -127,8 +129,32 @@ void OdomNode::Publish(const std_msgs::Header& header) {
 
   // publish pano image/cinfo
   static cv_bridge::CvImagePtr cv_ptr;
-  static sensor_msgs::CameraInfoPtr cinfo_msg;
-  if (pub_pano_image.getNumSubscribers() > 0) {
+  static sensor_msgs::CameraInfoPtr cinfo_msg = 
+    boost::make_shared<sensor_msgs::CameraInfo>();
+  static sensor_msgs::ImagePtr image_msg;
+  if (pub_pano_image.getNumSubscribers() > 0 || 
+      pub_pano_viz_image.getNumSubscribers() > 0) {
+    if (T_odom_pano_.has_value()) {
+      cinfo_msg->header = pano_header;
+      cinfo_msg->width = pano_.size().width;
+      cinfo_msg->height = pano_.size().height;
+      if (pub_pano_image.getNumSubscribers() > 0) {
+        image_msg =
+            cv_bridge::CvImage(pano_header, "16UC2", pano_.dbuf2).toImageMsg();
+        pub_pano_image.publish(image_msg, cinfo_msg);
+      }
+      if (pub_pano_viz_image.getNumSubscribers() > 0) {
+        // extract depth channel for rqt
+        cv::Mat channel[2];
+        cv::split(pano_.dbuf2, channel);
+        image_msg =
+            cv_bridge::CvImage(pano_header, "mono16", channel[0]).toImageMsg();
+        pub_pano_viz_image.publish(image_msg, cinfo_msg);
+      }
+
+      // clear so only publish once pano is done
+      T_odom_pano_.reset();
+    }
   }
 
   // publish latest traj as path

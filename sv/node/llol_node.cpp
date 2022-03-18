@@ -234,11 +234,11 @@ void OdomNode::Preprocess(const LidarScan& scan) {
                      1.0 / scan.scale / kMaxRange,
                      cv::COLORMAP_PINK,
                      0));
-    Imshow("curve", ApplyCmap(disps[0], 1 / 0.25, cv::COLORMAP_VIRIDIS));
-    Imshow("var", ApplyCmap(disps[1], 1 / 0.25, cv::COLORMAP_VIRIDIS));
+    Imshow("curve", ApplyCmap(disps[0], 1 / 0.25, cv::COLORMAP_JET));
+    Imshow("var", ApplyCmap(disps[1], 1 / 0.25, cv::COLORMAP_JET));
     Imshow("filter",
            ApplyCmap(
-               grid_.DrawFilter(), 1 / grid_.max_curve, cv::COLORMAP_VIRIDIS));
+               grid_.DrawFilter(), 1 / grid_.max_curve, cv::COLORMAP_JET));
   }
 }
 
@@ -271,6 +271,8 @@ void OdomNode::PostProcess() {
     auto _ = tm_.Scoped("Render");
     // Render pano at the latest lidar pose wrt pano (T_p1_p2 = T_p1_lidar)
     n_render = pano_.Render(T_p2_p1.cast<float>(), tbb_);
+    // Save current pano pose
+    T_odom_pano_ = traj_.T_odom_pano;
     // Once rendering is done we need to update traj accordingly
     traj_.MoveFrame(T_p2_p1);
   }
@@ -299,7 +301,7 @@ void OdomNode::PostProcess() {
         ApplyCmap(
             disps[0], 1.0 / DepthPixel::kScale / kMaxRange, cv::COLORMAP_PINK));
     Imshow("count",
-           ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_VIRIDIS));
+           ApplyCmap(disps[1], 1.0 / pano_.max_cnt, cv::COLORMAP_JET));
   }
 }
 
