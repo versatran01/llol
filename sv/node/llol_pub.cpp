@@ -143,7 +143,7 @@ void OdomNode::Publish(const std_msgs::Header& header) {
       cinfo_msg->height = pano_.size().height;
       Eigen::Map<RowMat34d> P_map(&cinfo_msg->P[0]);
       P_map = T_odom_pano_->matrix3x4();
-      cinfo_msg->R[0] = 1/DepthPixel::kScale;
+      cinfo_msg->R[0] = DepthPixel::kScale;
 
       // Publish transform
       // This is one pano stamp older, so different frame from pano_frame_
