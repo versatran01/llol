@@ -34,6 +34,7 @@ struct OdomNode {
   std::string imu_frame_{};
   std::string lidar_frame_{};
   std::string pano_frame_{"pano"};
+  std::string completed_pano_frame_{"completed_pano"};
   std::string odom_frame_{"odom"};
 
   /// odom

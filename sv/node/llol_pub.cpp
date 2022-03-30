@@ -19,6 +19,7 @@ namespace sv {
 
 using Vector3d = Eigen::Vector3d;
 using RowMat6d = Eigen::Matrix<double, 6, 6, Eigen::RowMajor>;
+using RowMat34d = Eigen::Matrix<double, 3, 4, Eigen::RowMajor>;
 using geometry_msgs::PoseArray;
 using geometry_msgs::PoseStamped;
 using geometry_msgs::PoseWithCovarianceStamped;
@@ -41,8 +42,10 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   static auto pub_grid = pnh_.advertise<MarkerArray>("grid", 1);
   static auto pub_feat = pnh_.advertise<CloudXYZ>("feat", 1);
   static auto pub_sweep = pnh_.advertise<CloudXYZ>("sweep", 1);
-  static auto pub_pano_image = it_.advertiseCamera("pano", 1);
-  static auto pub_pano_viz_image = it_.advertiseCamera("pano_viz", 1);
+  // Need to have two levels here for ImageTransport to namespace the
+  // camera_info topic properly
+  static auto pub_pano_image = it_.advertiseCamera("pano/img", 1);
+  static auto pub_pano_viz_image = it_.advertiseCamera("pano_viz/img", 1);
   static auto pub_pano_cloud = pnh_.advertise<CloudXYZ>("pano_cloud", 1);
 
   static auto pub_runtime = pnh_.advertise<sensor_msgs::Range>("runtime", 1);
@@ -134,20 +137,36 @@ void OdomNode::Publish(const std_msgs::Header& header) {
   if (pub_pano_image.getNumSubscribers() > 0 || 
       pub_pano_viz_image.getNumSubscribers() > 0) {
     if (T_odom_pano_.has_value()) {
-      cinfo_msg->header = pano_header;
+      cinfo_msg->header.stamp = header.stamp;
+      cinfo_msg->header.frame_id = completed_pano_frame_;
       cinfo_msg->width = pano_.size().width;
       cinfo_msg->height = pano_.size().height;
+      Eigen::Map<RowMat34d> P_map(&cinfo_msg->P[0]);
+      P_map = T_odom_pano_->matrix3x4();
+      cinfo_msg->R[0] = 1/DepthPixel::kScale;
+
+      // Publish transform
+      // This is one pano stamp older, so different frame from pano_frame_
+      TransformStamped tf_o_pi;
+      tf_o_pi.header.frame_id = odom_frame_;
+      tf_o_pi.header.stamp = header.stamp;
+      tf_o_pi.child_frame_id = completed_pano_frame_;
+      SE3dToMsg(*T_odom_pano_, tf_o_pi.transform);
+      tf_broadcaster.sendTransform(tf_o_pi);
+
       if (pub_pano_image.getNumSubscribers() > 0) {
         image_msg =
-            cv_bridge::CvImage(pano_header, "16UC2", pano_.dbuf2).toImageMsg();
+            cv_bridge::CvImage(cinfo_msg->header, "16UC2", pano_.dbuf2).toImageMsg();
         pub_pano_image.publish(image_msg, cinfo_msg);
       }
       if (pub_pano_viz_image.getNumSubscribers() > 0) {
         // extract depth channel for rqt
         cv::Mat channel[2];
         cv::split(pano_.dbuf2, channel);
+        
         image_msg =
-            cv_bridge::CvImage(pano_header, "mono16", channel[0]).toImageMsg();
+            cv_bridge::CvImage(cinfo_msg->header, "bgr8", 
+                ApplyCmap(channel[0], 1.0 / 65536, cv::COLORMAP_JET)).toImageMsg();
         pub_pano_viz_image.publish(image_msg, cinfo_msg);
       }
 
