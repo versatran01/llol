@@ -8,7 +8,7 @@ imuq:
   gyr_bias_noise: 0.00005
   gyr_bias_std: 0.0001
 traj:
-  use_acc: true
+  use_acc: false
   update_bias: false
   gravity_norm: 9.8
 grid:
