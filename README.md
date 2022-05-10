@@ -4,7 +4,7 @@ Sample data at
 https://www.dropbox.com/s/v4cth3z7hrqjsvf/raw-perch-loop-2021-09-06-17-22-06.bag?dl=0
 
 Clone 
-https://github.com/versatran01/ouster_decoder
+https://github.com/KumarRobotics/ouster_decoder
 
 
 Open rviz using the config in `launch/llol.rviz`
