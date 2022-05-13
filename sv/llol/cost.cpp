@@ -179,7 +179,7 @@ void GicpCostRigid::UpdateTraj(Trajectory& traj) const {
   auto& st = traj.states.front();
   st.rot = eR * st.rot;
   st.pos = eR * st.pos + es.p0();
-  st.vel = eR * st.vel + es.p0() / dt;
+  st.vel = eR * st.vel + es.p0() / dt * 0.5;
 }
 
 }  // namespace sv
