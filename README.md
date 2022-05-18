@@ -1,5 +1,17 @@
 # :laughing: LLOL: Low-Latency Odometry for Spinning Lidars
 
+## Reference
+
+LLOL: Low-Latency Odometry for Spinning Lidars
+
+Chao Qu, Shreyas S. Shivakumar, Wenxin Liu, Camillo J. Taylor
+
+https://arxiv.org/abs/2110.01725
+
+https://youtu.be/MmiTMFt9YdU
+
+## Usage
+
 Sample data at
 https://www.dropbox.com/s/v4cth3z7hrqjsvf/raw-perch-loop-2021-09-06-17-22-06.bag?dl=0
 
@@ -35,12 +47,3 @@ roslaunch llol llol.launch tbb:=1 log:=5
 
 This is the open-source version, some advanced features may be missing.
 
-## Reference
-
-LLOL: Low-Latency Odometry for Spinning Lidars
-
-Chao Qu, Shreyas S. Shivakumar, Wenxin Liu, Camillo J. Taylor
-
-https://arxiv.org/abs/2110.01725
-
-https://youtu.be/MmiTMFt9YdU
