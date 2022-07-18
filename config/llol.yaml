@@ -24,7 +24,7 @@ gicp:
   half_cols: 2
   cov_lambda: 0.0
   min_eigval: 0.0
-  imu_weight: 1.0
+  imu_weight: 0.0
 pano:
   rows: 256 # rows of pano (256)
   cols: 1024 # cols of pano (1024)
