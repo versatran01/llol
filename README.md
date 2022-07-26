@@ -39,6 +39,8 @@ roslaunch llol llol.launch
 Run bag.
 
 See CMakeLists.txt for dependencies.
+You may also check our [Github Action build
+file](https://github.com/versatran01/llol/blob/main/.github/workflows/build.yaml) for instructions on how to build LLOL in Ubuntu 20.04 with ROS Noetic.
 
 To run multithread and show timing every 5s do
 ```
