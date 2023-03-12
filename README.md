@@ -1,5 +1,7 @@
 # :laughing: LLOL: Low-Latency Odometry for Spinning Lidars
 
+Also see https://github.com/versatran01/rofl-beta.
+
 ## Reference
 
 LLOL: Low-Latency Odometry for Spinning Lidars
