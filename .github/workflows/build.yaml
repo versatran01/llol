@@ -62,8 +62,8 @@ jobs:
         run: |
           git clone https://github.com/strasdat/Sophus.git
           cd Sophus
-          mkdir build && cd build
           git checkout 785fef3
+          mkdir build && cd build
           cmake -DBUILD_SOPHUS_TESTS=OFF -DBUILD_SOPHUS_EXAMPLES=OFF -DCMAKE_CXX_STANDARD=17 ..
           sudo make install
 
